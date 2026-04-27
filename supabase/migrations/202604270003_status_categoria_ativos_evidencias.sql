@@ -5,23 +5,6 @@ alter table public.chamados
   add column if not exists marca text,
   add column if not exists modelo text;
 
-alter table public.chamados
-  alter column status type text using status::text;
-
-alter table public.historico_status
-  alter column status_anterior type text using status_anterior::text,
-  alter column status_novo type text using status_novo::text;
-
-update public.chamados
-set status = case status
-  when 'aberto' then 'pendente_agendamento'
-  when 'pendente' then 'pendente_agendamento'
-  when 'finalizado' then 'resolvido'
-  when 'concluido' then 'resolvido'
-  else status
-end
-where status in ('aberto', 'pendente', 'finalizado', 'concluido');
-
 do $$
 declare
   constraint_record record;
@@ -38,7 +21,55 @@ begin
       constraint_record.conname
     );
   end loop;
+
+  for constraint_record in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.historico_status'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) ilike '%status%'
+  loop
+    execute format(
+      'alter table public.historico_status drop constraint if exists %I',
+      constraint_record.conname
+    );
+  end loop;
 end $$;
+
+alter table public.chamados
+  alter column status drop default,
+  alter column status type text using status::text;
+
+alter table public.historico_status
+  alter column status_anterior drop default,
+  alter column status_novo drop default,
+  alter column status_anterior type text using status_anterior::text,
+  alter column status_novo type text using status_novo::text;
+
+update public.chamados
+set status = case status
+  when 'aberto' then 'pendente_agendamento'
+  when 'pendente' then 'pendente_agendamento'
+  when 'atribuido' then 'agendado'
+  when 'finalizado' then 'resolvido'
+  when 'concluido' then 'resolvido'
+  when 'cancelado' then 'resolvido'
+  else status
+end
+where status in ('aberto', 'pendente', 'atribuido', 'finalizado', 'concluido', 'cancelado');
+
+update public.chamados
+set status = 'pendente_agendamento'
+where status is null
+   or status not in (
+    'pendente_agendamento',
+    'orcamento',
+    'agendado',
+    'em_atendimento',
+    'pendente_peca',
+    'resolvido',
+    'faturado'
+  );
 
 alter table public.chamados
   add constraint chamados_status_check
@@ -53,6 +84,9 @@ alter table public.chamados
       'faturado'
     )
   );
+
+alter table public.chamados
+  alter column status set default 'pendente_agendamento';
 
 do $$
 declare

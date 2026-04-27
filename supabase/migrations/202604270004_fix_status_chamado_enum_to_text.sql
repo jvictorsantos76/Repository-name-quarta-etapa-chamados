@@ -5,13 +5,6 @@ alter table public.chamados
   add column if not exists marca text,
   add column if not exists modelo text;
 
-alter table public.chamados
-  alter column status type text using status::text;
-
-alter table public.historico_status
-  alter column status_anterior type text using status_anterior::text,
-  alter column status_novo type text using status_novo::text;
-
 do $$
 declare
   constraint_record record;
@@ -43,34 +36,89 @@ begin
   end loop;
 end $$;
 
+alter table public.chamados
+  alter column status drop default,
+  alter column status type text using status::text;
+
+alter table public.historico_status
+  alter column status_anterior drop default,
+  alter column status_novo drop default,
+  alter column status_anterior type text using status_anterior::text,
+  alter column status_novo type text using status_novo::text;
+
 update public.chamados
 set status = case status
   when 'aberto' then 'pendente_agendamento'
   when 'pendente' then 'pendente_agendamento'
+  when 'atribuido' then 'agendado'
   when 'finalizado' then 'resolvido'
   when 'concluido' then 'resolvido'
+  when 'cancelado' then 'resolvido'
   else status
 end
-where status in ('aberto', 'pendente', 'finalizado', 'concluido');
+where status in ('aberto', 'pendente', 'atribuido', 'finalizado', 'concluido', 'cancelado');
+
+update public.chamados
+set status = 'pendente_agendamento'
+where status is null
+   or status not in (
+    'pendente_agendamento',
+    'orcamento',
+    'agendado',
+    'em_atendimento',
+    'pendente_peca',
+    'resolvido',
+    'faturado'
+  );
 
 update public.historico_status
 set
   status_anterior = case status_anterior
     when 'aberto' then 'pendente_agendamento'
     when 'pendente' then 'pendente_agendamento'
+    when 'atribuido' then 'agendado'
     when 'finalizado' then 'resolvido'
     when 'concluido' then 'resolvido'
+    when 'cancelado' then 'resolvido'
     else status_anterior
   end,
   status_novo = case status_novo
     when 'aberto' then 'pendente_agendamento'
     when 'pendente' then 'pendente_agendamento'
+    when 'atribuido' then 'agendado'
     when 'finalizado' then 'resolvido'
     when 'concluido' then 'resolvido'
+    when 'cancelado' then 'resolvido'
     else status_novo
   end
-where status_anterior in ('aberto', 'pendente', 'finalizado', 'concluido')
-   or status_novo in ('aberto', 'pendente', 'finalizado', 'concluido');
+where status_anterior in ('aberto', 'pendente', 'atribuido', 'finalizado', 'concluido', 'cancelado')
+   or status_novo in ('aberto', 'pendente', 'atribuido', 'finalizado', 'concluido', 'cancelado');
+
+update public.historico_status
+set status_anterior = 'pendente_agendamento'
+where status_anterior is not null
+  and status_anterior not in (
+    'pendente_agendamento',
+    'orcamento',
+    'agendado',
+    'em_atendimento',
+    'pendente_peca',
+    'resolvido',
+    'faturado'
+  );
+
+update public.historico_status
+set status_novo = 'pendente_agendamento'
+where status_novo is null
+   or status_novo not in (
+    'pendente_agendamento',
+    'orcamento',
+    'agendado',
+    'em_atendimento',
+    'pendente_peca',
+    'resolvido',
+    'faturado'
+  );
 
 alter table public.chamados
   add constraint chamados_status_check
@@ -85,6 +133,9 @@ alter table public.chamados
       'faturado'
     )
   );
+
+alter table public.chamados
+  alter column status set default 'pendente_agendamento';
 
 alter table public.historico_status
   add constraint historico_status_status_anterior_check
