@@ -6,6 +6,19 @@ const versoes = [
     versao: APP_VERSION,
     data: "27/04/2026",
     alteracoes: [
+      "Status de chamados padronizados para o fluxo operacional completo.",
+      "Abertura de chamados com categoria, ativo, complemento, marca e modelo.",
+      "Detalhe do chamado passa a permitir alteração de status com histórico.",
+      "Evidências reforçadas com upload por chamado e exibição de tipo, legenda e link.",
+    ],
+    correcoes: [
+      "Listagem de chamados ajustada para exibir todos os status atuais e novos campos.",
+    ],
+  },
+  {
+    versao: "v0.3.0",
+    data: "27/04/2026",
+    alteracoes: [
       "Inclusão do papel analista no fluxo de perfis e permissões.",
       "Migrations para atualizar o ENUM papel_usuario e semear Jardel/Fabiana.",
       "Permissões de chamados alinhadas para admin, gestor, analista, técnico e operador.",

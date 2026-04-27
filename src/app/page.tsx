@@ -1,16 +1,22 @@
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import {
+  formatarCategoria,
   getPrioridadeClass,
   getPrioridadeLabel,
   getStatusClass,
   getStatusLabel,
+  statusChamadoOpcoes,
 } from "./chamados/chamadoVisual";
 
 type Chamado = {
   numero: number;
   titulo: string;
   status: string;
+  categoria: string | null;
+  ativo_tipo: string | null;
+  marca: string | null;
+  modelo: string | null;
   prioridade: string;
   clientes: {
     nome_fantasia: string;
@@ -38,12 +44,16 @@ export default async function Home() {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const { data: chamados, error } = await supabase
+  const chamadosResposta = await supabase
     .from("chamados")
     .select(`
     numero,
     titulo,
     status,
+    categoria,
+    ativo_tipo,
+    marca,
+    modelo,
     prioridade,
     clientes (
       nome_fantasia
@@ -55,7 +65,49 @@ export default async function Home() {
       nome_completo
     )
   `)
-    .order("numero", { ascending: true });
+    .order("numero", { ascending: false });
+
+  if (
+    chamadosResposta.error?.message.includes("schema cache") ||
+    chamadosResposta.error?.message.includes("Could not find")
+  ) {
+    const chamadosFallback = await supabase
+      .from("chamados")
+      .select(`
+      numero,
+      titulo,
+      status,
+      prioridade,
+      clientes (
+        nome_fantasia
+      ),
+      lojas (
+        nome_loja
+      ),
+      tecnico:perfis!chamados_tecnico_id_fkey (
+        nome_completo
+      )
+    `)
+      .order("numero", { ascending: false });
+
+    const chamados = chamadosFallback.data;
+    const error = chamadosFallback.error;
+
+    if (error) {
+      return (
+        <main className="p-8">
+          <h1 className="text-2xl font-bold text-red-600">Erro ao carregar chamados</h1>
+          <pre className="mt-4 whitespace-pre-wrap rounded bg-gray-100 p-4 text-sm">
+            {error.message}
+          </pre>
+        </main>
+      );
+    }
+
+    return <ChamadosHome chamados={(chamados as unknown as Chamado[] | null) ?? []} />;
+  }
+
+  const { data: chamados, error } = chamadosResposta;
 
   if (error) {
     return (
@@ -68,27 +120,17 @@ export default async function Home() {
     );
   }
 
-    const listaChamados = (chamados as unknown as Chamado[] | null) ?? [];
+  return <ChamadosHome chamados={(chamados as unknown as Chamado[] | null) ?? []} />;
+}
 
-  const totalAbertos = listaChamados.filter(
-    (chamado) => chamado.status === "aberto"
-  ).length;
-
-  const totalEmAtendimento = listaChamados.filter(
-    (chamado) => chamado.status === "em_atendimento"
-  ).length;
-
-  const totalAgendados = listaChamados.filter(
-    (chamado) => chamado.status === "agendado"
-  ).length;
-
-  const totalPendentes = listaChamados.filter(
-    (chamado) => chamado.status === "pendente"
-  ).length;
-
-  const totalFinalizados = listaChamados.filter(
-    (chamado) => chamado.status === "finalizado"
-  ).length;
+function ChamadosHome({ chamados }: { chamados: Chamado[] }) {
+  const listaChamados = chamados;
+  const totalPorStatus = Object.fromEntries(
+    statusChamadoOpcoes.map((status) => [
+      status.value,
+      listaChamados.filter((chamado) => chamado.status === status.value).length,
+    ])
+  );
 
   return (
     <main className="min-h-screen bg-gray-100 p-8 text-gray-900">
@@ -141,6 +183,18 @@ export default async function Home() {
                 </p>
 
                 <p>
+                  <span className="font-semibold">Categoria:</span>{" "}
+                  {formatarCategoria(chamado.categoria)}
+                </p>
+
+                <p>
+                  <span className="font-semibold">Ativo:</span>{" "}
+                  {[chamado.ativo_tipo, chamado.marca, chamado.modelo]
+                    .filter(Boolean)
+                    .join(" · ") || "Não informado"}
+                </p>
+
+                <p>
                   <span className="font-semibold">Prioridade:</span>{" "}
                   <span className={getPrioridadeClass(chamado.prioridade)}>
                     {getPrioridadeLabel(chamado.prioridade)}
@@ -172,31 +226,15 @@ export default async function Home() {
             Novo chamado
           </Link>
         </div>
-                  <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <div className="rounded-xl border border-blue-100 bg-blue-50 p-5 shadow">
-              <p className="text-sm font-medium text-blue-700">Abertos</p>
-              <p className="mt-2 text-3xl font-bold text-blue-900">{totalAbertos}</p>
-            </div>
-
-            <div className="rounded-xl border border-yellow-100 bg-yellow-50 p-5 shadow">
-              <p className="text-sm font-medium text-yellow-700">Agendados</p>
-              <p className="mt-2 text-3xl font-bold text-yellow-900">{totalAgendados}</p>
-            </div>
-
-            <div className="rounded-xl border border-amber-100 bg-amber-50 p-5 shadow">
-              <p className="text-sm font-medium text-amber-700">Em atendimento</p>
-              <p className="mt-2 text-3xl font-bold text-amber-900">{totalEmAtendimento}</p>
-            </div>
-
-            <div className="rounded-xl border border-purple-100 bg-purple-50 p-5 shadow">
-              <p className="text-sm font-medium text-purple-700">Pendentes</p>
-              <p className="mt-2 text-3xl font-bold text-purple-900">{totalPendentes}</p>
-            </div>
-
-            <div className="rounded-xl border border-green-100 bg-green-50 p-5 shadow">
-              <p className="text-sm font-medium text-green-700">Finalizados</p>
-              <p className="mt-2 text-3xl font-bold text-green-900">{totalFinalizados}</p>
-            </div>
+                  <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {statusChamadoOpcoes.map((status) => (
+              <div key={status.value} className="rounded-xl border border-gray-200 bg-gray-50 p-5 shadow">
+                <p className="text-sm font-medium text-gray-600">{status.label}</p>
+                <p className="mt-2 text-3xl font-bold text-gray-900">
+                  {totalPorStatus[status.value] ?? 0}
+                </p>
+              </div>
+            ))}
           </div>
 
           <table className="w-full border-collapse text-left text-sm">
@@ -206,6 +244,8 @@ export default async function Home() {
                 <th className="px-4 py-3">Título</th>
                 <th className="px-4 py-3">Cliente</th>
                 <th className="px-4 py-3">Loja</th>
+                <th className="px-4 py-3">Categoria</th>
+                <th className="px-4 py-3">Ativo</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Prioridade</th>
                 <th className="px-4 py-3">Técnico</th>
@@ -225,6 +265,12 @@ export default async function Home() {
                   </td>
                   <td className="px-4 py-3">{chamado.clientes?.nome_fantasia}</td>
                   <td className="px-4 py-3">{chamado.lojas?.nome_loja}</td>
+                  <td className="px-4 py-3">{formatarCategoria(chamado.categoria)}</td>
+                  <td className="px-4 py-3">
+                    {[chamado.ativo_tipo, chamado.marca, chamado.modelo]
+                      .filter(Boolean)
+                      .join(" · ") || "Não informado"}
+                  </td>
                   <td className="px-4 py-3">
                     <span className={getStatusClass(chamado.status)}>
                       {getStatusLabel(chamado.status)}

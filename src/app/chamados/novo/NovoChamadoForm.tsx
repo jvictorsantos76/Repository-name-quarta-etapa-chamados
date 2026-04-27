@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
-import { getPrioridadeClass, getPrioridadeLabel } from "../chamadoVisual";
+import {
+  ativosPorCategoria,
+  categoriaChamadoOpcoes,
+  type CategoriaChamado,
+  getPrioridadeClass,
+  getPrioridadeLabel,
+} from "../chamadoVisual";
 
 type PapelUsuario = "admin" | "gestor" | "operador" | "analista" | "tecnico";
 type TipoChamado = "incidente" | "requisicao_servico";
@@ -12,6 +18,7 @@ type Impacto = "baixo" | "medio" | "alto";
 type Urgencia = "baixa" | "media" | "alta";
 type Origem = "sistema" | "whatsapp" | "telefone" | "tecnico";
 type Prioridade = "baixa" | "media" | "alta" | "critica";
+type StatusChamado = "pendente_agendamento";
 
 type Cliente = {
   id: string;
@@ -62,9 +69,14 @@ type ChamadoInsert = {
   urgencia?: Urgencia;
   origem?: Origem;
   ativo_afetado?: string | null;
+  categoria?: CategoriaChamado;
+  ativo_tipo?: string | null;
+  ativo_descricao?: string | null;
+  marca?: string | null;
+  modelo?: string | null;
   titulo: string;
   descricao_problema: string;
-  status: "aberto";
+  status: StatusChamado;
   prioridade: Prioridade;
 };
 
@@ -254,8 +266,11 @@ export function NovoChamadoForm() {
   const [impacto, setImpacto] = useState<Impacto>("medio");
   const [urgencia, setUrgencia] = useState<Urgencia>("media");
   const [origem, setOrigem] = useState<Origem>("sistema");
-  const [categoria, setCategoria] = useState("");
-  const [ativoAfetado, setAtivoAfetado] = useState("");
+  const [categoria, setCategoria] = useState<CategoriaChamado | "">("");
+  const [ativoTipo, setAtivoTipo] = useState("");
+  const [ativoDescricao, setAtivoDescricao] = useState("");
+  const [marca, setMarca] = useState("");
+  const [modelo, setModelo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [analistaResponsavelId, setAnalistaResponsavelId] = useState("");
   const [tecnicoResponsavelId, setTecnicoResponsavelId] = useState("");
@@ -292,6 +307,10 @@ export function NovoChamadoForm() {
   const prioridadeCalculada = calcularPrioridade(impacto, urgencia);
   const lojasFiltradas = lojas.filter((loja) => loja.cliente_id === clienteId);
   const tipoSelecionado = obterLabel(tiposChamado, tipoChamado);
+  const categoriaSelecionada = categoria
+    ? obterLabel(categoriaChamadoOpcoes, categoria)
+    : "";
+  const ativosDisponiveis = categoria ? ativosPorCategoria[categoria] : [];
   const podeAtribuir = podeAtribuirResponsaveis(papelAtual);
   const tecnicoBloqueado =
     !podeAtribuir || origem === "tecnico";
@@ -474,11 +493,12 @@ export function NovoChamadoForm() {
       !clienteId ||
       !lojaId ||
       !solicitante.trim() ||
-      !categoria.trim() ||
+      !categoria ||
+      !ativoTipo ||
       !descricao.trim()
     ) {
       setErro(
-        "Preencha cliente, loja/unidade, solicitante, categoria e descrição."
+        "Preencha cliente, loja/unidade, solicitante, categoria, ativo e descrição."
       );
       return;
     }
@@ -493,8 +513,11 @@ export function NovoChamadoForm() {
       `Impacto: ${obterLabel(impactos, impacto)}`,
       `Urgência: ${obterLabel(urgencias, urgencia)}`,
       `Origem: ${obterLabel(origens, origem)}`,
-      `Categoria: ${categoria.trim()}`,
-      `Ativo afetado: ${ativoAfetado.trim() || "Não informado"}`,
+      `Categoria: ${categoriaSelecionada}`,
+      `Ativo: ${ativoTipo}`,
+      `Complemento do ativo: ${ativoDescricao.trim() || "Não informado"}`,
+      `Marca: ${marca.trim() || "Não informada"}`,
+      `Modelo: ${modelo.trim() || "Não informado"}`,
       `Usuário: ${usuarioAtual.nome}`,
       `Papel: ${papelAtual}`,
       "",
@@ -506,9 +529,9 @@ export function NovoChamadoForm() {
       loja_id: lojaId,
       operador_id: usuarioId,
       tecnico_id: tecnicoResponsavelEfetivo || null,
-      titulo: `${tipoSelecionado} - ${categoria.trim()}`,
+      titulo: `${tipoSelecionado} - ${categoriaSelecionada}`,
       descricao_problema: descricaoProblema,
-      status: "aberto",
+      status: "pendente_agendamento",
       prioridade: prioridadeCalculada,
     };
 
@@ -520,7 +543,12 @@ export function NovoChamadoForm() {
       impacto,
       urgencia,
       origem,
-      ativo_afetado: ativoAfetado.trim() || null,
+      ativo_afetado: ativoTipo,
+      categoria,
+      ativo_tipo: ativoTipo,
+      ativo_descricao: ativoDescricao.trim() || null,
+      marca: marca.trim() || null,
+      modelo: modelo.trim() || null,
     };
 
     let respostaChamado = await supabase
@@ -563,7 +591,7 @@ export function NovoChamadoForm() {
         chamado_id: chamadoCriado.id,
         usuario_id: usuarioId,
         status_anterior: null,
-        status_novo: "aberto",
+        status_novo: "pendente_agendamento",
         observacao: "Chamado aberto pelo sistema.",
       });
 
@@ -747,13 +775,22 @@ export function NovoChamadoForm() {
 
         <div>
           <label className="mb-2 block text-sm font-semibold">Categoria</label>
-          <input
-            type="text"
+          <select
             value={categoria}
-            onChange={(event) => setCategoria(event.target.value)}
-            placeholder="Ex.: PDV, impressora, rede, acesso"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
+            onChange={(event) => {
+              setCategoria(event.target.value as CategoriaChamado | "");
+              setAtivoTipo("");
+            }}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            required
+          >
+            <option value="">Selecione uma categoria</option>
+            {categoriaChamadoOpcoes.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -807,13 +844,55 @@ export function NovoChamadoForm() {
 
         <div>
           <label className="mb-2 block text-sm font-semibold">
-            Ativo afetado
+            Ativo
+          </label>
+          <select
+            value={ativoTipo}
+            onChange={(event) => setAtivoTipo(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+            disabled={!categoria}
+            required
+          >
+            <option value="">Selecione um ativo</option>
+            {ativosDisponiveis.map((ativo) => (
+              <option key={ativo} value={ativo}>
+                {ativo}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Complemento do ativo
           </label>
           <input
             type="text"
-            value={ativoAfetado}
-            onChange={(event) => setAtivoAfetado(event.target.value)}
-            placeholder="Ex.: PDV 03, impressora térmica, link de internet"
+            value={ativoDescricao}
+            onChange={(event) => setAtivoDescricao(event.target.value)}
+            placeholder="Ex.: PDV 03, corredor 2, rack principal"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">Marca</label>
+          <input
+            type="text"
+            value={marca}
+            onChange={(event) => setMarca(event.target.value)}
+            placeholder="Ex.: Epson, Dell, Intelbras"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">Modelo</label>
+          <input
+            type="text"
+            value={modelo}
+            onChange={(event) => setModelo(event.target.value)}
+            placeholder="Ex.: TM-T20, OptiPlex 3080, VIP 1230"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
         </div>

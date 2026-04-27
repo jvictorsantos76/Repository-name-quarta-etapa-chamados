@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
-import { StatusActions } from "./StatusActions";
+import { StatusUpdateForm } from "./StatusUpdateForm";
 import { RegistroTecnicoForm } from "./RegistroTecnicoForm";
 import {
+  formatarCategoria,
+  formatarStatus,
   getPrioridadeClass,
   getPrioridadeLabel,
   getStatusClass,
-  getStatusLabel,
 } from "../chamadoVisual";
 
 type PageProps = {
@@ -25,6 +26,11 @@ type ChamadoDetalhe = {
   urgencia: string | null;
   origem: string | null;
   ativo_afetado: string | null;
+  categoria: string | null;
+  ativo_tipo: string | null;
+  ativo_descricao: string | null;
+  marca: string | null;
+  modelo: string | null;
   status: string;
   prioridade: string;
   analista_responsavel_id: string | null;
@@ -130,6 +136,11 @@ export default async function DetalheChamado({ params }: PageProps) {
       urgencia,
       origem,
       ativo_afetado,
+      categoria,
+      ativo_tipo,
+      ativo_descricao,
+      marca,
+      modelo,
       status,
       prioridade,
       analista_responsavel_id,
@@ -217,6 +228,11 @@ export default async function DetalheChamado({ params }: PageProps) {
       urgencia: chamadoParcial.urgencia ?? null,
       origem: chamadoParcial.origem ?? null,
       ativo_afetado: chamadoParcial.ativo_afetado ?? null,
+      categoria: chamadoParcial.categoria ?? null,
+      ativo_tipo: chamadoParcial.ativo_tipo ?? null,
+      ativo_descricao: chamadoParcial.ativo_descricao ?? null,
+      marca: chamadoParcial.marca ?? null,
+      modelo: chamadoParcial.modelo ?? null,
       analista_responsavel_id:
         chamadoParcial.analista_responsavel_id ?? null,
       tecnico_responsavel_id: chamadoParcial.tecnico_responsavel_id ?? null,
@@ -290,7 +306,7 @@ export default async function DetalheChamado({ params }: PageProps) {
 
             <div className="flex flex-wrap gap-2">
               <span className={getStatusClass(chamadoDetalhe.status)}>
-                {getStatusLabel(chamadoDetalhe.status)}
+                {formatarStatus(chamadoDetalhe.status)}
               </span>
 
               <span className={getPrioridadeClass(chamadoDetalhe.prioridade)}>
@@ -323,6 +339,13 @@ export default async function DetalheChamado({ params }: PageProps) {
           </div>
 
           <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Categoria</p>
+            <p className="mt-2 font-semibold">
+              {formatarCategoria(chamadoDetalhe.categoria)}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm font-medium text-gray-500">Origem</p>
             <p className="mt-2 font-semibold">
               {chamadoDetalhe.origem ?? "Não informado"}
@@ -332,7 +355,30 @@ export default async function DetalheChamado({ params }: PageProps) {
           <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm font-medium text-gray-500">Ativo afetado</p>
             <p className="mt-2 font-semibold">
-              {chamadoDetalhe.ativo_afetado ?? "Não informado"}
+              {chamadoDetalhe.ativo_tipo ??
+                chamadoDetalhe.ativo_afetado ??
+                "Não informado"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Complemento</p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.ativo_descricao ?? "Não informado"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Marca</p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.marca ?? "Não informado"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Modelo</p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.modelo ?? "Não informado"}
             </p>
           </div>
 
@@ -379,8 +425,8 @@ export default async function DetalheChamado({ params }: PageProps) {
             </p>
           </div>
 
-                  <div className="mb-6">
-          <StatusActions
+        <div className="mb-6">
+          <StatusUpdateForm
             chamadoId={chamadoDetalhe.id}
             statusAtual={chamadoDetalhe.status}
           />
@@ -487,7 +533,10 @@ export default async function DetalheChamado({ params }: PageProps) {
             {listaHistorico.map((item) => (
               <div key={item.id} className="rounded-lg border p-4 text-sm">
                 <p className="font-semibold">
-                  {item.status_anterior ?? "início"} → {item.status_novo}
+                  {formatarStatus(item.status_anterior) === "Não informado"
+                    ? "Início"
+                    : formatarStatus(item.status_anterior)}{" "}
+                  → {formatarStatus(item.status_novo)}
                 </p>
                 <p className="mt-1 text-gray-600">{item.observacao}</p>
                 <p className="mt-1 text-gray-500">
