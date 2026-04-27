@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { getPrioridadeClass, getPrioridadeLabel } from "../chamadoVisual";
+
+type PapelUsuario = "admin" | "gestor" | "operador" | "analista" | "tecnico";
+type TipoChamado = "incidente" | "requisicao_servico";
+type Impacto = "baixo" | "medio" | "alto";
+type Urgencia = "baixa" | "media" | "alta";
+type Origem = "sistema" | "whatsapp" | "telefone" | "tecnico";
+type Prioridade = "baixa" | "media" | "alta" | "critica";
 
 type Cliente = {
   id: string;
@@ -16,33 +24,243 @@ type Loja = {
   nome_loja: string;
 };
 
-const OPERADOR_ID = "b5793ad4-5ce5-4ccd-935a-f9b91f19037c";
+type Perfil = {
+  id: string;
+  nome_completo: string;
+  papel: string;
+};
 
-const tiposChamado = [
+type UsuarioOperacional = {
+  id: string;
+  nome: string;
+  papel: PapelUsuario;
+};
+
+type Opcao<T extends string> = {
+  value: T;
+  label: string;
+};
+
+type AnexoEvidencia = {
+  chamado_id: string;
+  usuario_id: string;
+  arquivo_url: string;
+  tipo_arquivo: string;
+  legenda: string;
+  enviado_em: string;
+};
+
+type ChamadoInsert = {
+  cliente_id: string;
+  loja_id: string;
+  operador_id: string;
+  tecnico_id?: string | null;
+  analista_responsavel_id?: string | null;
+  tecnico_responsavel_id?: string | null;
+  tipo_chamado?: TipoChamado;
+  impacto?: Impacto;
+  urgencia?: Urgencia;
+  origem?: Origem;
+  ativo_afetado?: string | null;
+  titulo: string;
+  descricao_problema: string;
+  status: "aberto";
+  prioridade: Prioridade;
+};
+
+const EVIDENCIAS_BUCKET = "evidencias-chamados";
+
+const tiposChamado: Opcao<TipoChamado>[] = [
   { value: "incidente", label: "Incidente" },
   { value: "requisicao_servico", label: "Requisição de Serviço" },
 ];
 
-const prioridades = [
+const impactos: Opcao<Impacto>[] = [
+  { value: "baixo", label: "Baixo" },
+  { value: "medio", label: "Médio" },
+  { value: "alto", label: "Alto" },
+];
+
+const urgencias: Opcao<Urgencia>[] = [
   { value: "baixa", label: "Baixa" },
   { value: "media", label: "Média" },
   { value: "alta", label: "Alta" },
-  { value: "critica", label: "Crítica" },
 ];
+
+const origens: Opcao<Origem>[] = [
+  { value: "sistema", label: "Sistema" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "telefone", label: "Telefone" },
+  { value: "tecnico", label: "Técnico" },
+];
+
+const matrizPrioridade: Record<Impacto, Record<Urgencia, Prioridade>> = {
+  alto: {
+    alta: "critica",
+    media: "alta",
+    baixa: "media",
+  },
+  medio: {
+    alta: "alta",
+    media: "media",
+    baixa: "media",
+  },
+  baixo: {
+    alta: "media",
+    media: "baixa",
+    baixa: "baixa",
+  },
+};
+
+const extensoesAceitas = new Set([
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "mp3",
+  "wav",
+  "m4a",
+  "ogg",
+  "pdf",
+  "txt",
+  "doc",
+  "docx",
+  "xls",
+  "xlsx",
+  "csv",
+]);
+
+const acceptEvidencias = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".mp3",
+  ".wav",
+  ".m4a",
+  ".ogg",
+  ".pdf",
+  ".txt",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".csv",
+].join(",");
+
+function obterExtensao(nomeArquivo: string) {
+  return nomeArquivo.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function obterTipoArquivo(file: File) {
+  const extensao = obterExtensao(file.name);
+
+  if (["jpg", "jpeg", "png", "webp"].includes(extensao)) {
+    return "imagem";
+  }
+
+  if (["mp3", "wav", "m4a", "ogg"].includes(extensao)) {
+    return "audio";
+  }
+
+  return "documento";
+}
+
+function normalizarNomeArquivo(nomeArquivo: string) {
+  return nomeArquivo
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+}
+
+function formatarTamanho(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function obterLabel<T extends string>(opcoes: Opcao<T>[], value: T) {
+  return opcoes.find((opcao) => opcao.value === value)?.label ?? value;
+}
+
+function isSchemaCacheError(message: string | undefined) {
+  return Boolean(
+    message?.includes("schema cache") || message?.includes("Could not find")
+  );
+}
+
+function normalizarPapel(papel: string): PapelUsuario | null {
+  if (
+    papel === "admin" ||
+    papel === "gestor" ||
+    papel === "operador" ||
+    papel === "analista" ||
+    papel === "tecnico"
+  ) {
+    return papel;
+  }
+
+  return null;
+}
+
+function podeAtribuirResponsaveis(papel: PapelUsuario | undefined) {
+  return papel === "admin" || papel === "gestor" || papel === "analista";
+}
+
+function montarUsuariosOperacionais(perfis: Perfil[]) {
+  const usuarios: UsuarioOperacional[] = [];
+
+  for (const perfil of perfis) {
+    const papel = normalizarPapel(perfil.papel);
+
+    if (!papel || usuarios.some((usuario) => usuario.id === perfil.id)) {
+      continue;
+    }
+
+    usuarios.push({
+      id: perfil.id,
+      nome: perfil.nome_completo,
+      papel,
+    });
+  }
+
+  return usuarios;
+}
+
+export function calcularPrioridade(impacto: Impacto, urgencia: Urgencia) {
+  return matrizPrioridade[impacto][urgencia];
+}
 
 export function NovoChamadoForm() {
   const router = useRouter();
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [lojas, setLojas] = useState<Loja[]>([]);
+  const [perfis, setPerfis] = useState<Perfil[]>([]);
 
+  const [usuarioAtualId, setUsuarioAtualId] = useState("");
   const [clienteId, setClienteId] = useState("");
   const [lojaId, setLojaId] = useState("");
   const [solicitante, setSolicitante] = useState("");
-  const [tipoChamado, setTipoChamado] = useState("incidente");
+  const [tipoChamado, setTipoChamado] = useState<TipoChamado>("incidente");
+  const [impacto, setImpacto] = useState<Impacto>("medio");
+  const [urgencia, setUrgencia] = useState<Urgencia>("media");
+  const [origem, setOrigem] = useState<Origem>("sistema");
   const [categoria, setCategoria] = useState("");
-  const [prioridade, setPrioridade] = useState("media");
+  const [ativoAfetado, setAtivoAfetado] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [analistaResponsavelId, setAnalistaResponsavelId] = useState("");
+  const [tecnicoResponsavelId, setTecnicoResponsavelId] = useState("");
+  const [evidencias, setEvidencias] = useState<File[]>([]);
+  const [arrastando, setArrastando] = useState(false);
 
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -59,10 +277,133 @@ export function NovoChamadoForm() {
     return createClient(supabaseUrl, supabaseKey);
   }, [supabaseUrl, supabaseKey]);
 
+  const usuariosOperacionais = montarUsuariosOperacionais(perfis);
+  const usuarioAtual =
+    usuariosOperacionais.find((usuario) => usuario.id === usuarioAtualId) ??
+    usuariosOperacionais[0] ??
+    null;
+  const papelAtual = usuarioAtual?.papel;
+  const analistas = usuariosOperacionais.filter(
+    (usuario) => usuario.papel === "analista"
+  );
+  const tecnicos = usuariosOperacionais.filter(
+    (usuario) => usuario.papel === "tecnico"
+  );
+  const prioridadeCalculada = calcularPrioridade(impacto, urgencia);
   const lojasFiltradas = lojas.filter((loja) => loja.cliente_id === clienteId);
-  const tipoSelecionado =
-    tiposChamado.find((tipo) => tipo.value === tipoChamado)?.label ??
-    tipoChamado;
+  const tipoSelecionado = obterLabel(tiposChamado, tipoChamado);
+  const podeAtribuir = podeAtribuirResponsaveis(papelAtual);
+  const tecnicoBloqueado =
+    !podeAtribuir || origem === "tecnico";
+  const analistaBloqueado = !podeAtribuir;
+  const analistaResponsavelEfetivo =
+    papelAtual === "analista"
+      ? analistaResponsavelId || usuarioAtual?.id || ""
+      : podeAtribuir
+        ? analistaResponsavelId || analistas[0]?.id || ""
+      : "";
+  const tecnicoResponsavelEfetivo =
+    papelAtual === "tecnico"
+      ? usuarioAtual?.id || ""
+      : origem === "tecnico" && podeAtribuir
+        ? tecnicoResponsavelId || tecnicos[0]?.id || ""
+      : !podeAtribuir
+        ? ""
+        : tecnicoResponsavelId;
+
+  function adicionarEvidencias(arquivos: File[]) {
+    const arquivoInvalido = arquivos.find(
+      (arquivo) => !extensoesAceitas.has(obterExtensao(arquivo.name))
+    );
+
+    if (arquivoInvalido) {
+      setErro(`Arquivo não permitido: ${arquivoInvalido.name}.`);
+      return;
+    }
+
+    setErro("");
+    setEvidencias((evidenciasAtuais) => {
+      const chavesAtuais = new Set(
+        evidenciasAtuais.map(
+          (arquivo) => `${arquivo.name}-${arquivo.size}-${arquivo.lastModified}`
+        )
+      );
+      const novosArquivos = arquivos.filter(
+        (arquivo) =>
+          !chavesAtuais.has(
+            `${arquivo.name}-${arquivo.size}-${arquivo.lastModified}`
+          )
+      );
+
+      return [...evidenciasAtuais, ...novosArquivos];
+    });
+  }
+
+  function selecionarEvidencias(event: React.ChangeEvent<HTMLInputElement>) {
+    adicionarEvidencias(Array.from(event.target.files ?? []));
+    event.target.value = "";
+  }
+
+  function removerEvidencia(indiceArquivo: number) {
+    setEvidencias((arquivos) =>
+      arquivos.filter((_, indice) => indice !== indiceArquivo)
+    );
+  }
+
+  function receberArquivosArrastados(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setArrastando(false);
+    adicionarEvidencias(Array.from(event.dataTransfer.files));
+  }
+
+  async function enviarEvidencias(chamadoId: string, usuarioId: string) {
+    if (!supabase || evidencias.length === 0) {
+      return;
+    }
+
+    const anexos: AnexoEvidencia[] = [];
+
+    for (const [indice, evidencia] of evidencias.entries()) {
+      const nomeSeguro = normalizarNomeArquivo(evidencia.name);
+      const caminhoArquivo = `chamados/${chamadoId}/${evidencia.lastModified}-${indice}-${nomeSeguro}`;
+
+      const { error: erroUpload } = await supabase.storage
+        .from(EVIDENCIAS_BUCKET)
+        .upload(caminhoArquivo, evidencia, {
+          contentType: evidencia.type || undefined,
+          upsert: false,
+        });
+
+      if (erroUpload) {
+        throw new Error(
+          `Não foi possível enviar "${evidencia.name}": ${erroUpload.message}`
+        );
+      }
+
+      const { data: arquivoPublico } = supabase.storage
+        .from(EVIDENCIAS_BUCKET)
+        .getPublicUrl(caminhoArquivo);
+
+      anexos.push({
+        chamado_id: chamadoId,
+        usuario_id: usuarioId,
+        arquivo_url: arquivoPublico.publicUrl,
+        tipo_arquivo: obterTipoArquivo(evidencia),
+        legenda: evidencia.name,
+        enviado_em: new Date().toISOString(),
+      });
+    }
+
+    const { error: erroAnexos } = await supabase
+      .from("evidencias_anexos")
+      .insert(anexos);
+
+    if (erroAnexos) {
+      throw new Error(
+        `Não foi possível registrar os anexos: ${erroAnexos.message}`
+      );
+    }
+  }
 
   useEffect(() => {
     async function carregarDados() {
@@ -72,27 +413,37 @@ export function NovoChamadoForm() {
         return;
       }
 
-      const [clientesResposta, lojasResposta] = await Promise.all([
-        supabase
-          .from("clientes")
-          .select("id, nome_fantasia")
-          .eq("ativo", true)
-          .order("nome_fantasia"),
+      const [clientesResposta, lojasResposta, perfisResposta] =
+        await Promise.all([
+          supabase
+            .from("clientes")
+            .select("id, nome_fantasia")
+            .eq("ativo", true)
+            .order("nome_fantasia"),
 
-        supabase
-          .from("lojas")
-          .select("id, cliente_id, nome_loja")
-          .eq("ativo", true)
-          .order("nome_loja"),
-      ]);
+          supabase
+            .from("lojas")
+            .select("id, cliente_id, nome_loja")
+            .eq("ativo", true)
+            .order("nome_loja"),
+
+          supabase
+            .from("perfis")
+            .select("id, nome_completo, papel")
+            .eq("ativo", true)
+            .order("nome_completo"),
+        ]);
 
       if (clientesResposta.error) {
         setErro(clientesResposta.error.message);
       } else if (lojasResposta.error) {
         setErro(lojasResposta.error.message);
+      } else if (perfisResposta.error) {
+        setErro(perfisResposta.error.message);
       } else {
         setClientes((clientesResposta.data as Cliente[]) ?? []);
         setLojas((lojasResposta.data as Loja[]) ?? []);
+        setPerfis((perfisResposta.data as Perfil[]) ?? []);
       }
 
       setCarregando(false);
@@ -106,6 +457,16 @@ export function NovoChamadoForm() {
 
     if (!supabase) {
       setErro("Configuração do Supabase não encontrada.");
+      return;
+    }
+
+    if (!usuarioAtual) {
+      setErro("Cadastre ao menos um usuário ativo na tabela perfis.");
+      return;
+    }
+
+    if (origem === "tecnico" && papelAtual !== "tecnico" && !tecnicoResponsavelEfetivo) {
+      setErro("Cadastre ou selecione um técnico responsável para origem técnico.");
       return;
     }
 
@@ -125,30 +486,73 @@ export function NovoChamadoForm() {
     setErro("");
     setSalvando(true);
 
+    const usuarioId = usuarioAtual.id;
     const descricaoProblema = [
       `Solicitante: ${solicitante.trim()}`,
       `Tipo do chamado: ${tipoSelecionado}`,
+      `Impacto: ${obterLabel(impactos, impacto)}`,
+      `Urgência: ${obterLabel(urgencias, urgencia)}`,
+      `Origem: ${obterLabel(origens, origem)}`,
       `Categoria: ${categoria.trim()}`,
+      `Ativo afetado: ${ativoAfetado.trim() || "Não informado"}`,
+      `Usuário: ${usuarioAtual.nome}`,
+      `Papel: ${papelAtual}`,
       "",
       descricao.trim(),
     ].join("\n");
 
-    const { data: chamadoCriado, error: erroChamado } = await supabase
+    const chamadoBase: ChamadoInsert = {
+      cliente_id: clienteId,
+      loja_id: lojaId,
+      operador_id: usuarioId,
+      tecnico_id: tecnicoResponsavelEfetivo || null,
+      titulo: `${tipoSelecionado} - ${categoria.trim()}`,
+      descricao_problema: descricaoProblema,
+      status: "aberto",
+      prioridade: prioridadeCalculada,
+    };
+
+    const chamadoComCamposNovos: ChamadoInsert = {
+      ...chamadoBase,
+      analista_responsavel_id: analistaResponsavelEfetivo || null,
+      tecnico_responsavel_id: tecnicoResponsavelEfetivo || null,
+      tipo_chamado: tipoChamado,
+      impacto,
+      urgencia,
+      origem,
+      ativo_afetado: ativoAfetado.trim() || null,
+    };
+
+    let respostaChamado = await supabase
       .from("chamados")
-      .insert({
-        cliente_id: clienteId,
-        loja_id: lojaId,
-        operador_id: OPERADOR_ID,
-        titulo: `${tipoSelecionado} - ${categoria.trim()}`,
-        descricao_problema: descricaoProblema,
-        status: "aberto",
-        prioridade,
-      })
+      .insert(chamadoComCamposNovos)
       .select("id, numero")
       .single();
 
-    if (erroChamado || !chamadoCriado) {
-      setErro(erroChamado?.message ?? "Erro ao criar chamado.");
+    if (isSchemaCacheError(respostaChamado.error?.message)) {
+      respostaChamado = await supabase
+        .from("chamados")
+        .insert(chamadoBase)
+        .select("id, numero")
+        .single();
+    }
+
+    if (respostaChamado.error || !respostaChamado.data) {
+      setErro(respostaChamado.error?.message ?? "Erro ao criar chamado.");
+      setSalvando(false);
+      return;
+    }
+
+    const chamadoCriado = respostaChamado.data;
+
+    try {
+      await enviarEvidencias(chamadoCriado.id, usuarioId);
+    } catch (error) {
+      setErro(
+        `Chamado #${chamadoCriado.numero} criado, mas houve erro nas evidências. ${
+          error instanceof Error ? error.message : "Tente enviar novamente."
+        }`
+      );
       setSalvando(false);
       return;
     }
@@ -157,7 +561,7 @@ export function NovoChamadoForm() {
       .from("historico_status")
       .insert({
         chamado_id: chamadoCriado.id,
-        usuario_id: OPERADOR_ID,
+        usuario_id: usuarioId,
         status_anterior: null,
         status_novo: "aberto",
         observacao: "Chamado aberto pelo sistema.",
@@ -187,6 +591,43 @@ export function NovoChamadoForm() {
           {erro}
         </div>
       )}
+
+      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <div className="grid gap-5 md:grid-cols-3">
+          <div>
+            <label className="mb-2 block text-sm font-semibold">
+              Usuário
+            </label>
+            <select
+              value={usuarioAtual?.id ?? ""}
+              onChange={(event) => setUsuarioAtualId(event.target.value)}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            >
+              {usuariosOperacionais.length === 0 && (
+                <option value="">Nenhum perfil ativo encontrado</option>
+              )}
+              {usuariosOperacionais.map((usuario) => (
+                <option key={usuario.id} value={usuario.id}>
+                  {usuario.nome} ({usuario.papel})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="md:col-span-2">
+            <p className="text-sm font-semibold">Permissões aplicadas</p>
+            <div className="mt-2 flex flex-col gap-2 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                O papel do usuário selecionado define analista e técnico
+                responsáveis.
+              </p>
+              <Link href="/faq/permissoes" className="font-semibold text-blue-600">
+                Ver FAQ de permissões
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="grid gap-5 md:grid-cols-2">
         <div>
@@ -246,12 +687,59 @@ export function NovoChamadoForm() {
           </label>
           <select
             value={tipoChamado}
-            onChange={(event) => setTipoChamado(event.target.value)}
+            onChange={(event) =>
+              setTipoChamado(event.target.value as TipoChamado)
+            }
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
           >
             {tiposChamado.map((tipo) => (
               <option key={tipo.value} value={tipo.value}>
                 {tipo.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">Impacto</label>
+          <select
+            value={impacto}
+            onChange={(event) => setImpacto(event.target.value as Impacto)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          >
+            {impactos.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">Urgência</label>
+          <select
+            value={urgencia}
+            onChange={(event) => setUrgencia(event.target.value as Urgencia)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          >
+            {urgencias.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">Origem</label>
+          <select
+            value={origem}
+            onChange={(event) => setOrigem(event.target.value as Origem)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          >
+            {origens.map((item) => (
+              <option key={item.value} value={item.value}>
+                {item.label}
               </option>
             ))}
           </select>
@@ -270,19 +758,64 @@ export function NovoChamadoForm() {
 
         <div>
           <label className="mb-2 block text-sm font-semibold">
-            Prioridade
+            Prioridade calculada
+          </label>
+          <div className="flex min-h-10 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+            <span className={getPrioridadeClass(prioridadeCalculada)}>
+              {getPrioridadeLabel(prioridadeCalculada)}
+            </span>
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Analista responsável
           </label>
           <select
-            value={prioridade}
-            onChange={(event) => setPrioridade(event.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            value={analistaResponsavelEfetivo}
+            onChange={(event) => setAnalistaResponsavelId(event.target.value)}
+            disabled={analistaBloqueado}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
           >
-            {prioridades.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
+            <option value="">Sem analista definido</option>
+            {analistas.map((analista) => (
+              <option key={analista.id} value={analista.id}>
+                {analista.nome}
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Técnico responsável
+          </label>
+          <select
+            value={tecnicoResponsavelEfetivo}
+            onChange={(event) => setTecnicoResponsavelId(event.target.value)}
+            disabled={tecnicoBloqueado}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+          >
+            <option value="">Sem técnico atribuído</option>
+            {tecnicos.map((tecnico) => (
+              <option key={tecnico.id} value={tecnico.id}>
+                {tecnico.nome}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold">
+            Ativo afetado
+          </label>
+          <input
+            type="text"
+            value={ativoAfetado}
+            onChange={(event) => setAtivoAfetado(event.target.value)}
+            placeholder="Ex.: PDV 03, impressora térmica, link de internet"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+          />
         </div>
       </div>
 
@@ -295,6 +828,71 @@ export function NovoChamadoForm() {
           placeholder="Descreva a necessidade, impacto e contexto informado pela loja."
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
         />
+      </div>
+
+      <div>
+        <label className="mb-2 block text-sm font-semibold">
+          Evidências iniciais
+        </label>
+        <div
+          onDragOver={(event) => {
+            event.preventDefault();
+            setArrastando(true);
+          }}
+          onDragLeave={() => setArrastando(false)}
+          onDrop={receberArquivosArrastados}
+          className={`rounded-lg border-2 border-dashed p-5 transition ${
+            arrastando
+              ? "border-blue-400 bg-blue-50"
+              : "border-gray-300 bg-gray-50"
+          }`}
+        >
+          <input
+            type="file"
+            multiple
+            accept={acceptEvidencias}
+            onChange={selecionarEvidencias}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          />
+          <p className="mt-3 text-sm text-gray-600">
+            Arraste arquivos para esta área ou selecione pelo campo acima.
+          </p>
+        </div>
+
+        {evidencias.length > 0 && (
+          <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <p className="text-sm font-semibold">
+              {evidencias.length} arquivo(s) selecionado(s)
+            </p>
+
+            <ul className="mt-3 space-y-2 text-sm text-gray-700">
+              {evidencias.map((evidencia, indice) => (
+                <li
+                  key={`${evidencia.name}-${evidencia.size}-${evidencia.lastModified}`}
+                  className="flex flex-col rounded border border-gray-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <span className="break-all font-medium">
+                      {evidencia.name}
+                    </span>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {obterTipoArquivo(evidencia)} ·{" "}
+                      {formatarTamanho(evidencia.size)}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => removerEvidencia(indice)}
+                    className="mt-2 text-left text-sm font-semibold text-red-600 sm:mt-0"
+                  >
+                    Remover
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">

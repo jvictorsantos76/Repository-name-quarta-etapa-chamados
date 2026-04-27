@@ -9,7 +9,6 @@ type StatusActionsProps = {
   statusAtual: string;
 };
 
-const OPERADOR_ID = "b5793ad4-5ce5-4ccd-935a-f9b91f19037c";
 const TECNICO_ID = "28a09667-d9f1-4567-af22-f2a3160adfa1";
 
 export function StatusActions({ chamadoId, statusAtual }: StatusActionsProps) {

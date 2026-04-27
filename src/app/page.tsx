@@ -1,5 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
+import {
+  getPrioridadeClass,
+  getPrioridadeLabel,
+  getStatusClass,
+  getStatusLabel,
+} from "./chamados/chamadoVisual";
 
 type Chamado = {
   numero: number;
@@ -72,6 +78,10 @@ export default async function Home() {
     (chamado) => chamado.status === "em_atendimento"
   ).length;
 
+  const totalAgendados = listaChamados.filter(
+    (chamado) => chamado.status === "agendado"
+  ).length;
+
   const totalPendentes = listaChamados.filter(
     (chamado) => chamado.status === "pendente"
   ).length;
@@ -114,8 +124,8 @@ export default async function Home() {
                   </Link>
                 </div>
 
-                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium">
-                  {chamado.status}
+                <span className={getStatusClass(chamado.status)}>
+                  {getStatusLabel(chamado.status)}
                 </span>
               </div>
 
@@ -132,7 +142,9 @@ export default async function Home() {
 
                 <p>
                   <span className="font-semibold">Prioridade:</span>{" "}
-                  {chamado.prioridade}
+                  <span className={getPrioridadeClass(chamado.prioridade)}>
+                    {getPrioridadeLabel(chamado.prioridade)}
+                  </span>
                 </p>
 
                 <p>
@@ -160,25 +172,30 @@ export default async function Home() {
             Novo chamado
           </Link>
         </div>
-                  <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="rounded-xl bg-white p-5 shadow">
-              <p className="text-sm font-medium text-gray-500">Abertos</p>
-              <p className="mt-2 text-3xl font-bold">{totalAbertos}</p>
+                  <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-5 shadow">
+              <p className="text-sm font-medium text-blue-700">Abertos</p>
+              <p className="mt-2 text-3xl font-bold text-blue-900">{totalAbertos}</p>
             </div>
 
-            <div className="rounded-xl bg-white p-5 shadow">
-              <p className="text-sm font-medium text-gray-500">Em atendimento</p>
-              <p className="mt-2 text-3xl font-bold">{totalEmAtendimento}</p>
+            <div className="rounded-xl border border-yellow-100 bg-yellow-50 p-5 shadow">
+              <p className="text-sm font-medium text-yellow-700">Agendados</p>
+              <p className="mt-2 text-3xl font-bold text-yellow-900">{totalAgendados}</p>
             </div>
 
-            <div className="rounded-xl bg-white p-5 shadow">
-              <p className="text-sm font-medium text-gray-500">Pendentes</p>
-              <p className="mt-2 text-3xl font-bold">{totalPendentes}</p>
+            <div className="rounded-xl border border-amber-100 bg-amber-50 p-5 shadow">
+              <p className="text-sm font-medium text-amber-700">Em atendimento</p>
+              <p className="mt-2 text-3xl font-bold text-amber-900">{totalEmAtendimento}</p>
             </div>
 
-            <div className="rounded-xl bg-white p-5 shadow">
-              <p className="text-sm font-medium text-gray-500">Finalizados</p>
-              <p className="mt-2 text-3xl font-bold">{totalFinalizados}</p>
+            <div className="rounded-xl border border-purple-100 bg-purple-50 p-5 shadow">
+              <p className="text-sm font-medium text-purple-700">Pendentes</p>
+              <p className="mt-2 text-3xl font-bold text-purple-900">{totalPendentes}</p>
+            </div>
+
+            <div className="rounded-xl border border-green-100 bg-green-50 p-5 shadow">
+              <p className="text-sm font-medium text-green-700">Finalizados</p>
+              <p className="mt-2 text-3xl font-bold text-green-900">{totalFinalizados}</p>
             </div>
           </div>
 
@@ -208,8 +225,16 @@ export default async function Home() {
                   </td>
                   <td className="px-4 py-3">{chamado.clientes?.nome_fantasia}</td>
                   <td className="px-4 py-3">{chamado.lojas?.nome_loja}</td>
-                  <td className="px-4 py-3">{chamado.status}</td>
-                  <td className="px-4 py-3">{chamado.prioridade}</td>
+                  <td className="px-4 py-3">
+                    <span className={getStatusClass(chamado.status)}>
+                      {getStatusLabel(chamado.status)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={getPrioridadeClass(chamado.prioridade)}>
+                      {getPrioridadeLabel(chamado.prioridade)}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">{chamado.tecnico?.nome_completo}</td>
                 </tr>
               ))}
@@ -217,6 +242,12 @@ export default async function Home() {
           </table>
         </div>
       </section>
+      <Link
+        href="/chamados/novo"
+        className="fixed bottom-4 right-4 z-50 rounded-full bg-gray-900 px-5 py-3 text-sm font-semibold text-white shadow-lg md:hidden"
+      >
+        Novo chamado
+      </Link>
     </main>
   );
 }

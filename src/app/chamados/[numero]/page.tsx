@@ -2,6 +2,12 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { StatusActions } from "./StatusActions";
 import { RegistroTecnicoForm } from "./RegistroTecnicoForm";
+import {
+  getPrioridadeClass,
+  getPrioridadeLabel,
+  getStatusClass,
+  getStatusLabel,
+} from "../chamadoVisual";
 
 type PageProps = {
   params: Promise<{
@@ -14,8 +20,15 @@ type ChamadoDetalhe = {
   numero: number;
   titulo: string;
   descricao_problema: string | null;
+  tipo_chamado: string | null;
+  impacto: string | null;
+  urgencia: string | null;
+  origem: string | null;
+  ativo_afetado: string | null;
   status: string;
   prioridade: string;
+  analista_responsavel_id: string | null;
+  tecnico_responsavel_id: string | null;
   aberto_em: string;
   atendimento_iniciado_em: string | null;
   finalizado_em: string | null;
@@ -68,6 +81,26 @@ function formatarData(data: string | null) {
   }).format(new Date(data));
 }
 
+function formatarTipoArquivo(tipo: string | null) {
+  if (!tipo) {
+    return "Arquivo";
+  }
+
+  const tipos: Record<string, string> = {
+    imagem: "Imagem",
+    audio: "Áudio",
+    documento: "Documento",
+  };
+
+  return tipos[tipo] ?? tipo;
+}
+
+function isSchemaCacheError(message: string | undefined) {
+  return Boolean(
+    message?.includes("schema cache") || message?.includes("Could not find")
+  );
+}
+
 export default async function DetalheChamado({ params }: PageProps) {
   const { numero } = await params;
 
@@ -85,15 +118,22 @@ export default async function DetalheChamado({ params }: PageProps) {
 
   const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const { data: chamado, error: chamadoError } = await supabase
+  let chamadoResposta = await supabase
     .from("chamados")
     .select(`
       id,
       numero,
       titulo,
       descricao_problema,
+      tipo_chamado,
+      impacto,
+      urgencia,
+      origem,
+      ativo_afetado,
       status,
       prioridade,
+      analista_responsavel_id,
+      tecnico_responsavel_id,
       aberto_em,
       atendimento_iniciado_em,
       finalizado_em,
@@ -111,6 +151,38 @@ export default async function DetalheChamado({ params }: PageProps) {
     `)
     .eq("numero", Number(numero))
     .single();
+
+  if (isSchemaCacheError(chamadoResposta.error?.message)) {
+    chamadoResposta = await supabase
+      .from("chamados")
+      .select(`
+        id,
+        numero,
+        titulo,
+        descricao_problema,
+        status,
+        prioridade,
+        aberto_em,
+        atendimento_iniciado_em,
+        finalizado_em,
+        clientes (
+          nome_fantasia
+        ),
+        lojas (
+          nome_loja,
+          cidade,
+          estado
+        ),
+        tecnico:perfis!chamados_tecnico_id_fkey (
+          nome_completo
+        )
+      `)
+      .eq("numero", Number(numero))
+      .single();
+  }
+
+  const chamado = chamadoResposta.data;
+  const chamadoError = chamadoResposta.error;
 
   if (chamadoError || !chamado) {
     return (
@@ -137,7 +209,18 @@ export default async function DetalheChamado({ params }: PageProps) {
     );
   }
 
-    const chamadoDetalhe = chamado as unknown as ChamadoDetalhe;
+    const chamadoParcial = chamado as unknown as Partial<ChamadoDetalhe>;
+    const chamadoDetalhe = {
+      ...chamadoParcial,
+      tipo_chamado: chamadoParcial.tipo_chamado ?? null,
+      impacto: chamadoParcial.impacto ?? null,
+      urgencia: chamadoParcial.urgencia ?? null,
+      origem: chamadoParcial.origem ?? null,
+      ativo_afetado: chamadoParcial.ativo_afetado ?? null,
+      analista_responsavel_id:
+        chamadoParcial.analista_responsavel_id ?? null,
+      tecnico_responsavel_id: chamadoParcial.tecnico_responsavel_id ?? null,
+    } as ChamadoDetalhe;
 
   const { data: registrosTecnicos } = await supabase
     .from("registros_tecnicos")
@@ -200,20 +283,66 @@ export default async function DetalheChamado({ params }: PageProps) {
                 {chamadoDetalhe.titulo}
               </h1>
 
-              <p className="mt-3 text-gray-600">
+              <p className="mt-3 whitespace-pre-line text-gray-600">
                 {chamadoDetalhe.descricao_problema}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-gray-900 px-3 py-1 text-sm font-semibold text-white">
-                {chamadoDetalhe.status}
+              <span className={getStatusClass(chamadoDetalhe.status)}>
+                {getStatusLabel(chamadoDetalhe.status)}
               </span>
 
-              <span className="rounded-full bg-gray-200 px-3 py-1 text-sm font-semibold">
-                {chamadoDetalhe.prioridade}
+              <span className={getPrioridadeClass(chamadoDetalhe.prioridade)}>
+                {getPrioridadeLabel(chamadoDetalhe.prioridade)}
               </span>
             </div>
+          </div>
+        </div>
+
+        <div className="mb-6 grid gap-4 md:grid-cols-3">
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Tipo</p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.tipo_chamado ?? "Não informado"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Impacto</p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.impacto ?? "Não informado"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Urgência</p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.urgencia ?? "Não informado"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Origem</p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.origem ?? "Não informado"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Ativo afetado</p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.ativo_afetado ?? "Não informado"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">
+              Analista responsável
+            </p>
+            <p className="mt-2 break-all text-sm font-semibold">
+              {chamadoDetalhe.analista_responsavel_id ?? "Não definido"}
+            </p>
           </div>
         </div>
 
@@ -235,7 +364,9 @@ export default async function DetalheChamado({ params }: PageProps) {
           <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm font-medium text-gray-500">Técnico</p>
             <p className="mt-2 font-semibold">
-              {chamadoDetalhe.tecnico?.nome_completo}
+              {chamadoDetalhe.tecnico?.nome_completo ??
+                chamadoDetalhe.tecnico_responsavel_id ??
+                "Não definido"}
             </p>
           </div>
         </div>
@@ -312,22 +443,41 @@ export default async function DetalheChamado({ params }: PageProps) {
         <div className="mb-6 rounded-xl bg-white p-6 shadow">
           <h2 className="text-xl font-bold">Evidências</h2>
 
-          <div className="mt-4 space-y-3">
-            {listaEvidencias.map((evidencia) => (
-              <div
-                key={evidencia.id}
-                className="rounded-lg border p-4 text-sm"
-              >
-                <p className="font-semibold">{evidencia.legenda}</p>
-                <p className="mt-1 text-gray-500">
-                  Enviado em {formatarData(evidencia.enviado_em)}
-                </p>
-                <p className="mt-2 break-all text-blue-600">
-                  {evidencia.arquivo_url}
-                </p>
-              </div>
-            ))}
-          </div>
+          {listaEvidencias.length === 0 ? (
+            <p className="mt-4 text-sm text-gray-600">
+              Nenhuma evidência registrada para este chamado.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {listaEvidencias.map((evidencia) => (
+                <div
+                  key={evidencia.id}
+                  className="rounded-lg border p-4 text-sm"
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold">
+                        {evidencia.legenda ?? "Evidência do chamado"}
+                      </p>
+                      <p className="mt-1 text-gray-500">
+                        {formatarTipoArquivo(evidencia.tipo_arquivo)} enviado em{" "}
+                        {formatarData(evidencia.enviado_em)}
+                      </p>
+                    </div>
+
+                    <a
+                      href={evidencia.arquivo_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-semibold text-blue-600"
+                    >
+                      Abrir arquivo
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow">
