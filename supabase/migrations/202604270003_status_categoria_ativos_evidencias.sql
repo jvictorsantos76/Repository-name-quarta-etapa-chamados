@@ -5,6 +5,13 @@ alter table public.chamados
   add column if not exists marca text,
   add column if not exists modelo text;
 
+alter table public.chamados
+  alter column status type text using status::text;
+
+alter table public.historico_status
+  alter column status_anterior type text using status_anterior::text,
+  alter column status_novo type text using status_novo::text;
+
 update public.chamados
 set status = case status
   when 'aberto' then 'pendente_agendamento'
