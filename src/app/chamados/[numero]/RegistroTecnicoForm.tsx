@@ -2,15 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import type { PerfilAutenticado } from "@/lib/auth/types";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type RegistroTecnicoFormProps = {
   chamadoId: string;
+  perfilAtual: PerfilAutenticado;
 };
 
-const TECNICO_ID = "28a09667-d9f1-4567-af22-f2a3160adfa1";
-
-export function RegistroTecnicoForm({ chamadoId }: RegistroTecnicoFormProps) {
+export function RegistroTecnicoForm({
+  chamadoId,
+  perfilAtual,
+}: RegistroTecnicoFormProps) {
   const router = useRouter();
 
   const [problemaIdentificado, setProblemaIdentificado] = useState("");
@@ -22,24 +25,10 @@ export function RegistroTecnicoForm({ chamadoId }: RegistroTecnicoFormProps) {
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  const supabase = useMemo(() => {
-    if (!supabaseUrl || !supabaseKey) {
-      return null;
-    }
-
-    return createClient(supabaseUrl, supabaseKey);
-  }, [supabaseUrl, supabaseKey]);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   async function salvarRegistro(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!supabase) {
-      setErro("Configuração do Supabase não encontrada.");
-      return;
-    }
 
     if (
       !problemaIdentificado.trim() ||
@@ -56,7 +45,7 @@ export function RegistroTecnicoForm({ chamadoId }: RegistroTecnicoFormProps) {
 
     const { error } = await supabase.from("registros_tecnicos").insert({
       chamado_id: chamadoId,
-      tecnico_id: TECNICO_ID,
+      tecnico_id: perfilAtual.id,
       problema_identificado: problemaIdentificado.trim(),
       testes_feitos: testesFeitos.trim(),
       solucao: solucao.trim(),

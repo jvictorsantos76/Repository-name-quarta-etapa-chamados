@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import {
+  createSupabaseServerClient,
+  requirePerfilAutenticado,
+} from "@/lib/supabase/server";
 import {
   formatarCategoria,
   getPrioridadeClass,
@@ -30,19 +33,8 @@ type Chamado = {
 };
 
 export default async function Home() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return (
-      <main className="p-8">
-        <h1 className="text-2xl font-bold">Configuração incompleta</h1>
-        <p>Verifique o arquivo .env.local.</p>
-      </main>
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  await requirePerfilAutenticado();
+  const supabase = await createSupabaseServerClient();
 
   const chamadosResposta = await supabase
     .from("chamados")

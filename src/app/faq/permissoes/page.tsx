@@ -45,7 +45,7 @@ export default function PermissoesFaqPage() {
           <h1 className="mt-2 text-2xl font-bold">Permissões de usuários</h1>
           <p className="mt-3 text-sm text-gray-600">
             As permissões são aplicadas com base no papel cadastrado em
-            public.perfis. A autenticação completa entra em uma etapa futura.
+            public.perfis para o usuário autenticado no Supabase Auth.
           </p>
 
           <div className="mt-6 space-y-4">

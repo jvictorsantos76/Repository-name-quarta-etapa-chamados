@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { requirePerfilAutenticado } from "@/lib/supabase/server";
 import { NovoChamadoForm } from "./NovoChamadoForm";
 
-export default function NovoChamado() {
+export default async function NovoChamado() {
+  const perfilAtual = await requirePerfilAutenticado();
+
   return (
     <main className="min-h-screen bg-gray-100 p-6 text-gray-900 md:p-8">
       <section className="mx-auto max-w-4xl">
@@ -25,7 +28,7 @@ export default function NovoChamado() {
             atendimento.
           </p>
 
-          <NovoChamadoForm />
+          <NovoChamadoForm perfilAtual={perfilAtual} />
         </div>
       </section>
     </main>

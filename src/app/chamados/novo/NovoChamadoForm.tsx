@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import type { PerfilAutenticado } from "@/lib/auth/types";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   ativosPorCategoria,
   categoriaChamadoOpcoes,
@@ -251,14 +252,17 @@ export function calcularPrioridade(impacto: Impacto, urgencia: Urgencia) {
   return matrizPrioridade[impacto][urgencia];
 }
 
-export function NovoChamadoForm() {
+type NovoChamadoFormProps = {
+  perfilAtual: PerfilAutenticado;
+};
+
+export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
   const router = useRouter();
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [perfis, setPerfis] = useState<Perfil[]>([]);
 
-  const [usuarioAtualId, setUsuarioAtualId] = useState("");
   const [clienteId, setClienteId] = useState("");
   const [lojaId, setLojaId] = useState("");
   const [solicitante, setSolicitante] = useState("");
@@ -281,23 +285,15 @@ export function NovoChamadoForm() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  const supabase = useMemo(() => {
-    if (!supabaseUrl || !supabaseKey) {
-      return null;
-    }
-
-    return createClient(supabaseUrl, supabaseKey);
-  }, [supabaseUrl, supabaseKey]);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const usuariosOperacionais = montarUsuariosOperacionais(perfis);
-  const usuarioAtual =
-    usuariosOperacionais.find((usuario) => usuario.id === usuarioAtualId) ??
-    usuariosOperacionais[0] ??
-    null;
-  const papelAtual = usuarioAtual?.papel;
+  const usuarioAtual: UsuarioOperacional = {
+    id: perfilAtual.id,
+    nome: perfilAtual.nome_completo,
+    papel: perfilAtual.papel,
+  };
+  const papelAtual = usuarioAtual.papel;
   const analistas = usuariosOperacionais.filter(
     (usuario) => usuario.papel === "analista"
   );
@@ -317,13 +313,13 @@ export function NovoChamadoForm() {
   const analistaBloqueado = !podeAtribuir;
   const analistaResponsavelEfetivo =
     papelAtual === "analista"
-      ? analistaResponsavelId || usuarioAtual?.id || ""
+      ? analistaResponsavelId || usuarioAtual.id
       : podeAtribuir
         ? analistaResponsavelId || analistas[0]?.id || ""
       : "";
   const tecnicoResponsavelEfetivo =
     papelAtual === "tecnico"
-      ? usuarioAtual?.id || ""
+      ? usuarioAtual.id
       : origem === "tecnico" && podeAtribuir
         ? tecnicoResponsavelId || tecnicos[0]?.id || ""
       : !podeAtribuir
@@ -426,12 +422,6 @@ export function NovoChamadoForm() {
 
   useEffect(() => {
     async function carregarDados() {
-      if (!supabase) {
-        setErro("Configuração do Supabase não encontrada.");
-        setCarregando(false);
-        return;
-      }
-
       const [clientesResposta, lojasResposta, perfisResposta] =
         await Promise.all([
           supabase
@@ -473,16 +463,6 @@ export function NovoChamadoForm() {
 
   async function salvarChamado(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!supabase) {
-      setErro("Configuração do Supabase não encontrada.");
-      return;
-    }
-
-    if (!usuarioAtual) {
-      setErro("Cadastre ao menos um usuário ativo na tabela perfis.");
-      return;
-    }
 
     if (origem === "tecnico" && papelAtual !== "tecnico" && !tecnicoResponsavelEfetivo) {
       setErro("Cadastre ou selecione um técnico responsável para origem técnico.");
@@ -626,27 +606,18 @@ export function NovoChamadoForm() {
             <label className="mb-2 block text-sm font-semibold">
               Usuário
             </label>
-            <select
-              value={usuarioAtual?.id ?? ""}
-              onChange={(event) => setUsuarioAtualId(event.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-            >
-              {usuariosOperacionais.length === 0 && (
-                <option value="">Nenhum perfil ativo encontrado</option>
-              )}
-              {usuariosOperacionais.map((usuario) => (
-                <option key={usuario.id} value={usuario.id}>
-                  {usuario.nome} ({usuario.papel})
-                </option>
-              ))}
-            </select>
+            <input
+              value={`${usuarioAtual.nome} (${usuarioAtual.papel})`}
+              readOnly
+              className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-700"
+            />
           </div>
 
           <div className="md:col-span-2">
             <p className="text-sm font-semibold">Permissões aplicadas</p>
             <div className="mt-2 flex flex-col gap-2 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
               <p>
-                O papel do usuário selecionado define analista e técnico
+                O perfil autenticado define analista e técnico
                 responsáveis.
               </p>
               <Link href="/faq/permissoes" className="font-semibold text-blue-600">

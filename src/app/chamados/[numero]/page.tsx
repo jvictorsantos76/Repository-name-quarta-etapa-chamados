@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import {
+  createSupabaseServerClient,
+  requirePerfilAutenticado,
+} from "@/lib/supabase/server";
 import { StatusUpdateForm } from "./StatusUpdateForm";
 import { RegistroTecnicoForm } from "./RegistroTecnicoForm";
 import {
@@ -109,20 +112,8 @@ function isSchemaCacheError(message: string | undefined) {
 
 export default async function DetalheChamado({ params }: PageProps) {
   const { numero } = await params;
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    return (
-      <main className="p-8">
-        <h1 className="text-2xl font-bold">Configuração incompleta</h1>
-        <p>Verifique o arquivo .env.local.</p>
-      </main>
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const perfilAtual = await requirePerfilAutenticado();
+  const supabase = await createSupabaseServerClient();
 
   let chamadoResposta = await supabase
     .from("chamados")
@@ -429,6 +420,7 @@ export default async function DetalheChamado({ params }: PageProps) {
           <StatusUpdateForm
             chamadoId={chamadoDetalhe.id}
             statusAtual={chamadoDetalhe.status}
+            perfilAtual={perfilAtual}
           />
         </div>
 
@@ -451,7 +443,7 @@ export default async function DetalheChamado({ params }: PageProps) {
 
         <div className="mb-6 rounded-xl bg-white p-6 shadow">
           <h2 className="text-xl font-bold">Registro técnico</h2>
-                  <RegistroTecnicoForm chamadoId={chamadoDetalhe.id} />
+                  <RegistroTecnicoForm chamadoId={chamadoDetalhe.id} perfilAtual={perfilAtual} />
 
           <div className="mt-4 space-y-4">
             {listaRegistros.map((registro) => (

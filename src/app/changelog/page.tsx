@@ -6,6 +6,19 @@ const versoes = [
     versao: APP_VERSION,
     data: "27/04/2026",
     alteracoes: [
+      "Login com Supabase Auth por e-mail e senha.",
+      "Sessão autenticada usada para carregar o perfil ativo em public.perfis.",
+      "Abertura, histórico, registro técnico e evidências passam a usar o usuário logado.",
+      "RLS operacional reforçada para usuários authenticated sem service_role no client.",
+    ],
+    correcoes: [
+      "Remoção de IDs fixos de operador, técnico e usuário de histórico nas ações do chamado.",
+    ],
+  },
+  {
+    versao: "v0.4.0",
+    data: "27/04/2026",
+    alteracoes: [
       "Status de chamados padronizados para o fluxo operacional completo.",
       "Abertura de chamados com categoria, ativo, complemento, marca e modelo.",
       "Detalhe do chamado passa a permitir alteração de status com histórico.",

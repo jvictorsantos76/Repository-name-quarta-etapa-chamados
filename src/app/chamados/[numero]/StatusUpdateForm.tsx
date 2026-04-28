@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import type { PerfilAutenticado, PapelUsuario } from "@/lib/auth/types";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   formatarStatus,
   getStatusClass,
@@ -13,19 +14,17 @@ import {
 type StatusUpdateFormProps = {
   chamadoId: string;
   statusAtual: string;
+  perfilAtual: PerfilAutenticado;
 };
 
-const USUARIO_SISTEMA_ID = "28a09667-d9f1-4567-af22-f2a3160adfa1";
-type PapelStatus = "operador" | "analista" | "admin";
-const papelAtual: PapelStatus = "operador";
-
-function podeAlterarStatusFaturado(papel: PapelStatus) {
+function podeAlterarStatusFaturado(papel: PapelUsuario) {
   return papel === "analista" || papel === "admin";
 }
 
 export function StatusUpdateForm({
   chamadoId,
   statusAtual,
+  perfilAtual,
 }: StatusUpdateFormProps) {
   const router = useRouter();
 
@@ -33,27 +32,13 @@ export function StatusUpdateForm({
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  const supabase = useMemo(() => {
-    if (!supabaseUrl || !supabaseKey) {
-      return null;
-    }
-
-    return createClient(supabaseUrl, supabaseKey);
-  }, [supabaseUrl, supabaseKey]);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const statusFaturadoBloqueado =
-    statusAtual === "faturado" && !podeAlterarStatusFaturado(papelAtual);
+    statusAtual === "faturado" && !podeAlterarStatusFaturado(perfilAtual.papel);
 
   async function salvarStatus(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (!supabase) {
-      setErro("Configuração do Supabase não encontrada.");
-      return;
-    }
 
     if (!novoStatus) {
       setErro("Selecione o novo status.");
@@ -100,7 +85,7 @@ export function StatusUpdateForm({
       .from("historico_status")
       .insert({
         chamado_id: chamadoId,
-        usuario_id: USUARIO_SISTEMA_ID,
+        usuario_id: perfilAtual.id,
         status_anterior: statusAtual,
         status_novo: novoStatus,
         observacao: "Status alterado na tela de detalhe do chamado.",
