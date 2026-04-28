@@ -72,8 +72,18 @@ export async function requirePerfilAutenticado() {
     .maybeSingle();
 
   if (perfilError || !perfil || !isPapelUsuario(perfil.papel)) {
-    redirect("/login");
+    redirect("/aguardando-aprovacao");
   }
 
   return perfil as PerfilAutenticado;
+}
+
+export async function requireAdminOuGestor() {
+  const perfil = await requirePerfilAutenticado();
+
+  if (perfil.papel !== "admin" && perfil.papel !== "gestor") {
+    redirect("/");
+  }
+
+  return perfil;
 }

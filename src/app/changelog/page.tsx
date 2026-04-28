@@ -6,6 +6,20 @@ const versoes = [
     versao: APP_VERSION,
     data: "27/04/2026",
     alteracoes: [
+      "Tela de login redesenhada para o Portal de Atendimento Quarta Etapa.",
+      "Preparação para login com Google via Supabase OAuth.",
+      "Cadastro público controlado com solicitação pendente de aprovação.",
+      "Páginas iniciais de Política de Privacidade, Termos de Uso e aguardando aprovação.",
+      "Área administrativa inicial para listar e atualizar solicitações de acesso.",
+    ],
+    correcoes: [
+      "Usuário autenticado sem perfil operacional ativo passa a ser direcionado para aguardando aprovação.",
+    ],
+  },
+  {
+    versao: "v0.5.0",
+    data: "27/04/2026",
+    alteracoes: [
       "Login com Supabase Auth por e-mail e senha.",
       "Sessão autenticada usada para carregar o perfil ativo em public.perfis.",
       "Abertura, histórico, registro técnico e evidências passam a usar o usuário logado.",

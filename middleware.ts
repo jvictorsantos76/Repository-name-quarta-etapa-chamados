@@ -1,7 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { SUPABASE_ACCESS_TOKEN_COOKIE } from "@/lib/supabase/constants";
 
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/cadastro",
+  "/aguardando-aprovacao",
+  "/politica-privacidade",
+  "/termos-uso",
+  "/brand",
+];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -12,7 +19,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (hasSession && pathname === "/login") {
+  if (hasSession && (pathname === "/login" || pathname === "/cadastro")) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
