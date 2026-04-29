@@ -4,6 +4,17 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 const versoes = [
   {
     versao: APP_VERSION,
+    data: "28/04/2026",
+    alteracoes: [
+      "Tela de Login v0.1.0 com logo ampliado, caminhos separados para usuários cadastrados e novos usuários.",
+      "Inclusão de contatos de desenvolvimento/suporte técnico e administrativo no painel institucional do login.",
+      "Referência curta a LGPD/GDPR na autenticação, com manutenção dos links para Política de Privacidade e Termos de Uso.",
+      "Rodapé do login passa a exibir versionamento específico da tela, separado da versão geral da aplicação.",
+    ],
+    correcoes: [],
+  },
+  {
+    versao: "v0.6.0",
     data: "27/04/2026",
     alteracoes: [
       "Tela de login redesenhada para o Portal de Atendimento Quarta Etapa.",

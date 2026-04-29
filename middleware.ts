@@ -3,6 +3,7 @@ import { SUPABASE_ACCESS_TOKEN_COOKIE } from "@/lib/supabase/constants";
 
 const PUBLIC_PATHS = [
   "/login",
+  "/auth",
   "/cadastro",
   "/aguardando-aprovacao",
   "/politica-privacidade",
