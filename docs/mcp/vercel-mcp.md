@@ -42,3 +42,12 @@ https://mcp.vercel.com
 
 codex mcp add vercel --url https://mcp.vercel.com
 
+## Observação operacional
+
+Durante a validação, a consulta pelo `accountId` retornou `403 Forbidden`.
+A operação funcionou corretamente utilizando o slug da conta `jvictorsantos76`.
+
+Decisão:
+- Usar preferencialmente o slug da conta nas consultas via MCP Vercel.
+- Tratar o erro por `accountId` como limitação de permissão/escopo, não como falha de instalação.
+
