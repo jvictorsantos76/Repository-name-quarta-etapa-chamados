@@ -1,0 +1,11 @@
+# Context7 MCP para OpenAI Codex
+# Copie este arquivo para .codex/config.toml.
+# Substitua YOUR_API_KEY pela chave real do Context7.
+# Nunca faça commit do arquivo .codex/config.toml com chave real.
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp", "--api-key", "YOUR_API_KEY"]
+startup_timeout_sec = 40
+tool_timeout_sec = 60
+enabled = true
