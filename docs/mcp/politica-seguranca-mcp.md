@@ -14,7 +14,9 @@
 - Nunca gravar tokens, chaves, senhas, URLs privadas ou credenciais no repositorio.
 - Usar variaveis de ambiente para credenciais.
 - Registrar apenas nomes das variaveis, nunca valores.
+- Nao passar chaves em argumentos de comando quando o MCP aceitar variavel de ambiente.
 - Para GitHub, usar o nome `GITHUB_PERSONAL_ACCESS_TOKEN` quando uma credencial for necessaria.
+- Para Context7, usar o nome `CONTEXT7_API_KEY` quando uma credencial for necessaria.
 - Revogar credenciais quando um MCP for removido, rejeitado ou deixar de ser usado.
 - Se houver suspeita de exposicao, rotacionar a credencial antes de continuar o uso.
 
@@ -54,7 +56,15 @@
 ### Context7
 
 - Permitido para documentacao tecnica publica.
-- Nao deve exigir secrets.
+- Quando exigir autenticacao, usar `CONTEXT7_API_KEY` fora do repositorio.
+- Nao usar `--api-key` com valor literal em arquivos de configuracao.
+- Nao deve ter permissao de escrita.
+
+### OpenAI Docs
+
+- Permitido para documentacao oficial publica da OpenAI.
+- Nao deve exigir secrets do projeto.
+- Usar como fonte primaria para Codex, Responses API, modelos, prompts e configuracoes OpenAI.
 - Nao deve ter permissao de escrita.
 
 ### GitHub MCP
