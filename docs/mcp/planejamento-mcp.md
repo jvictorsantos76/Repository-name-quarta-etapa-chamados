@@ -66,6 +66,20 @@ Esta etapa e apenas documental. Nao instala MCPs, nao altera codigo da aplicacao
 - Deve evitar prints e logs com dados sensiveis.
 - Deve registrar apenas evidencias sanitizadas quando necessario.
 
+## MCPs avaliados e não adotados no momento
+
+### Google Drive / Docs MCP
+
+O MCP Google Drive / Docs foi avaliado para uso como apoio documental no projeto, com foco em consulta a documentos, atas, requisitos e materiais externos ao repositório.
+
+A integração não foi adotada neste momento porque o servidor oficial do Google Drive MCP foi reconhecido pelo Codex, mas a autenticação não foi concluída devido à incompatibilidade do fluxo OAuth disponível.
+
+Erro identificado:
+
+```text
+Dynamic client registration not supported
+
+
 ## MCPs adiados
 
 ### Google Drive ou documentacao interna
