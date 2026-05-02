@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LOGIN_PAGE_VERSION } from "@/config/version";
 import {
-  createSupabaseBrowserClient,
   syncSupabaseSessionCookies,
+  useSupabaseBrowserClient,
 } from "@/lib/supabase/client";
 
 const mensagemCredenciais =
@@ -34,7 +34,7 @@ const contatos = [
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const supabase = useSupabaseBrowserClient();
 
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -70,21 +70,29 @@ export default function LoginPage() {
   }, [router, supabase]);
 
   useEffect(() => {
+    let ativo = true;
+    let timeoutId: ReturnType<typeof setTimeout>;
+
     async function verificarSessao() {
       const session = await Promise.race([
         supabase.auth.getSession().then(({ data }) => data.session),
-        new Promise<null>((resolve) =>
-          setTimeout(resolve, TEMPO_VERIFICACAO_SESSAO_MS, null)
-        ),
+        new Promise<null>((resolve) => {
+          timeoutId = setTimeout(resolve, TEMPO_VERIFICACAO_SESSAO_MS, null);
+        }),
       ]);
 
-      if (session) {
+      if (ativo && session) {
         syncSupabaseSessionCookies(session);
         await redirecionarPorPerfil();
       }
     }
 
     verificarSessao();
+
+    return () => {
+      ativo = false;
+      clearTimeout(timeoutId);
+    };
   }, [redirecionarPorPerfil, supabase]);
 
   async function entrar(event: React.FormEvent<HTMLFormElement>) {

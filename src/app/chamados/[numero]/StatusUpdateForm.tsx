@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PerfilAutenticado, PapelUsuario } from "@/lib/auth/types";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   formatarStatus,
   getStatusClass,
@@ -32,7 +32,7 @@ export function StatusUpdateForm({
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
 
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const supabase = useSupabaseBrowserClient();
 
   const statusFaturadoBloqueado =
     statusAtual === "faturado" && !podeAlterarStatusFaturado(perfilAtual.papel);

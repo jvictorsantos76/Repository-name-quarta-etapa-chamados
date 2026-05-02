@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo } from "react";
 import {
   createClient,
   type Session,
@@ -65,17 +66,32 @@ export function createSupabaseBrowserClient(): SupabaseClient {
   const { supabaseUrl, supabaseKey } = getSupabaseConfig();
   browserClient = createClient(supabaseUrl, supabaseKey);
 
-  if (typeof window === "undefined") {
-    return browserClient;
-  }
-
-  browserClient.auth.getSession().then(({ data }) => {
-    syncSupabaseSessionCookies(data.session);
-  });
-
-  browserClient.auth.onAuthStateChange((_event, session) => {
-    syncSupabaseSessionCookies(session);
-  });
-
   return browserClient;
+}
+
+export function useSupabaseBrowserClient(): SupabaseClient {
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
+  useEffect(() => {
+    let ativo = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (ativo) {
+        syncSupabaseSessionCookies(data.session);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      syncSupabaseSessionCookies(session);
+    });
+
+    return () => {
+      ativo = false;
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  return supabase;
 }

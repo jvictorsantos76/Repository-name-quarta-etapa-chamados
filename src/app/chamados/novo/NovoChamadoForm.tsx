@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PerfilAutenticado } from "@/lib/auth/types";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   ativosPorCategoria,
   categoriaChamadoOpcoes,
@@ -252,79 +253,70 @@ export function calcularPrioridade(impacto: Impacto, urgencia: Urgencia) {
   return matrizPrioridade[impacto][urgencia];
 }
 
-type NovoChamadoFormProps = {
-  perfilAtual: PerfilAutenticado;
-};
-
-export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
-  const router = useRouter();
-
+function useNovoChamadoDados(supabase: SupabaseClient) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [perfis, setPerfis] = useState<Perfil[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erroCarregamento, setErroCarregamento] = useState("");
 
-  const [clienteId, setClienteId] = useState("");
-  const [lojaId, setLojaId] = useState("");
-  const [solicitante, setSolicitante] = useState("");
-  const [tipoChamado, setTipoChamado] = useState<TipoChamado>("incidente");
-  const [impacto, setImpacto] = useState<Impacto>("medio");
-  const [urgencia, setUrgencia] = useState<Urgencia>("media");
-  const [origem, setOrigem] = useState<Origem>("sistema");
-  const [categoria, setCategoria] = useState<CategoriaChamado | "">("");
-  const [ativoTipo, setAtivoTipo] = useState("");
-  const [ativoDescricao, setAtivoDescricao] = useState("");
-  const [marca, setMarca] = useState("");
-  const [modelo, setModelo] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [analistaResponsavelId, setAnalistaResponsavelId] = useState("");
-  const [tecnicoResponsavelId, setTecnicoResponsavelId] = useState("");
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarDados() {
+      const [clientesResposta, lojasResposta, perfisResposta] =
+        await Promise.all([
+          supabase
+            .from("clientes")
+            .select("id, nome_fantasia")
+            .eq("ativo", true)
+            .order("nome_fantasia"),
+
+          supabase
+            .from("lojas")
+            .select("id, cliente_id, nome_loja")
+            .eq("ativo", true)
+            .order("nome_loja"),
+
+          supabase
+            .from("perfis")
+            .select("id, nome_completo, papel")
+            .eq("ativo", true)
+            .order("nome_completo"),
+        ]);
+
+      if (!ativo) {
+        return;
+      }
+
+      if (clientesResposta.error) {
+        setErroCarregamento(clientesResposta.error.message);
+      } else if (lojasResposta.error) {
+        setErroCarregamento(lojasResposta.error.message);
+      } else if (perfisResposta.error) {
+        setErroCarregamento(perfisResposta.error.message);
+      } else {
+        setClientes((clientesResposta.data as Cliente[]) ?? []);
+        setLojas((lojasResposta.data as Loja[]) ?? []);
+        setPerfis((perfisResposta.data as Perfil[]) ?? []);
+      }
+
+      setCarregando(false);
+    }
+
+    carregarDados();
+
+    return () => {
+      ativo = false;
+    };
+  }, [supabase]);
+
+  return { clientes, lojas, perfis, carregando, erroCarregamento };
+}
+
+function useEvidenciasChamado(onErroChange: (erro: string) => void) {
   const [evidencias, setEvidencias] = useState<File[]>([]);
   const [arrastando, setArrastando] = useState(false);
-
-  const [carregando, setCarregando] = useState(true);
-  const [salvando, setSalvando] = useState(false);
-  const [erro, setErro] = useState("");
-
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
-
-  const usuariosOperacionais = montarUsuariosOperacionais(perfis);
-  const usuarioAtual: UsuarioOperacional = {
-    id: perfilAtual.id,
-    nome: perfilAtual.nome_completo,
-    papel: perfilAtual.papel,
-  };
-  const papelAtual = usuarioAtual.papel;
-  const analistas = usuariosOperacionais.filter(
-    (usuario) => usuario.papel === "analista"
-  );
-  const tecnicos = usuariosOperacionais.filter(
-    (usuario) => usuario.papel === "tecnico"
-  );
-  const prioridadeCalculada = calcularPrioridade(impacto, urgencia);
-  const lojasFiltradas = lojas.filter((loja) => loja.cliente_id === clienteId);
-  const tipoSelecionado = obterLabel(tiposChamado, tipoChamado);
-  const categoriaSelecionada = categoria
-    ? obterLabel(categoriaChamadoOpcoes, categoria)
-    : "";
-  const ativosDisponiveis = categoria ? ativosPorCategoria[categoria] : [];
-  const podeAtribuir = podeAtribuirResponsaveis(papelAtual);
-  const tecnicoBloqueado =
-    !podeAtribuir || origem === "tecnico";
-  const analistaBloqueado = !podeAtribuir;
-  const analistaResponsavelEfetivo =
-    papelAtual === "analista"
-      ? analistaResponsavelId || usuarioAtual.id
-      : podeAtribuir
-        ? analistaResponsavelId || analistas[0]?.id || ""
-      : "";
-  const tecnicoResponsavelEfetivo =
-    papelAtual === "tecnico"
-      ? usuarioAtual.id
-      : origem === "tecnico" && podeAtribuir
-        ? tecnicoResponsavelId || tecnicos[0]?.id || ""
-      : !podeAtribuir
-        ? ""
-        : tecnicoResponsavelId;
 
   function adicionarEvidencias(arquivos: File[]) {
     const arquivoInvalido = arquivos.find(
@@ -332,11 +324,11 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     );
 
     if (arquivoInvalido) {
-      setErro(`Arquivo não permitido: ${arquivoInvalido.name}.`);
+      onErroChange(`Arquivo não permitido: ${arquivoInvalido.name}.`);
       return;
     }
 
-    setErro("");
+    onErroChange("");
     setEvidencias((evidenciasAtuais) => {
       const chavesAtuais = new Set(
         evidenciasAtuais.map(
@@ -370,6 +362,105 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     setArrastando(false);
     adicionarEvidencias(Array.from(event.dataTransfer.files));
   }
+
+  return {
+    evidencias,
+    arrastando,
+    setArrastando,
+    adicionarEvidencias,
+    selecionarEvidencias,
+    removerEvidencia,
+    receberArquivosArrastados,
+  };
+}
+
+type NovoChamadoFormProps = {
+  perfilAtual: PerfilAutenticado;
+};
+
+export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
+  const router = useRouter();
+  const supabase = useSupabaseBrowserClient();
+  const { clientes, lojas, perfis, carregando, erroCarregamento } =
+    useNovoChamadoDados(supabase);
+
+  const [clienteId, setClienteId] = useState("");
+  const [lojaId, setLojaId] = useState("");
+  const [solicitante, setSolicitante] = useState("");
+  const [tipoChamado, setTipoChamado] = useState<TipoChamado>("incidente");
+  const [impacto, setImpacto] = useState<Impacto>("medio");
+  const [urgencia, setUrgencia] = useState<Urgencia>("media");
+  const [origem, setOrigem] = useState<Origem>("sistema");
+  const [categoria, setCategoria] = useState<CategoriaChamado | "">("");
+  const [ativoTipo, setAtivoTipo] = useState("");
+  const [ativoDescricao, setAtivoDescricao] = useState("");
+  const [marca, setMarca] = useState("");
+  const [modelo, setModelo] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [analistaResponsavelId, setAnalistaResponsavelId] = useState("");
+  const [tecnicoResponsavelId, setTecnicoResponsavelId] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
+  const {
+    evidencias,
+    arrastando,
+    setArrastando,
+    selecionarEvidencias,
+    removerEvidencia,
+    receberArquivosArrastados,
+  } = useEvidenciasChamado(setErro);
+
+  const usuariosOperacionais = useMemo(
+    () => montarUsuariosOperacionais(perfis),
+    [perfis]
+  );
+  const usuarioAtual: UsuarioOperacional = {
+    id: perfilAtual.id,
+    nome: perfilAtual.nome_completo,
+    papel: perfilAtual.papel,
+  };
+  const papelAtual = usuarioAtual.papel;
+  const analistas = useMemo(
+    () =>
+      usuariosOperacionais.filter((usuario) => usuario.papel === "analista"),
+    [usuariosOperacionais]
+  );
+  const tecnicos = useMemo(
+    () => usuariosOperacionais.filter((usuario) => usuario.papel === "tecnico"),
+    [usuariosOperacionais]
+  );
+  const prioridadeCalculada = calcularPrioridade(impacto, urgencia);
+  const lojasFiltradas = useMemo(
+    () => lojas.filter((loja) => loja.cliente_id === clienteId),
+    [clienteId, lojas]
+  );
+  const tipoSelecionado = obterLabel(tiposChamado, tipoChamado);
+  const categoriaSelecionada = categoria
+    ? obterLabel(categoriaChamadoOpcoes, categoria)
+    : "";
+  const ativosDisponiveis = useMemo(
+    () => (categoria ? ativosPorCategoria[categoria] : []),
+    [categoria]
+  );
+  const podeAtribuir = podeAtribuirResponsaveis(papelAtual);
+  const tecnicoBloqueado =
+    !podeAtribuir || origem === "tecnico";
+  const analistaBloqueado = !podeAtribuir;
+  const analistaResponsavelEfetivo =
+    papelAtual === "analista"
+      ? analistaResponsavelId || usuarioAtual.id
+      : podeAtribuir
+        ? analistaResponsavelId || analistas[0]?.id || ""
+      : "";
+  const tecnicoResponsavelEfetivo =
+    papelAtual === "tecnico"
+      ? usuarioAtual.id
+      : origem === "tecnico" && podeAtribuir
+        ? tecnicoResponsavelId || tecnicos[0]?.id || ""
+      : !podeAtribuir
+        ? ""
+        : tecnicoResponsavelId;
+  const mensagemErro = erro || erroCarregamento;
 
   async function enviarEvidencias(chamadoId: string, usuarioId: string) {
     if (!supabase || evidencias.length === 0) {
@@ -419,47 +510,6 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
       );
     }
   }
-
-  useEffect(() => {
-    async function carregarDados() {
-      const [clientesResposta, lojasResposta, perfisResposta] =
-        await Promise.all([
-          supabase
-            .from("clientes")
-            .select("id, nome_fantasia")
-            .eq("ativo", true)
-            .order("nome_fantasia"),
-
-          supabase
-            .from("lojas")
-            .select("id, cliente_id, nome_loja")
-            .eq("ativo", true)
-            .order("nome_loja"),
-
-          supabase
-            .from("perfis")
-            .select("id, nome_completo, papel")
-            .eq("ativo", true)
-            .order("nome_completo"),
-        ]);
-
-      if (clientesResposta.error) {
-        setErro(clientesResposta.error.message);
-      } else if (lojasResposta.error) {
-        setErro(lojasResposta.error.message);
-      } else if (perfisResposta.error) {
-        setErro(perfisResposta.error.message);
-      } else {
-        setClientes((clientesResposta.data as Cliente[]) ?? []);
-        setLojas((lojasResposta.data as Loja[]) ?? []);
-        setPerfis((perfisResposta.data as Perfil[]) ?? []);
-      }
-
-      setCarregando(false);
-    }
-
-    carregarDados();
-  }, [supabase]);
 
   async function salvarChamado(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -594,9 +644,9 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
 
   return (
     <form onSubmit={salvarChamado} className="mt-6 space-y-5">
-      {erro && (
+      {mensagemErro && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {erro}
+          {mensagemErro}
         </div>
       )}
 

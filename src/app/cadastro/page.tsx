@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useState } from "react";
+import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const camposIniciais = {
   nome_completo: "",
@@ -18,7 +18,7 @@ const camposIniciais = {
 };
 
 export default function CadastroPage() {
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const supabase = useSupabaseBrowserClient();
   const [campos, setCampos] = useState(camposIniciais);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");

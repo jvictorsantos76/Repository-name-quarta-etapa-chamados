@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  createSupabaseBrowserClient,
   syncSupabaseSessionCookies,
+  useSupabaseBrowserClient,
 } from "@/lib/supabase/client";
 
 function getSafeNextPath(value: string | null) {
@@ -18,7 +18,7 @@ function getSafeNextPath(value: string | null) {
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const supabase = useSupabaseBrowserClient();
   const [mensagem, setMensagem] = useState("Concluindo autenticação...");
 
   useEffect(() => {

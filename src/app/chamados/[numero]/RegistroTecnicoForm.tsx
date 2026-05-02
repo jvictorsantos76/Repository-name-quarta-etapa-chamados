@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { PerfilAutenticado } from "@/lib/auth/types";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type RegistroTecnicoFormProps = {
   chamadoId: string;
@@ -25,7 +25,7 @@ export function RegistroTecnicoForm({
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
 
-  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+  const supabase = useSupabaseBrowserClient();
 
   async function salvarRegistro(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
