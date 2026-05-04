@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  enviarSolicitacaoAcesso,
+  type CadastroSolicitacaoInput,
+} from "./actions";
 
 const camposIniciais = {
   nome_completo: "",
@@ -18,7 +21,6 @@ const camposIniciais = {
 };
 
 export default function CadastroPage() {
-  const supabase = useSupabaseBrowserClient();
   const [campos, setCampos] = useState(camposIniciais);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
@@ -50,58 +52,15 @@ export default function CadastroPage() {
 
     setErro("");
     setEnviando(true);
-    const solicitacaoId = crypto.randomUUID();
+    const resultado = await enviarSolicitacaoAcesso(
+      campos as CadastroSolicitacaoInput
+    );
 
-    const { error: erroSolicitacao } = await supabase
-      .from("solicitacoes_acesso")
-      .insert({
-        id: solicitacaoId,
-        nome_completo: campos.nome_completo.trim(),
-        email: campos.email.trim().toLowerCase(),
-        telefone: campos.telefone.trim() || null,
-        empresa: campos.empresa.trim(),
-        cnpj: campos.cnpj.trim() || null,
-        loja_unidade: campos.loja_unidade.trim() || null,
-        cargo: campos.cargo.trim() || null,
-        motivo_acesso: campos.motivo_acesso.trim() || null,
-        aceite_termos: campos.aceite_termos,
-        aceite_privacidade: campos.aceite_privacidade,
-        user_agent: navigator.userAgent,
-      });
-
-    if (erroSolicitacao) {
+    if (!resultado.ok) {
       setErro(
-        erroSolicitacao?.code === "23505"
-          ? "Já existe uma solicitação pendente para este e-mail."
-          : "Não foi possível enviar a solicitação. Tente novamente."
+        resultado.mensagem ??
+          "Não foi possível enviar a solicitação. Tente novamente."
       );
-      setEnviando(false);
-      return;
-    }
-
-    const aceites = [
-      {
-        solicitacao_acesso_id: solicitacaoId,
-        email: campos.email.trim().toLowerCase(),
-        tipo_documento: "termos_uso",
-        versao_documento: "v0.6.0",
-        user_agent: navigator.userAgent,
-      },
-      {
-        solicitacao_acesso_id: solicitacaoId,
-        email: campos.email.trim().toLowerCase(),
-        tipo_documento: "politica_privacidade",
-        versao_documento: "v0.6.0",
-        user_agent: navigator.userAgent,
-      },
-    ];
-
-    const { error: erroAceites } = await supabase
-      .from("aceites_legais")
-      .insert(aceites);
-
-    if (erroAceites) {
-      setErro("Solicitação criada, mas houve erro ao registrar os aceites legais.");
       setEnviando(false);
       return;
     }
@@ -126,13 +85,14 @@ export default function CadastroPage() {
         </h1>
         <p className="mt-2 text-sm text-gray-600">
           O envio deste formulário não libera acesso automático. A solicitação
-          será validada pela Quarta Etapa ou por responsável autorizado.
+          será validada pela Quarta Etapa ou por responsável autorizado. Ao ser
+          aprovado, você receberá um convite por e-mail para definir seu acesso.
         </p>
 
         {sucesso ? (
           <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
             Solicitação recebida com sucesso. A liberação depende de validação
-            operacional antes de qualquer abertura de chamado.
+            operacional. O e-mail de acesso será enviado somente após aprovação.
           </div>
         ) : (
           <form onSubmit={enviarSolicitacao} className="mt-6 space-y-5">

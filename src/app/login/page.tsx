@@ -4,7 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LOGIN_PAGE_VERSION } from "@/config/version";
 import {
   syncSupabaseSessionCookies,
   useSupabaseBrowserClient,
@@ -12,23 +11,25 @@ import {
 
 const mensagemCredenciais =
   "E-mail ou senha inválidos. Confira seus dados e tente novamente.";
+const mensagemLinkMagico =
+  "Se o e-mail estiver autorizado, enviaremos o link de acesso.";
 
 const TEMPO_VERIFICACAO_SESSAO_MS = 8000;
 
 const contatos = [
   {
     titulo: "Quarta Etapa",
-    linhas: ["R. 1034, 76", "(85) 3235-0449"],
+    linhas: ["Rua 1034, 76 - Conjunto Ceará - Fortaleza", "(85) 3235-0449"],
   },
   {
     titulo: "Desenvolvimento/Suporte técnico",
-    linhas: ["João Victo", "suporte@quartaetapa.com.br"],
+    linhas: ["João Victor", "suporte@quartaetapa.com.br"],
     email: "suporte@quartaetapa.com.br",
   },
   {
     titulo: "Administrativo",
-    linhas: ["Fabiana Carvalho", "fabiana.carvalho@quartaetapa.com.br"],
-    email: "fabiana.carvalho@quartaetapa.com.br",
+    linhas: ["contato@quartaetpa.com.br"],
+    email: "contato@quartaetpa.com.br",
   },
 ];
 
@@ -39,6 +40,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [entrando, setEntrando] = useState(false);
+  const [enviandoLinkMagico, setEnviandoLinkMagico] = useState(false);
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
 
@@ -134,6 +136,29 @@ export default function LoginPage() {
     }
   }
 
+  async function entrarComLinkMagico() {
+    if (!email.trim()) {
+      setErro("Informe seu e-mail para receber o link de acesso.");
+      setAviso("");
+      return;
+    }
+
+    setErro("");
+    setAviso("");
+    setEnviandoLinkMagico(true);
+
+    await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/auth/confirm`,
+      },
+    });
+
+    setEnviandoLinkMagico(false);
+    setAviso(mensagemLinkMagico);
+  }
+
   async function recuperarSenha() {
     if (!email.trim()) {
       setErro("Informe seu e-mail para receber as instruções de recuperação.");
@@ -141,7 +166,7 @@ export default function LoginPage() {
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/login`,
+      redirectTo: `${window.location.origin}/auth/confirm?next=/auth/alterar-senha`,
     });
 
     if (error) {
@@ -299,6 +324,16 @@ export default function LoginPage() {
             <div className="mt-5 flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
+                onClick={entrarComLinkMagico}
+                disabled={enviandoLinkMagico}
+                className="min-h-11 text-left font-semibold text-blue-600 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {enviandoLinkMagico
+                  ? "Enviando link..."
+                  : "Entrar por link mágico"}
+              </button>
+              <button
+                type="button"
                 onClick={recuperarSenha}
                 className="min-h-11 text-left font-semibold text-gray-600 hover:text-gray-900"
               >
@@ -338,7 +373,6 @@ export default function LoginPage() {
                 <Link href="/termos-uso" className="hover:text-blue-600">
                   Termos de Uso
                 </Link>
-                <span>Tela de Login {LOGIN_PAGE_VERSION}</span>
               </div>
             </footer>
           </div>

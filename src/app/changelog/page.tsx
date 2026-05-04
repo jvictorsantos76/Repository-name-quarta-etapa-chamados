@@ -4,12 +4,50 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 const versoes = [
   {
     versao: APP_VERSION,
+    data: "04/05/2026",
+    alteracoes: [
+      "Administração de usuários passa a gerar link manual de acesso quando o envio automático de convite pelo Supabase falhar por limite ou configuração de e-mail.",
+      "Solicitações aprovadas registram o link manual de acesso apenas para admin/gestor, mantendo o vínculo com Auth, public.perfis e data de provisionamento.",
+    ],
+    correcoes: [
+      "Aprovação de novos usuários deixa de ficar bloqueada quando o provedor de e-mail padrão do Supabase retorna email rate limit exceeded ou Error sending invite email.",
+      "Provisionamento administrativo passa a ter permissão service_role para criar public.perfis e vincular aceites legais, além de registrar link manual mesmo quando o envio automático informa sucesso.",
+    ],
+  },
+  {
+    versao: "v0.7.1",
+    data: "03/05/2026",
+    alteracoes: [
+      "Revisão do fluxo Supabase Auth separando solicitação pública, aprovação administrativa, convite por e-mail, callback de sessão e autorização por public.perfis.",
+      "Tela de Login v0.2.0 passa a oferecer Magic Link/OTP para e-mails já autorizados, sem auto-criação de usuário.",
+      "Callback /auth/confirm passa a validar token_hash, code, tipo de OTP, sessão e perfil ativo antes de liberar acesso.",
+      "Recuperação de senha passa a direcionar para alteração autenticada em /auth/alterar-senha.",
+      "Administração de usuários passa a permitir reprovisionar solicitações aprovadas sem auth_user_id, perfil_id ou provisionado_em.",
+      "Changelog registra a necessidade operacional de configurar SMTP próprio, Redirect URLs e templates Supabase Auth fora do repositório.",
+    ],
+    correcoes: [
+      "Solicitação aprovada sem provisionamento volta a ter ação de retry em vez de ficar bloqueada na interface administrativa.",
+    ],
+  },
+  {
+    versao: "v0.7.0",
+    data: "01/05/2026",
+    alteracoes: [
+      "Aprovação de solicitações passa a enviar convite Supabase Auth e criar perfil operacional ativo com papel operador.",
+      "Solicitações de acesso passam a registrar vínculo com usuário Auth, perfil, data de provisionamento e erro de provisionamento quando ocorrer.",
+      "Cadastro passa a informar que usuários aprovados recebem convite por e-mail para definir acesso.",
+      "Termos de Uso e Política de Privacidade foram ampliados com referências objetivas a LGPD/GDPR, direitos dos titulares, bases legais e contato.",
+    ],
+    correcoes: [],
+  },
+  {
+    versao: "v0.6.1",
     data: "28/04/2026",
     alteracoes: [
       "Tela de Login v0.1.0 com logo ampliado, caminhos separados para usuários cadastrados e novos usuários.",
       "Inclusão de contatos de desenvolvimento/suporte técnico e administrativo no painel institucional do login.",
       "Referência curta a LGPD/GDPR na autenticação, com manutenção dos links para Política de Privacidade e Termos de Uso.",
-      "Rodapé do login passa a exibir versionamento específico da tela, separado da versão geral da aplicação.",
+      "Badge global passa a exibir a versão específica da tela de login no mesmo local do versionamento geral, sem sobrepor o conteúdo no mobile.",
     ],
     correcoes: [],
   },
