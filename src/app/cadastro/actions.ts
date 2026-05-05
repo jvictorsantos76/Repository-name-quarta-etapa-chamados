@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { LEGAL_DOCUMENTS_VERSION } from "@/config/version";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabasePublicServerClient } from "@/lib/supabase/server";
 
 export type CadastroSolicitacaoInput = {
   nome_completo: string;
@@ -44,26 +44,11 @@ export async function enviarSolicitacaoAcesso(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabasePublicServerClient();
   const headersList = await headers();
   const solicitacaoId = crypto.randomUUID();
   const email = campos.email.trim().toLowerCase();
   const userAgent = headersList.get("user-agent");
-  const { data: expiraEm, error: erroExpiracao } = await supabase.rpc(
-    "calcular_expiracao_horas_uteis",
-    {
-      inicio: new Date().toISOString(),
-      horas_uteis: 72,
-    }
-  );
-
-  if (erroExpiracao || !expiraEm) {
-    return {
-      ok: false,
-      mensagem:
-        "Não foi possível calcular o prazo da solicitação. Tente novamente.",
-    };
-  }
 
   const { error: erroSolicitacao } = await supabase
     .from("solicitacoes_acesso")
@@ -77,8 +62,7 @@ export async function enviarSolicitacaoAcesso(
       loja_unidade: campos.loja_unidade.trim() || null,
       cargo: campos.cargo.trim() || null,
       motivo_acesso: campos.motivo_acesso.trim() || null,
-      status: "pendente",
-      expira_em: expiraEm,
+      status: "pendente_aprovacao",
       aceite_termos: campos.aceite_termos,
       aceite_privacidade: campos.aceite_privacidade,
       user_agent: userAgent,

@@ -1,49 +1,120 @@
-import { revalidatePath } from "next/cache";
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { PERFIL_USUARIO_PAGE_VERSION } from "@/config/version";
-import { LABEL_PAPEL_USUARIO } from "@/lib/auth/permissions";
+import {
+  isPapelUsuario,
+  LABEL_PAPEL_USUARIO,
+  podeAdministrarUsuarios,
+} from "@/lib/auth/permissions";
+import type { PerfilAutenticado } from "@/lib/auth/types";
 import {
   createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
+import { PerfilUsuarioForm } from "./PerfilUsuarioForm";
 
-async function atualizarPerfil(formData: FormData) {
-  "use server";
+type PageProps = {
+  searchParams?: Promise<{
+    usuario?: string | string[];
+  }>;
+};
 
-  const perfil = await requirePerfilAutenticado();
-  const telefone = String(formData.get("telefone") ?? "").trim();
-  const avatarUrl = String(formData.get("avatar_url") ?? "").trim();
-  const biografia = String(formData.get("biografia") ?? "").trim();
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  if (avatarUrl && !/^https?:\/\/.+/i.test(avatarUrl)) {
-    return;
+function getIniciais(nome: string) {
+  const iniciais = nome
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase())
+    .join("");
+
+  return iniciais || "QE";
+}
+
+function normalizarUsuarioParam(usuario: string | string[] | undefined) {
+  return Array.isArray(usuario) ? usuario[0] : usuario;
+}
+
+async function carregarPerfilAlvo(
+  perfilAtual: PerfilAutenticado,
+  usuarioParam: string | undefined
+) {
+  const podeEditarOutroPerfil = podeAdministrarUsuarios(perfilAtual.papel);
+
+  if (!usuarioParam) {
+    return {
+      perfil: perfilAtual,
+      aviso: undefined,
+      modoAdministrativo: podeEditarOutroPerfil,
+    };
+  }
+
+  if (!UUID_REGEX.test(usuarioParam)) {
+    return {
+      perfil: perfilAtual,
+      aviso: "Usuário informado na URL é inválido. Exibindo seu próprio perfil.",
+      modoAdministrativo: podeEditarOutroPerfil,
+    };
+  }
+
+  if (usuarioParam === perfilAtual.id) {
+    return {
+      perfil: perfilAtual,
+      aviso: undefined,
+      modoAdministrativo: podeEditarOutroPerfil,
+    };
+  }
+
+  if (!podeEditarOutroPerfil) {
+    return {
+      perfil: perfilAtual,
+      aviso:
+        "Você não tem permissão para visualizar ou editar o perfil de outro usuário.",
+      modoAdministrativo: false,
+    };
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("perfis")
-    .update({
-      telefone: telefone || null,
-      avatar_url: avatarUrl || null,
-      biografia: biografia || null,
-    })
-    .eq("id", perfil.id);
+    .select(
+      "id, nome_completo, email, papel, ativo, telefone, avatar_url, biografia, cargo, cliente_id, loja_id"
+    )
+    .eq("id", usuarioParam)
+    .maybeSingle();
 
-  if (error) {
-    return;
+  if (error || !data || !isPapelUsuario(data.papel)) {
+    return {
+      perfil: perfilAtual,
+      aviso:
+        "Não foi possível carregar o usuário solicitado. Verifique a permissão e o ID informado.",
+      modoAdministrativo: podeEditarOutroPerfil,
+    };
   }
 
-  revalidatePath("/perfil");
+  return {
+    perfil: data as PerfilAutenticado,
+    aviso: undefined,
+    modoAdministrativo: true,
+  };
 }
 
-export default async function PerfilPage() {
-  const perfil = await requirePerfilAutenticado();
+export default async function PerfilPage({ searchParams }: PageProps) {
+  const perfilAtual = await requirePerfilAutenticado();
+  const parametros = await searchParams;
+  const usuarioParam = normalizarUsuarioParam(parametros?.usuario);
+  const { perfil, aviso, modoAdministrativo } = await carregarPerfilAlvo(
+    perfilAtual,
+    usuarioParam
+  );
+  const editandoOutroPerfil = perfil.id !== perfilAtual.id;
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">
-      <AppHeader perfil={perfil} />
-      <section className="mx-auto max-w-4xl px-6 pb-8 md:px-8">
+      <AppHeader perfil={perfilAtual} />
+      <section className="mx-auto max-w-6xl px-6 pb-10 md:px-8">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link href="/" className="text-sm font-semibold text-blue-600">
             Voltar para chamados
@@ -53,101 +124,103 @@ export default async function PerfilPage() {
           </span>
         </div>
 
-        <div className="rounded-xl bg-white p-6 shadow">
-          <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-            Perfil de usuário
-          </p>
-          <h1 className="mt-2 text-2xl font-bold">Dados básicos</h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Consulte seu nível de acesso e mantenha dados pessoais básicos
-            atualizados. O nível operacional é definido pela administração.
-          </p>
-
-          <div className="mt-6 grid gap-4 text-sm md:grid-cols-2">
-            <Info label="Nome" value={perfil.nome_completo} />
-            <Info label="E-mail" value={perfil.email ?? "Não informado"} />
-            <Info label="Nível" value={LABEL_PAPEL_USUARIO[perfil.papel]} />
-            <Info label="Cargo" value={perfil.cargo ?? "Não informado"} />
+        <div className="mb-6 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="border-b border-gray-200 bg-gray-950 px-6 py-6 text-white">
+            <p className="text-xs font-semibold uppercase text-blue-200">
+              Perfil de usuário
+            </p>
+            <h1 className="mt-2 text-2xl font-bold">
+              Account / Personal info
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm text-gray-200">
+              Consulte dados básicos, segurança e preferências do perfil
+              operacional vinculado ao Supabase.
+            </p>
           </div>
 
-          <form action={atualizarPerfil} className="mt-8 space-y-5">
-            <div className="grid gap-4 md:grid-cols-2">
-              <CampoTexto
-                label="Telefone"
-                name="telefone"
-                defaultValue={perfil.telefone ?? ""}
-              />
-              <CampoTexto
-                label="URL da foto"
-                name="avatar_url"
-                defaultValue={perfil.avatar_url ?? ""}
-                placeholder="https://..."
-              />
+          <div className="flex flex-col gap-5 px-6 py-6 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-4">
+              <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-950 text-xl font-bold text-white ring-4 ring-gray-100">
+                {perfil.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={perfil.avatar_url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  getIniciais(perfil.nome_completo)
+                )}
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="break-words text-xl font-bold text-gray-950">
+                    {perfil.nome_completo}
+                  </h2>
+                  {editandoOutroPerfil ? (
+                    <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                      Admin
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-1 text-sm font-medium text-gray-700">
+                  {LABEL_PAPEL_USUARIO[perfil.papel]}
+                  {perfil.cargo ? ` · ${perfil.cargo}` : ""}
+                </p>
+                <p className="mt-1 break-words text-sm text-gray-500">
+                  {perfil.email ?? "E-mail não informado"}
+                </p>
+              </div>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-semibold">
-                Biografia
-              </label>
-              <textarea
-                name="biografia"
-                defaultValue={perfil.biografia ?? ""}
-                rows={4}
-                maxLength={500}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
+            <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 md:max-w-xs">
+              <span className="block text-xs font-semibold uppercase text-gray-500">
+                Escopo de edição
+              </span>
+              <span className="mt-1 block font-medium text-gray-950">
+                {editandoOutroPerfil
+                  ? "Perfil de outro usuário"
+                  : "Meu próprio perfil"}
+              </span>
             </div>
+          </div>
+        </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <button
-                type="submit"
-                className="min-h-11 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gray-800"
+        <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+          <aside className="h-fit rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase text-gray-500">
+              Configurações
+            </p>
+            <nav className="mt-4 space-y-2 text-sm font-medium">
+              <a
+                href="#dados-basicos"
+                className="block rounded-lg bg-gray-950 px-3 py-2 text-white"
               >
-                Salvar perfil
-              </button>
-              <Link
-                href="/auth/alterar-senha"
-                className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                Dados básicos
+              </a>
+              <a
+                href="#seguranca"
+                className="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-50"
               >
-                Alterar senha
-              </Link>
-            </div>
-          </form>
+                Segurança
+              </a>
+              <a
+                href="#preferencias"
+                className="block rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-50"
+              >
+                Preferências / Perfil
+              </a>
+            </nav>
+          </aside>
+
+          <PerfilUsuarioForm
+            perfil={perfil}
+            perfilAtual={perfilAtual}
+            modoAdministrativo={modoAdministrativo}
+            aviso={aviso}
+          />
         </div>
       </section>
     </main>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-      <dt className="text-xs font-semibold uppercase text-gray-500">{label}</dt>
-      <dd className="mt-1 font-medium text-gray-900">{value}</dd>
-    </div>
-  );
-}
-
-function CampoTexto({
-  label,
-  name,
-  defaultValue,
-  placeholder,
-}: {
-  label: string;
-  name: string;
-  defaultValue: string;
-  placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm font-semibold">{label}</label>
-      <input
-        name={name}
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-      />
-    </div>
   );
 }

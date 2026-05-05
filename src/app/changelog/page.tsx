@@ -4,6 +4,15 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 const versoes = [
   {
     versao: APP_VERSION,
+    data: "05/05/2026",
+    alteracoes: [],
+    correcoes: [
+      "Cadastro de Usuário v0.2.1 volta a registrar solicitações públicas no schema atual, sem depender da função de expiração removida do banco.",
+      "Solicitações públicas passam a ser criadas com status pendente_aprovacao, preservando o fluxo de aprovação sem liberar acesso automático.",
+    ],
+  },
+  {
+    versao: "v0.8.0",
     data: "04/05/2026",
     alteracoes: [
       "Cadastro de Usuário v0.2.0 passa a salvar expiração de 72 horas úteis calculada no banco e mantém o fluxo público sem liberação automática.",
