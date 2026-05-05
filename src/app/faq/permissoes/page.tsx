@@ -2,9 +2,14 @@ import Link from "next/link";
 
 const permissoes = [
   {
+    papel: "Super-Admin",
+    descricao:
+      "Tem acesso administrativo máximo e deve ser reservado para manutenção da plataforma e gestão de usuários.",
+  },
+  {
     papel: "Admin",
     descricao:
-      "Tem acesso total ao sistema e deve ser reservado para administração da plataforma.",
+      "Administra usuários, aprova solicitações e acompanha a operação interna.",
   },
   {
     papel: "Gestor",
@@ -24,7 +29,17 @@ const permissoes = [
   {
     papel: "Operador",
     descricao:
-      "Executa apoio operacional limitado e não atribui responsáveis técnicos ou analistas.",
+      "Papel legado mantido para compatibilidade; não deve ser usado em novos provisionamentos.",
+  },
+  {
+    papel: "Cliente",
+    descricao:
+      "Abre e acompanha chamados próprios, sem acesso administrativo ou visão operacional ampla.",
+  },
+  {
+    papel: "Solicitante",
+    descricao:
+      "Abre e acompanha chamados próprios, com acesso restrito ao seu atendimento.",
   },
 ];
 

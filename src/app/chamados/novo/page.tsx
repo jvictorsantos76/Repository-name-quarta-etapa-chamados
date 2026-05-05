@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { requirePerfilAutenticado } from "@/lib/supabase/server";
+import { AppHeader } from "@/components/AppHeader";
 import { NovoChamadoForm } from "./NovoChamadoForm";
 
 export default async function NovoChamado() {
   const perfilAtual = await requirePerfilAutenticado();
 
   return (
-    <main className="min-h-screen bg-gray-100 p-6 text-gray-900 md:p-8">
-      <section className="mx-auto max-w-4xl">
+    <main className="min-h-screen bg-gray-100 text-gray-900">
+      <AppHeader perfil={perfilAtual} />
+      <section className="mx-auto max-w-4xl px-6 pb-8 md:px-8">
         <div className="mb-6">
           <Link href="/" className="text-sm font-semibold text-blue-600">
             Voltar para chamados

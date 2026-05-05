@@ -6,12 +6,14 @@ const versoes = [
     versao: APP_VERSION,
     data: "04/05/2026",
     alteracoes: [
-      "Administração de usuários passa a gerar link manual de acesso quando o envio automático de convite pelo Supabase falhar por limite ou configuração de e-mail.",
-      "Solicitações aprovadas registram o link manual de acesso apenas para admin/gestor, mantendo o vínculo com Auth, public.perfis e data de provisionamento.",
+      "Cadastro de Usuário v0.2.0 passa a salvar expiração de 72 horas úteis calculada no banco e mantém o fluxo público sem liberação automática.",
+      "Solicitações de Acesso v0.2.0 passam a exigir nível antes da aprovação, motivo na rejeição e exibir status, expiração, responsáveis e provisionamento.",
+      "Perfil de Usuário v0.1.0 adiciona botão no topo com nome, nível e avatar/iniciais, além de edição básica de telefone, foto por URL e biografia.",
+      "Níveis super_admin, admin, gestor, analista, tecnico, cliente e solicitante passam a ser tratados por helpers centralizados, mantendo operador como legado.",
     ],
     correcoes: [
-      "Aprovação de novos usuários deixa de ficar bloqueada quando o provedor de e-mail padrão do Supabase retorna email rate limit exceeded ou Error sending invite email.",
-      "Provisionamento administrativo passa a ter permissão service_role para criar public.perfis e vincular aceites legais, além de registrar link manual mesmo quando o envio automático informa sucesso.",
+      "Botão visual de Google OAuth fica oculto até haver implementação adequada do provedor.",
+      "Administração de usuários fica restrita a super_admin e admin, preservando autorização operacional em public.perfis.",
     ],
   },
   {

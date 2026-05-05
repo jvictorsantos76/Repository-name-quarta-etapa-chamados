@@ -5,7 +5,8 @@ import {
   type Session,
   type SupabaseClient,
 } from "@supabase/supabase-js";
-import type { PapelUsuario, PerfilAutenticado } from "@/lib/auth/types";
+import type { PerfilAutenticado } from "@/lib/auth/types";
+import { isPapelUsuario, podeAdministrarUsuarios } from "@/lib/auth/permissions";
 import {
   SUPABASE_ACCESS_TOKEN_COOKIE,
   SUPABASE_REFRESH_TOKEN_COOKIE,
@@ -118,16 +119,6 @@ export function createSupabaseAdminClient(): SupabaseClient {
   });
 }
 
-function isPapelUsuario(papel: string): papel is PapelUsuario {
-  return (
-    papel === "admin" ||
-    papel === "gestor" ||
-    papel === "operador" ||
-    papel === "analista" ||
-    papel === "tecnico"
-  );
-}
-
 export async function requirePerfilAutenticado() {
   const accessToken = await getSupabaseAccessToken();
 
@@ -146,7 +137,9 @@ export async function requirePerfilAutenticado() {
 
   const { data: perfil, error: perfilError } = await supabase
     .from("perfis")
-    .select("id, nome_completo, papel, ativo")
+    .select(
+      "id, nome_completo, email, papel, ativo, telefone, avatar_url, biografia, cargo, cliente_id, loja_id"
+    )
     .eq("id", userData.user.id)
     .eq("ativo", true)
     .maybeSingle();
@@ -161,9 +154,11 @@ export async function requirePerfilAutenticado() {
 export async function requireAdminOuGestor() {
   const perfil = await requirePerfilAutenticado();
 
-  if (perfil.papel !== "admin" && perfil.papel !== "gestor") {
+  if (!podeAdministrarUsuarios(perfil.papel)) {
     redirect("/");
   }
 
   return perfil;
 }
+
+export const requireAdminUsuarios = requireAdminOuGestor;

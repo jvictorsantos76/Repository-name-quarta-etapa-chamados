@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { PerfilAutenticado } from "@/lib/auth/types";
+import type { PapelUsuario, PerfilAutenticado } from "@/lib/auth/types";
 import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   ativosPorCategoria,
@@ -14,7 +14,6 @@ import {
   getPrioridadeLabel,
 } from "../chamadoVisual";
 
-type PapelUsuario = "admin" | "gestor" | "operador" | "analista" | "tecnico";
 type TipoChamado = "incidente" | "requisicao_servico";
 type Impacto = "baixo" | "medio" | "alto";
 type Urgencia = "baixa" | "media" | "alta";
@@ -214,10 +213,13 @@ function isSchemaCacheError(message: string | undefined) {
 function normalizarPapel(papel: string): PapelUsuario | null {
   if (
     papel === "admin" ||
+    papel === "super_admin" ||
     papel === "gestor" ||
     papel === "operador" ||
     papel === "analista" ||
-    papel === "tecnico"
+    papel === "tecnico" ||
+    papel === "cliente" ||
+    papel === "solicitante"
   ) {
     return papel;
   }
@@ -226,7 +228,12 @@ function normalizarPapel(papel: string): PapelUsuario | null {
 }
 
 function podeAtribuirResponsaveis(papel: PapelUsuario | undefined) {
-  return papel === "admin" || papel === "gestor" || papel === "analista";
+  return (
+    papel === "super_admin" ||
+    papel === "admin" ||
+    papel === "gestor" ||
+    papel === "analista"
+  );
 }
 
 function montarUsuariosOperacionais(perfis: Perfil[]) {

@@ -18,7 +18,7 @@ type StatusUpdateFormProps = {
 };
 
 function podeAlterarStatusFaturado(papel: PapelUsuario) {
-  return papel === "analista" || papel === "admin";
+  return papel === "super_admin" || papel === "analista" || papel === "admin";
 }
 
 export function StatusUpdateForm({

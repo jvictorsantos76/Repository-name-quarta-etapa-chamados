@@ -49,6 +49,21 @@ export async function enviarSolicitacaoAcesso(
   const solicitacaoId = crypto.randomUUID();
   const email = campos.email.trim().toLowerCase();
   const userAgent = headersList.get("user-agent");
+  const { data: expiraEm, error: erroExpiracao } = await supabase.rpc(
+    "calcular_expiracao_horas_uteis",
+    {
+      inicio: new Date().toISOString(),
+      horas_uteis: 72,
+    }
+  );
+
+  if (erroExpiracao || !expiraEm) {
+    return {
+      ok: false,
+      mensagem:
+        "Não foi possível calcular o prazo da solicitação. Tente novamente.",
+    };
+  }
 
   const { error: erroSolicitacao } = await supabase
     .from("solicitacoes_acesso")
@@ -62,6 +77,8 @@ export async function enviarSolicitacaoAcesso(
       loja_unidade: campos.loja_unidade.trim() || null,
       cargo: campos.cargo.trim() || null,
       motivo_acesso: campos.motivo_acesso.trim() || null,
+      status: "pendente",
+      expira_em: expiraEm,
       aceite_termos: campos.aceite_termos,
       aceite_privacidade: campos.aceite_privacidade,
       user_agent: userAgent,

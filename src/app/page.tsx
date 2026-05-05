@@ -3,6 +3,8 @@ import {
   createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
+import type { PerfilAutenticado } from "@/lib/auth/types";
+import { AppHeader } from "@/components/AppHeader";
 import {
   formatarCategoria,
   getPrioridadeClass,
@@ -33,7 +35,7 @@ type Chamado = {
 };
 
 export default async function Home() {
-  await requirePerfilAutenticado();
+  const perfilAtual = await requirePerfilAutenticado();
   const supabase = await createSupabaseServerClient();
 
   const chamadosResposta = await supabase
@@ -96,7 +98,12 @@ export default async function Home() {
       );
     }
 
-    return <ChamadosHome chamados={(chamados as unknown as Chamado[] | null) ?? []} />;
+    return (
+      <ChamadosHome
+        chamados={(chamados as unknown as Chamado[] | null) ?? []}
+        perfilAtual={perfilAtual}
+      />
+    );
   }
 
   const { data: chamados, error } = chamadosResposta;
@@ -112,10 +119,21 @@ export default async function Home() {
     );
   }
 
-  return <ChamadosHome chamados={(chamados as unknown as Chamado[] | null) ?? []} />;
+  return (
+    <ChamadosHome
+      chamados={(chamados as unknown as Chamado[] | null) ?? []}
+      perfilAtual={perfilAtual}
+    />
+  );
 }
 
-function ChamadosHome({ chamados }: { chamados: Chamado[] }) {
+function ChamadosHome({
+  chamados,
+  perfilAtual,
+}: {
+  chamados: Chamado[];
+  perfilAtual: PerfilAutenticado;
+}) {
   const listaChamados = chamados;
   const totalPorStatus = Object.fromEntries(
     statusChamadoOpcoes.map((status) => [
@@ -125,8 +143,9 @@ function ChamadosHome({ chamados }: { chamados: Chamado[] }) {
   );
 
   return (
-    <main className="min-h-screen bg-gray-100 p-8 text-gray-900">
-      <section className="mx-auto max-w-6xl">
+    <main className="min-h-screen bg-gray-100 text-gray-900">
+      <AppHeader perfil={perfilAtual} />
+      <section className="mx-auto max-w-6xl px-6 pb-8 md:px-8">
         <div className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
             Quarta Etapa

@@ -15,6 +15,7 @@ const mensagemLinkMagico =
   "Se o e-mail estiver autorizado, enviaremos o link de acesso.";
 
 const TEMPO_VERIFICACAO_SESSAO_MS = 8000;
+const GOOGLE_OAUTH_HABILITADO = false;
 
 const contatos = [
   {
@@ -262,21 +263,28 @@ export default function LoginPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={continuarComGoogle}
-              className="mt-6 min-h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-50"
+            {GOOGLE_OAUTH_HABILITADO && (
+              <>
+                <button
+                  type="button"
+                  onClick={continuarComGoogle}
+                  className="mt-6 min-h-11 w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-50"
+                >
+                  Continuar com Google
+                </button>
+
+                <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  <span className="h-px flex-1 bg-gray-200" />
+                  ou
+                  <span className="h-px flex-1 bg-gray-200" />
+                </div>
+              </>
+            )}
+
+            <form
+              onSubmit={entrar}
+              className={GOOGLE_OAUTH_HABILITADO ? "space-y-4" : "mt-6 space-y-4"}
             >
-              Continuar com Google
-            </button>
-
-            <div className="my-6 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-              <span className="h-px flex-1 bg-gray-200" />
-              ou
-              <span className="h-px flex-1 bg-gray-200" />
-            </div>
-
-            <form onSubmit={entrar} className="space-y-4">
               {erro && (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {erro}
