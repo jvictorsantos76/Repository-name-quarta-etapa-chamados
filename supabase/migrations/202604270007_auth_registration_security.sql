@@ -11,9 +11,9 @@ create table if not exists public.solicitacoes_acesso (
   cargo text null,
   motivo_acesso text null,
   status text not null default 'pendente_aprovacao',
-  aprovado_por uuid null references public.perfis(id),
+  aprovado_por uuid null,
   aprovado_em timestamptz null,
-  rejeitado_por uuid null references public.perfis(id),
+  rejeitado_por uuid null,
   rejeitado_em timestamptz null,
   observacao_interna text null,
   aceite_termos boolean not null default false,
@@ -26,13 +26,28 @@ create table if not exists public.solicitacoes_acesso (
     check (status in ('pendente_aprovacao', 'aprovado', 'rejeitado', 'cancelado'))
 );
 
+do $$
+begin
+  if to_regclass('public.perfis') is not null then
+    alter table public.solicitacoes_acesso
+      add constraint solicitacoes_acesso_aprovado_por_fkey
+      foreign key (aprovado_por) references public.perfis(id);
+
+    alter table public.solicitacoes_acesso
+      add constraint solicitacoes_acesso_rejeitado_por_fkey
+      foreign key (rejeitado_por) references public.perfis(id);
+  end if;
+exception
+  when duplicate_object then null;
+end $$;
+
 create unique index if not exists solicitacoes_acesso_email_pendente_idx
   on public.solicitacoes_acesso (lower(email))
   where status = 'pendente_aprovacao';
 
 create table if not exists public.aceites_legais (
   id uuid primary key default gen_random_uuid(),
-  perfil_id uuid null references public.perfis(id),
+  perfil_id uuid null,
   solicitacao_acesso_id uuid null references public.solicitacoes_acesso(id),
   email text not null,
   tipo_documento text not null,
@@ -43,6 +58,17 @@ create table if not exists public.aceites_legais (
   constraint aceites_legais_tipo_documento_check
     check (tipo_documento in ('termos_uso', 'politica_privacidade'))
 );
+
+do $$
+begin
+  if to_regclass('public.perfis') is not null then
+    alter table public.aceites_legais
+      add constraint aceites_legais_perfil_id_fkey
+      foreign key (perfil_id) references public.perfis(id);
+  end if;
+exception
+  when duplicate_object then null;
+end $$;
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -62,27 +88,38 @@ before update on public.solicitacoes_acesso
 for each row
 execute function public.set_updated_at();
 
-create or replace function public.usuario_admin_ou_gestor_ativo()
-returns boolean
-language sql
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1
-    from public.perfis
-    where id = auth.uid()
-      and ativo = true
-      and papel in ('admin', 'gestor')
-  );
-$$;
+do $$
+begin
+  if to_regclass('public.perfis') is not null then
+    create or replace function public.usuario_admin_ou_gestor_ativo()
+    returns boolean
+    language sql
+    security definer
+    set search_path = public
+    as $function$
+      select exists (
+        select 1
+        from public.perfis
+        where id = auth.uid()
+          and ativo = true
+          and papel in ('admin', 'gestor')
+      );
+    $function$;
+  end if;
+end $$;
 
 grant usage on schema public to anon, authenticated;
 grant insert on table public.solicitacoes_acesso to anon;
 grant insert on table public.aceites_legais to anon;
 grant select, update on table public.solicitacoes_acesso to authenticated;
 grant select on table public.aceites_legais to authenticated;
-grant execute on function public.usuario_admin_ou_gestor_ativo() to authenticated;
+
+do $$
+begin
+  if to_regprocedure('public.usuario_admin_ou_gestor_ativo()') is not null then
+    grant execute on function public.usuario_admin_ou_gestor_ativo() to authenticated;
+  end if;
+end $$;
 
 alter table public.solicitacoes_acesso enable row level security;
 alter table public.aceites_legais enable row level security;
@@ -109,7 +146,7 @@ begin
       );
   end if;
 
-  if not exists (
+  if to_regprocedure('public.usuario_admin_ou_gestor_ativo()') is not null and not exists (
     select 1 from pg_policies
     where schemaname = 'public'
       and tablename = 'solicitacoes_acesso'
@@ -122,7 +159,7 @@ begin
       using (public.usuario_admin_ou_gestor_ativo());
   end if;
 
-  if not exists (
+  if to_regprocedure('public.usuario_admin_ou_gestor_ativo()') is not null and not exists (
     select 1 from pg_policies
     where schemaname = 'public'
       and tablename = 'solicitacoes_acesso'
@@ -157,7 +194,7 @@ begin
       );
   end if;
 
-  if not exists (
+  if to_regprocedure('public.usuario_admin_ou_gestor_ativo()') is not null and not exists (
     select 1 from pg_policies
     where schemaname = 'public'
       and tablename = 'aceites_legais'
