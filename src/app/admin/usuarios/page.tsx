@@ -26,10 +26,8 @@ type SolicitacaoAcesso = {
   loja_unidade: string | null;
   cargo: string | null;
   status: string;
-  nivel_acesso: PapelUsuario | null;
-  motivo_rejeicao: string | null;
+  observacao_interna: string | null;
   created_at: string;
-  expira_em: string | null;
   aprovado_por: string | null;
   aprovado_em: string | null;
   rejeitado_por: string | null;
@@ -38,9 +36,6 @@ type SolicitacaoAcesso = {
   perfil_id: string | null;
   provisionado_em: string | null;
   erro_provisionamento: string | null;
-  status_provisionamento: string | null;
-  provisionamento_tentado_em: string | null;
-  convite_reenviado_em: string | null;
   link_acesso_manual: string | null;
   link_acesso_manual_gerado_em: string | null;
 };
@@ -61,20 +56,16 @@ type Loja = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pendente: "Pendente",
+  pendente_aprovacao: "Pendente",
   aprovado: "Aprovado",
-  provisionado: "Provisionado",
   rejeitado: "Rejeitado",
-  expirado: "Expirado",
-  erro_envio_convite: "Erro no convite",
+  cancelado: "Cancelado",
 };
 
-const STATUS_PROVISIONAMENTO_LABEL: Record<string, string> = {
-  nao_iniciado: "Não iniciado",
-  pendente: "Pendente",
-  provisionado: "Provisionado",
-  erro_envio_convite: "Erro no convite",
-};
+const PAPEIS_PROVISIONAMENTO_DISPONIVEIS: PapelUsuario[] =
+  PAPEIS_PROVISIONAMENTO.filter((papel) =>
+    ["admin", "gestor", "analista", "tecnico"].includes(papel)
+  );
 
 function getBaseUrl(headersList: Headers) {
   const origin = headersList.get("origin");
@@ -205,27 +196,12 @@ async function convidarOuLocalizarUsuario(
   };
 }
 
-async function marcarSolicitacoesExpiradas() {
-  const supabase = await createSupabaseServerClient();
-
-  await supabase
-    .from("solicitacoes_acesso")
-    .update({
-      status: "expirado",
-      status_provisionamento: "nao_iniciado",
-    })
-    .eq("status", "pendente")
-    .lt("expira_em", new Date().toISOString());
-}
-
 async function atualizarSolicitacao(formData: FormData) {
   "use server";
 
   const perfil = await requireAdminUsuarios();
   const supabase = await createSupabaseServerClient();
   const supabaseAdmin = createSupabaseAdminClient();
-
-  await marcarSolicitacoesExpiradas();
 
   const id = String(formData.get("id") ?? "");
   const acao = String(formData.get("acao") ?? "");
@@ -245,7 +221,7 @@ async function atualizarSolicitacao(formData: FormData) {
           erro_provisionamento: "Informe o motivo obrigatório da rejeição.",
         })
         .eq("id", id)
-        .eq("status", "pendente");
+        .eq("status", "pendente_aprovacao");
 
       revalidatePath("/admin/usuarios");
       return;
@@ -255,14 +231,13 @@ async function atualizarSolicitacao(formData: FormData) {
       .from("solicitacoes_acesso")
       .update({
         status: "rejeitado",
-        motivo_rejeicao: motivoRejeicao,
+        observacao_interna: motivoRejeicao,
         rejeitado_por: perfil.id,
         rejeitado_em: agora,
-        status_provisionamento: "nao_iniciado",
         erro_provisionamento: null,
       })
       .eq("id", id)
-      .eq("status", "pendente");
+      .eq("status", "pendente_aprovacao");
 
     revalidatePath("/admin/usuarios");
     return;
@@ -275,7 +250,7 @@ async function atualizarSolicitacao(formData: FormData) {
 
   if (
     !isPapelUsuario(nivelAcesso) ||
-    !PAPEIS_PROVISIONAMENTO.includes(nivelAcesso)
+    !PAPEIS_PROVISIONAMENTO_DISPONIVEIS.includes(nivelAcesso)
   ) {
     await supabase
       .from("solicitacoes_acesso")
@@ -289,23 +264,10 @@ async function atualizarSolicitacao(formData: FormData) {
     return;
   }
 
-  if ((nivelAcesso === "cliente" || nivelAcesso === "solicitante") && !clienteId) {
-    await supabase
-      .from("solicitacoes_acesso")
-      .update({
-        erro_provisionamento:
-          "Informe o cliente antes de provisionar cliente ou solicitante.",
-      })
-      .eq("id", id);
-
-    revalidatePath("/admin/usuarios");
-    return;
-  }
-
   const { data: solicitacao, error: erroSolicitacao } = await supabase
     .from("solicitacoes_acesso")
     .select(
-      "id, nome_completo, email, telefone, cargo, status, expira_em, auth_user_id, perfil_id, provisionado_em, erro_provisionamento"
+      "id, nome_completo, email, telefone, cargo, status, auth_user_id, perfil_id, provisionado_em, erro_provisionamento"
     )
     .eq("id", id)
     .maybeSingle();
@@ -315,27 +277,9 @@ async function atualizarSolicitacao(formData: FormData) {
     return;
   }
 
-  if (
-    solicitacao.status === "expirado" ||
-    (solicitacao.expira_em && new Date(solicitacao.expira_em) < new Date())
-  ) {
-    await supabase
-      .from("solicitacoes_acesso")
-      .update({
-        status: "expirado",
-        erro_provisionamento:
-          "Solicitação expirada. Registre nova solicitação para aprovar o acesso.",
-      })
-      .eq("id", id);
-
-    revalidatePath("/admin/usuarios");
-    return;
-  }
-
   const podeProvisionar =
-    solicitacao.status === "pendente" ||
-    solicitacao.status === "aprovado" ||
-    solicitacao.status === "erro_envio_convite";
+    solicitacao.status === "pendente_aprovacao" ||
+    solicitacao.status === "aprovado";
 
   if (!podeProvisionar) {
     revalidatePath("/admin/usuarios");
@@ -353,13 +297,9 @@ async function atualizarSolicitacao(formData: FormData) {
   await supabase
     .from("solicitacoes_acesso")
     .update({
-      nivel_acesso: nivelAcesso,
       aprovado_por: perfil.id,
       aprovado_em: agora,
-      provisionamento_tentado_em: agora,
-      convite_reenviado_em:
-        solicitacao.status === "erro_envio_convite" ? agora : null,
-      status_provisionamento: "pendente",
+      erro_provisionamento: null,
     })
     .eq("id", id);
 
@@ -367,9 +307,7 @@ async function atualizarSolicitacao(formData: FormData) {
     await supabase
       .from("solicitacoes_acesso")
       .update({
-        status: "erro_envio_convite",
         erro_provisionamento: resultadoConvite.errorMessage,
-        status_provisionamento: "erro_envio_convite",
         link_acesso_manual: null,
         link_acesso_manual_gerado_em: null,
       })
@@ -395,10 +333,8 @@ async function atualizarSolicitacao(formData: FormData) {
     await supabase
       .from("solicitacoes_acesso")
       .update({
-        status: "aprovado",
         auth_user_id: resultadoConvite.user.id,
         erro_provisionamento: erroPerfil.message,
-        status_provisionamento: "erro_envio_convite",
         link_acesso_manual: null,
         link_acesso_manual_gerado_em: null,
       })
@@ -409,16 +345,15 @@ async function atualizarSolicitacao(formData: FormData) {
   }
 
   await supabase
-    .from("solicitacoes_acesso")
-    .update({
-      status: "provisionado",
+      .from("solicitacoes_acesso")
+      .update({
+      status: "aprovado",
       aprovado_por: perfil.id,
       aprovado_em: agora,
       auth_user_id: resultadoConvite.user.id,
       perfil_id: resultadoConvite.user.id,
       provisionado_em: agora,
       erro_provisionamento: null,
-      status_provisionamento: "provisionado",
       link_acesso_manual: resultadoConvite.linkAcessoManual,
       link_acesso_manual_gerado_em: resultadoConvite.linkAcessoManual
         ? agora
@@ -448,28 +383,6 @@ function formatarData(data: string | null) {
   }).format(new Date(data));
 }
 
-function formatarTempoRestante(expiraEm: string | null, status: string) {
-  if (!expiraEm) {
-    return "-";
-  }
-
-  if (status === "expirado") {
-    return "Expirada";
-  }
-
-  const diferencaMs = new Date(expiraEm).getTime() - Date.now();
-
-  if (diferencaMs <= 0) {
-    return "Expirada";
-  }
-
-  const horas = Math.floor(diferencaMs / (1000 * 60 * 60));
-  const dias = Math.floor(horas / 24);
-  const horasRestantes = horas % 24;
-
-  return dias > 0 ? `${dias}d ${horasRestantes}h` : `${horasRestantes}h`;
-}
-
 function getNomeResponsavel(
   id: string | null,
   responsaveis: Map<string, string>
@@ -478,21 +391,20 @@ function getNomeResponsavel(
 }
 
 function podeAprovar(solicitacao: SolicitacaoAcesso) {
-  return ["pendente", "aprovado", "erro_envio_convite"].includes(
+  return ["pendente_aprovacao", "aprovado"].includes(
     solicitacao.status
   );
 }
 
 export default async function AdminUsuariosPage() {
   const perfilAtual = await requireAdminUsuarios();
-  await marcarSolicitacoesExpiradas();
   const supabase = await createSupabaseServerClient();
 
   const [{ data, error }, clientesResposta, lojasResposta] = await Promise.all([
     supabase
       .from("solicitacoes_acesso")
       .select(
-        "id, nome_completo, email, telefone, empresa, cnpj, loja_unidade, cargo, status, nivel_acesso, motivo_rejeicao, created_at, expira_em, aprovado_por, aprovado_em, rejeitado_por, rejeitado_em, auth_user_id, perfil_id, provisionado_em, erro_provisionamento, status_provisionamento, provisionamento_tentado_em, convite_reenviado_em, link_acesso_manual, link_acesso_manual_gerado_em"
+        "id, nome_completo, email, telefone, empresa, cnpj, loja_unidade, cargo, status, observacao_interna, created_at, aprovado_por, aprovado_em, rejeitado_por, rejeitado_em, auth_user_id, perfil_id, provisionado_em, erro_provisionamento, link_acesso_manual, link_acesso_manual_gerado_em"
       )
       .order("created_at", { ascending: false }),
     supabase.from("clientes").select("id, nome_fantasia").order("nome_fantasia"),
@@ -582,27 +494,8 @@ export default async function AdminUsuariosPage() {
                       <Info label="Empresa" value={solicitacao.empresa} />
                       <Info label="CNPJ" value={solicitacao.cnpj ?? "-"} />
                       <Info
-                        label="Nível"
-                        value={
-                          solicitacao.nivel_acesso
-                            ? LABEL_PAPEL_USUARIO[solicitacao.nivel_acesso]
-                            : "Não definido"
-                        }
-                      />
-                      <Info
                         label="Criado em"
                         value={formatarData(solicitacao.created_at)}
-                      />
-                      <Info
-                        label="Expira em"
-                        value={formatarData(solicitacao.expira_em)}
-                      />
-                      <Info
-                        label="Tempo restante"
-                        value={formatarTempoRestante(
-                          solicitacao.expira_em,
-                          solicitacao.status
-                        )}
                       />
                       <Info
                         label="Aprovado por"
@@ -627,23 +520,15 @@ export default async function AdminUsuariosPage() {
                         value={formatarData(solicitacao.rejeitado_em)}
                       />
                       <Info
-                        label="Provisionamento"
-                        value={
-                          STATUS_PROVISIONAMENTO_LABEL[
-                            solicitacao.status_provisionamento ?? "nao_iniciado"
-                          ] ?? "Não iniciado"
-                        }
-                      />
-                      <Info
-                        label="Tentativa"
-                        value={formatarData(solicitacao.provisionamento_tentado_em)}
+                        label="Provisionado em"
+                        value={formatarData(solicitacao.provisionado_em)}
                       />
                     </dl>
 
-                    {solicitacao.motivo_rejeicao && (
+                    {solicitacao.observacao_interna && (
                       <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
                         <span className="font-semibold">Motivo da rejeição:</span>{" "}
-                        {solicitacao.motivo_rejeicao}
+                        {solicitacao.observacao_interna}
                       </div>
                     )}
 
@@ -677,12 +562,12 @@ export default async function AdminUsuariosPage() {
                         <select
                           name="nivel_acesso"
                           required
-                          defaultValue={solicitacao.nivel_acesso ?? ""}
+                          defaultValue=""
                           disabled={!podeAprovar(solicitacao)}
                           className="min-h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                         >
                           <option value="">Definir nível</option>
-                          {PAPEIS_PROVISIONAMENTO.map((papel) => (
+                          {PAPEIS_PROVISIONAMENTO_DISPONIVEIS.map((papel) => (
                             <option key={papel} value={papel}>
                               {LABEL_PAPEL_USUARIO[papel]}
                             </option>
@@ -728,9 +613,7 @@ export default async function AdminUsuariosPage() {
                         disabled={!podeAprovar(solicitacao)}
                         className="min-h-10 w-full rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {solicitacao.status === "erro_envio_convite"
-                          ? "Tentar novamente"
-                          : "Aprovar e provisionar"}
+                        Aprovar e provisionar
                       </button>
                     </form>
 
@@ -745,13 +628,13 @@ export default async function AdminUsuariosPage() {
                           name="motivo_rejeicao"
                           rows={3}
                           required
-                          disabled={solicitacao.status !== "pendente"}
+                          disabled={solicitacao.status !== "pendente_aprovacao"}
                           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                         />
                       </div>
                       <button
                         type="submit"
-                        disabled={solicitacao.status !== "pendente"}
+                        disabled={solicitacao.status !== "pendente_aprovacao"}
                         className="min-h-10 w-full rounded-lg bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Rejeitar
