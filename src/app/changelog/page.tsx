@@ -6,9 +6,12 @@ const versoes = [
     versao: APP_VERSION,
     data: "06/05/2026",
     alteracoes: [
+      "Perfil de Usuário v0.1.2 passa a ter upload de foto com Supabase Storage e prévia no formulário.",
       "Perfil de Usuário v0.1.1 passa a incluir seção Segurança com alteração de senha e encerramento manual de sessão.",
     ],
     correcoes: [
+      "Salvamento de telefone, biografia e foto do próprio perfil volta a respeitar RLS com update restrito aos campos básicos.",
+      "Avatar salvo em public.perfis.avatar_url passa a aparecer no cabeçalho e no avatar grande do perfil após reload.",
       "Logout manual executa signOut no navegador e no servidor, limpa cookies locais de sessão e redireciona para o login sem reativar login automático.",
       "Erros inesperados passam a exibir uma tela própria do Portal com ações para tentar novamente, voltar ao login ou retornar aos chamados.",
     ],
