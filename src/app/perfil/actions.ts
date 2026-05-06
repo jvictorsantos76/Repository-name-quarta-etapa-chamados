@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { podeAdministrarUsuarios } from "@/lib/auth/permissions";
 import type { CorPreferida, FonteEscala, TemaPreferido } from "@/lib/auth/types";
 import {
-  createSupabaseAdminClient,
+  createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
 
@@ -96,7 +96,7 @@ export async function atualizarPerfilUsuario(
     };
   }
 
-  const supabase = createSupabaseAdminClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("perfis")
     .update({
@@ -163,7 +163,7 @@ export async function atualizarFotoPerfil(
     };
   }
 
-  const supabase = createSupabaseAdminClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("perfis")
     .update({ avatar_url: avatarUrlNormalizada })
@@ -227,7 +227,7 @@ export async function atualizarPreferenciasPerfil(preferencias: {
     };
   }
 
-  const supabase = createSupabaseAdminClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("perfis")
     .update({

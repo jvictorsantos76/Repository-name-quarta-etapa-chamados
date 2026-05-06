@@ -125,6 +125,21 @@ function validarArquivoAvatar(file: File) {
   return "";
 }
 
+function mensagemErroOperacional(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "Não foi possível concluir a operação. Tente novamente.";
+  }
+
+  if (
+    error.message.includes("Server Components render") ||
+    error.message.includes("digest")
+  ) {
+    return "Não foi possível salvar a foto no momento. Verifique se as permissões de perfil e Storage foram publicadas e tente novamente.";
+  }
+
+  return error.message || "Não foi possível concluir a operação. Tente novamente.";
+}
+
 export function PerfilUsuarioForm({
   perfil,
   perfilAtual,
@@ -263,11 +278,7 @@ export function PerfilUsuarioForm({
       void enviarAvatar(arquivo).catch((error) => {
         console.error("Falha ao enviar foto do perfil.", error);
         setAvatarStatus("error");
-        setAvatarMensagem(
-          error instanceof Error
-            ? error.message
-            : "Não foi possível enviar a foto. Tente novamente."
-        );
+        setAvatarMensagem(mensagemErroOperacional(error));
       });
     });
   }
