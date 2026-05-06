@@ -9,7 +9,8 @@ const versoes = [
       "Perfil de Usuário v0.1.1 passa a incluir seção Segurança com alteração de senha e encerramento manual de sessão.",
     ],
     correcoes: [
-      "Logout manual executa signOut no Supabase, limpa cookies locais de sessão e redireciona para o login.",
+      "Logout manual executa signOut no navegador e no servidor, limpa cookies locais de sessão e redireciona para o login sem reativar login automático.",
+      "Erros inesperados passam a exibir uma tela própria do Portal com ações para tentar novamente, voltar ao login ou retornar aos chamados.",
     ],
   },
   {

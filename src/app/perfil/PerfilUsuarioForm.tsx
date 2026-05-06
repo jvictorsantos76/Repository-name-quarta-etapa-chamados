@@ -10,7 +10,6 @@ import {
 } from "@/lib/supabase/client";
 import {
   atualizarPerfilUsuario,
-  encerrarSessaoUsuario,
   type PerfilActionState,
 } from "./actions";
 
@@ -166,11 +165,7 @@ function SecaoSeguranca() {
         return;
       }
 
-      const resultado = await encerrarSessaoUsuario();
-
-      if (resultado?.status === "error") {
-        setErroLogout(resultado.message);
-      }
+      window.location.assign("/auth/logout");
     });
   }
 

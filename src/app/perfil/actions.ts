@@ -1,21 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { podeAdministrarUsuarios } from "@/lib/auth/permissions";
 import {
-  clearSupabaseSessionCookies,
   createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
 
 export type PerfilActionState = {
   status: "idle" | "success" | "validation_error" | "permission_error" | "error";
-  message: string;
-};
-
-export type LogoutActionState = {
-  status: "idle" | "error";
   message: string;
 };
 
@@ -126,13 +119,4 @@ export async function atualizarPerfilUsuario(
     status: "success",
     message: "Perfil salvo com sucesso.",
   };
-}
-
-export async function encerrarSessaoUsuario(): Promise<LogoutActionState> {
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
-
-  await clearSupabaseSessionCookies();
-
-  redirect("/login");
 }
