@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { useActionState, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { LABEL_PAPEL_USUARIO } from "@/lib/auth/permissions";
 import type { PerfilAutenticado } from "@/lib/auth/types";
 import {
   createSupabaseBrowserClient,
   syncSupabaseSessionCookies,
+  useSupabaseBrowserClient,
 } from "@/lib/supabase/client";
 import {
+  atualizarFotoPerfil,
   atualizarPerfilUsuario,
   type PerfilActionState,
 } from "./actions";
@@ -18,6 +21,17 @@ const ESTADO_INICIAL: PerfilActionState = {
   message: "",
 };
 
+const AVATAR_BUCKET = "perfis";
+const AVATAR_FALLBACK_BUCKET = "evidencias-chamados";
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const avatarExtensoesAceitas = new Set(["jpg", "jpeg", "png", "webp"]);
+const avatarMimeTypesAceitos = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+const acceptAvatar = ".jpg,.jpeg,.png,.webp";
+
 type PerfilUsuarioFormProps = {
   perfil: PerfilAutenticado;
   perfilAtual: PerfilAutenticado;
@@ -25,17 +39,165 @@ type PerfilUsuarioFormProps = {
   aviso?: string;
 };
 
+function getIniciais(nome: string) {
+  const iniciais = nome
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase())
+    .join("");
+
+  return iniciais || "QE";
+}
+
+function obterExtensao(nomeArquivo: string) {
+  return nomeArquivo.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function normalizarNomeArquivo(nomeArquivo: string) {
+  return nomeArquivo
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .toLowerCase();
+}
+
+function formatarTamanho(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function validarArquivoAvatar(file: File) {
+  const extensao = obterExtensao(file.name);
+
+  if (!avatarExtensoesAceitas.has(extensao)) {
+    return "Envie uma imagem JPG, PNG ou WEBP.";
+  }
+
+  if (file.type && !avatarMimeTypesAceitos.has(file.type)) {
+    return "O arquivo selecionado não parece ser uma imagem permitida.";
+  }
+
+  if (file.size > AVATAR_MAX_BYTES) {
+    return `A foto deve ter no máximo ${formatarTamanho(AVATAR_MAX_BYTES)}.`;
+  }
+
+  return "";
+}
+
 export function PerfilUsuarioForm({
   perfil,
   perfilAtual,
   modoAdministrativo,
   aviso,
 }: PerfilUsuarioFormProps) {
+  const router = useRouter();
+  const supabase = useSupabaseBrowserClient();
   const [state, formAction, pending] = useActionState(
     atualizarPerfilUsuario,
     ESTADO_INICIAL
   );
   const editandoOutroPerfil = perfil.id !== perfilAtual.id;
+  const [avatarUrl, setAvatarUrl] = useState(perfil.avatar_url ?? "");
+  const [avatarMensagem, setAvatarMensagem] = useState("");
+  const [avatarStatus, setAvatarStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
+  const [avatarPendente, startAvatarTransition] = useTransition();
+  const podeEnviarAvatar = !editandoOutroPerfil;
+
+  async function enviarAvatar(arquivo: File) {
+    const nomeSeguro = normalizarNomeArquivo(arquivo.name);
+    const extensao = obterExtensao(nomeSeguro);
+    const nomeAvatar = `avatar-${Date.now()}.${extensao}`;
+    const caminhoArquivo = `perfis/${perfilAtual.id}/${nomeAvatar}`;
+    const caminhoFallback = `chamados/perfis/${perfilAtual.id}/${nomeAvatar}`;
+
+    const { error: erroUpload } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(caminhoArquivo, arquivo, {
+        contentType: arquivo.type || undefined,
+        upsert: false,
+      });
+
+    let bucketUsado = AVATAR_BUCKET;
+    let caminhoUsado = caminhoArquivo;
+
+    if (erroUpload?.message.toLowerCase().includes("bucket not found")) {
+      const { error: erroFallback } = await supabase.storage
+        .from(AVATAR_FALLBACK_BUCKET)
+        .upload(caminhoFallback, arquivo, {
+          contentType: arquivo.type || undefined,
+          upsert: false,
+        });
+
+      if (erroFallback) {
+        throw new Error(
+          "O bucket de fotos ainda não está disponível e o envio alternativo falhou. Aplique as migrations e tente novamente."
+        );
+      }
+
+      bucketUsado = AVATAR_FALLBACK_BUCKET;
+      caminhoUsado = caminhoFallback;
+    } else if (erroUpload) {
+      throw new Error(erroUpload.message);
+    }
+
+    const { data: arquivoPublico } = supabase.storage
+      .from(bucketUsado)
+      .getPublicUrl(caminhoUsado);
+
+    const resultado = await atualizarFotoPerfil(arquivoPublico.publicUrl);
+
+    if (resultado.status !== "success") {
+      throw new Error(resultado.message);
+    }
+
+    setAvatarUrl(arquivoPublico.publicUrl);
+    setAvatarStatus("success");
+    setAvatarMensagem("Foto salva com sucesso.");
+    router.refresh();
+  }
+
+  function selecionarAvatar(event: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!arquivo) {
+      return;
+    }
+
+    const erroValidacao = validarArquivoAvatar(arquivo);
+
+    if (erroValidacao) {
+      setAvatarStatus("error");
+      setAvatarMensagem(erroValidacao);
+      return;
+    }
+
+    setAvatarStatus("idle");
+    setAvatarMensagem("Enviando foto...");
+
+    startAvatarTransition(() => {
+      void enviarAvatar(arquivo).catch((error) => {
+        console.error("Falha ao enviar foto do perfil.", error);
+        setAvatarStatus("error");
+        setAvatarMensagem(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível enviar a foto. Tente novamente."
+        );
+      });
+    });
+  }
 
   return (
     <form
@@ -43,6 +205,7 @@ export function PerfilUsuarioForm({
       className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_333px]"
     >
       <input type="hidden" name="perfil_id" value={perfil.id} />
+      <input type="hidden" name="avatar_url" value={avatarUrl} />
 
       <div className="min-w-0">
         <div className="space-y-3">
@@ -100,14 +263,20 @@ export function PerfilUsuarioForm({
               helper="Definido pela administração conforme permissões em public.perfis."
               actionLabel="Admin"
             />
-            <LinhaCampoTexto
-              label="URL da foto"
-              name="avatar_url"
-              defaultValue={perfil.avatar_url ?? ""}
-              disabled={pending}
-              placeholder="https://..."
-              helper="Use uma URL pública para exibir a foto no cabeçalho e no perfil."
-              actionLabel={perfil.avatar_url ? "Editar" : "Adicionar"}
+            <LinhaUploadAvatar
+              avatarUrl={avatarUrl}
+              nome={perfil.nome_completo}
+              disabled={pending || avatarPendente || !podeEnviarAvatar}
+              uploading={avatarPendente}
+              mensagem={avatarMensagem}
+              status={avatarStatus}
+              onChange={selecionarAvatar}
+              actionLabel={avatarUrl ? "Editar" : "Adicionar"}
+              helper={
+                podeEnviarAvatar
+                  ? "Envie JPG, PNG ou WEBP. A foto será salva no perfil e exibida no cabeçalho."
+                  : "A foto só pode ser enviada pelo próprio usuário."
+              }
             />
             <LinhaTextarea
               label="Biografia"
@@ -124,7 +293,7 @@ export function PerfilUsuarioForm({
           <p className="text-sm text-gray-600" aria-live="polite">
             {pending
               ? "Salvando alterações..."
-              : "Somente telefone, URL da foto e biografia serão salvos."}
+              : "Somente telefone, foto e biografia serão salvos."}
           </p>
           <button
             type="submit"
@@ -279,6 +448,79 @@ function LinhaCampoTexto({
   );
 }
 
+function LinhaUploadAvatar({
+  avatarUrl,
+  nome,
+  disabled,
+  uploading,
+  mensagem,
+  status,
+  helper,
+  actionLabel,
+  onChange,
+}: {
+  avatarUrl: string;
+  nome: string;
+  disabled: boolean;
+  uploading: boolean;
+  mensagem: string;
+  status: "idle" | "success" | "error";
+  helper: string;
+  actionLabel: string;
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const mensagemClasse =
+    status === "success"
+      ? "text-emerald-700"
+      : status === "error"
+        ? "text-red-700"
+        : "text-gray-600";
+
+  return (
+    <div className="grid gap-3 py-6 sm:grid-cols-[minmax(0,1fr)_96px]">
+      <div className="min-w-0">
+        <label
+          htmlFor="avatar_upload"
+          className="block text-base font-medium text-gray-950"
+        >
+          Foto do perfil
+        </label>
+        <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
+          <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-950 text-lg font-bold text-white ring-4 ring-gray-100">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={avatarUrl}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              getIniciais(nome)
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <input
+              id="avatar_upload"
+              type="file"
+              accept={acceptAvatar}
+              disabled={disabled}
+              onChange={onChange}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 file:mr-3 file:rounded-md file:border-0 file:bg-gray-950 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white disabled:cursor-not-allowed disabled:bg-gray-100"
+            />
+            <p className="mt-2 text-sm text-gray-500">{helper}</p>
+            <p className={`mt-2 text-sm font-medium ${mensagemClasse}`} aria-live="polite">
+              {uploading ? "Enviando foto..." : mensagem}
+            </p>
+          </div>
+        </div>
+      </div>
+      <span className="text-left text-sm font-semibold text-gray-950 underline sm:text-right">
+        {uploading ? "Enviando" : actionLabel}
+      </span>
+    </div>
+  );
+}
+
 function LinhaTextarea({
   label,
   name,
@@ -352,7 +594,7 @@ function PainelPrivacidade() {
       <BlocoAjuda
         icone="!"
         titulo="Quais detalhes podem ser editados?"
-        texto="Telefone, URL da foto e biografia podem ser atualizados pelo próprio usuário. Nome, e-mail, cargo e nível dependem da administração."
+        texto="Telefone, foto e biografia podem ser atualizados pelo próprio usuário. Nome, e-mail, cargo e nível dependem da administração."
       />
       <BlocoAjuda
         icone="i"

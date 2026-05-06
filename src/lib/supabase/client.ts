@@ -60,6 +60,19 @@ export function syncSupabaseSessionCookies(session: Session | null) {
   );
 }
 
+export async function clearInvalidSupabaseBrowserSession(
+  supabase: SupabaseClient
+) {
+  syncSupabaseSessionCookies(null);
+
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch {
+    // A sessão local já foi descartada; erros de refresh token inválido não
+    // devem bloquear a navegação nem poluir o fluxo do usuário.
+  }
+}
+
 export function createSupabaseBrowserClient(): SupabaseClient {
   if (browserClient) {
     return browserClient;
@@ -77,11 +90,18 @@ export function useSupabaseBrowserClient(): SupabaseClient {
   useEffect(() => {
     let ativo = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (ativo) {
-        syncSupabaseSessionCookies(data.session);
-      }
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (ativo) {
+          syncSupabaseSessionCookies(data.session);
+        }
+      })
+      .catch(() => {
+        if (ativo) {
+          void clearInvalidSupabaseBrowserSession(supabase);
+        }
+      });
 
     const {
       data: { subscription },

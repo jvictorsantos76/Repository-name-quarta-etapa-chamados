@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  clearInvalidSupabaseBrowserSession,
   syncSupabaseSessionCookies,
   useSupabaseBrowserClient,
 } from "@/lib/supabase/client";
@@ -46,7 +47,10 @@ export default function LoginPage() {
   const [aviso, setAviso] = useState("");
 
   const redirecionarPorPerfil = useCallback(async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
+    const { data: sessionData } = await supabase.auth.getSession().catch(() => {
+      void clearInvalidSupabaseBrowserSession(supabase);
+      return { data: { session: null } };
+    });
     const userId = sessionData.session?.user.id;
 
     if (!userId) {
@@ -78,7 +82,10 @@ export default function LoginPage() {
 
     async function verificarSessao() {
       const session = await Promise.race([
-        supabase.auth.getSession().then(({ data }) => data.session),
+        supabase.auth.getSession().then(({ data }) => data.session).catch(() => {
+          void clearInvalidSupabaseBrowserSession(supabase);
+          return null;
+        }),
         new Promise<null>((resolve) => {
           timeoutId = setTimeout(resolve, TEMPO_VERIFICACAO_SESSAO_MS, null);
         }),

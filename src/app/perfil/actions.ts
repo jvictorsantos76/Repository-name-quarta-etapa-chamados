@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { podeAdministrarUsuarios } from "@/lib/auth/permissions";
 import {
-  createSupabaseServerClient,
+  createSupabaseAdminClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
 
@@ -81,7 +81,7 @@ export async function atualizarPerfilUsuario(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("perfis")
     .update({
@@ -94,6 +94,14 @@ export async function atualizarPerfilUsuario(
     .maybeSingle();
 
   if (error) {
+    console.error("Falha ao atualizar perfil.", {
+      code: error.code,
+      message: error.message,
+      perfilAtualId: perfilAtual.id,
+      perfilIdAlvo,
+      editandoOutroPerfil,
+    });
+
     const mensagem =
       error.code === "42501"
         ? "Permissão negada pelo banco de dados para atualizar este perfil."
@@ -106,10 +114,16 @@ export async function atualizarPerfilUsuario(
   }
 
   if (!data) {
+    console.error("Perfil não atualizado por RLS ou linha não encontrada.", {
+      perfilAtualId: perfilAtual.id,
+      perfilIdAlvo,
+      editandoOutroPerfil,
+    });
+
     return {
       status: "permission_error",
       message:
-        "O perfil não foi atualizado. Verifique se você tem permissão para este usuário.",
+        "Não foi possível salvar este perfil. Faça login novamente ou verifique se seu usuário está ativo.",
     };
   }
 
@@ -118,5 +132,63 @@ export async function atualizarPerfilUsuario(
   return {
     status: "success",
     message: "Perfil salvo com sucesso.",
+  };
+}
+
+export async function atualizarFotoPerfil(
+  avatarUrl: string
+): Promise<PerfilActionState> {
+  const perfilAtual = await requirePerfilAutenticado();
+  const avatarUrlNormalizada = avatarUrl.trim();
+
+  if (avatarUrlNormalizada.length > 2048 || !validarUrlAvatar(avatarUrlNormalizada)) {
+    return {
+      status: "validation_error",
+      message: "A foto enviada gerou uma URL inválida. Tente enviar novamente.",
+    };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("perfis")
+    .update({ avatar_url: avatarUrlNormalizada })
+    .eq("id", perfilAtual.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Falha ao atualizar foto do perfil.", {
+      code: error.code,
+      message: error.message,
+      perfilAtualId: perfilAtual.id,
+    });
+
+    return {
+      status: error.code === "42501" ? "permission_error" : "error",
+      message:
+        error.code === "42501"
+          ? "Permissão negada pelo banco de dados para salvar a foto."
+          : "Não foi possível salvar a foto do perfil. Tente novamente.",
+    };
+  }
+
+  if (!data) {
+    console.error("Foto do perfil não atualizada por RLS ou linha não encontrada.", {
+      perfilAtualId: perfilAtual.id,
+    });
+
+    return {
+      status: "permission_error",
+      message:
+        "Não foi possível salvar a foto. Faça login novamente ou verifique se seu usuário está ativo.",
+    };
+  }
+
+  revalidatePath("/perfil");
+  revalidatePath("/");
+
+  return {
+    status: "success",
+    message: "Foto salva com sucesso.",
   };
 }
