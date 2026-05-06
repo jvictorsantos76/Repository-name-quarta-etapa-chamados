@@ -142,7 +142,7 @@ export async function requirePerfilAutenticado() {
   const { data: perfil, error: perfilError } = await supabase
     .from("perfis")
     .select(
-      "id, nome_completo, email, papel, ativo, telefone, avatar_url, biografia, cargo, cliente_id, loja_id"
+      "id, nome_completo, email, papel, ativo, telefone, avatar_url, biografia, cargo, cliente_id, loja_id, tema_preferido, cor_preferida, fonte_escala"
     )
     .eq("id", userData.user.id)
     .eq("ativo", true)

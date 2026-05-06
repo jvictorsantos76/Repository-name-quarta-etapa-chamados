@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LABEL_PAPEL_USUARIO } from "@/lib/auth/permissions";
-import type { PerfilAutenticado } from "@/lib/auth/types";
+import type {
+  CorPreferida,
+  FonteEscala,
+  PerfilAutenticado,
+  TemaPreferido,
+} from "@/lib/auth/types";
 import {
   createSupabaseBrowserClient,
   syncSupabaseSessionCookies,
@@ -13,6 +18,7 @@ import {
 import {
   atualizarFotoPerfil,
   atualizarPerfilUsuario,
+  atualizarPreferenciasPerfil,
   type PerfilActionState,
 } from "./actions";
 
@@ -31,6 +37,32 @@ const avatarMimeTypesAceitos = new Set([
   "image/webp",
 ]);
 const acceptAvatar = ".jpg,.jpeg,.png,.webp";
+
+type PreferenciasPerfil = {
+  tema_preferido: TemaPreferido;
+  cor_preferida: CorPreferida;
+  fonte_escala: FonteEscala;
+};
+
+const OPCOES_TEMA: Array<{ valor: TemaPreferido; label: string }> = [
+  { valor: "system", label: "Sistema" },
+  { valor: "light", label: "Claro" },
+  { valor: "dark", label: "Escuro" },
+];
+
+const OPCOES_COR: Array<{ valor: CorPreferida; label: string }> = [
+  { valor: "quarta-etapa", label: "Azul Quarta Etapa" },
+  { valor: "verde", label: "Verde" },
+  { valor: "roxo", label: "Roxo" },
+  { valor: "laranja", label: "Laranja" },
+  { valor: "neutro", label: "Cinza/neutro" },
+];
+
+const OPCOES_FONTE: Array<{ valor: FonteEscala; label: string }> = [
+  { valor: "padrao", label: "Padrão" },
+  { valor: "grande", label: "Grande" },
+  { valor: "extra_grande", label: "Extra grande" },
+];
 
 type PerfilUsuarioFormProps = {
   perfil: PerfilAutenticado;
@@ -107,12 +139,53 @@ export function PerfilUsuarioForm({
   );
   const editandoOutroPerfil = perfil.id !== perfilAtual.id;
   const [avatarUrl, setAvatarUrl] = useState(perfil.avatar_url ?? "");
+  const [preferencias, setPreferencias] = useState<PreferenciasPerfil>({
+    tema_preferido: perfil.tema_preferido ?? "system",
+    cor_preferida: perfil.cor_preferida ?? "quarta-etapa",
+    fonte_escala: perfil.fonte_escala ?? "padrao",
+  });
+  const [preferenciasMensagem, setPreferenciasMensagem] = useState("");
+  const [preferenciasStatus, setPreferenciasStatus] = useState<
+    "idle" | "success" | "error"
+  >("idle");
   const [avatarMensagem, setAvatarMensagem] = useState("");
   const [avatarStatus, setAvatarStatus] = useState<
     "idle" | "success" | "error"
   >("idle");
   const [avatarPendente, startAvatarTransition] = useTransition();
+  const [preferenciasSalvando, setPreferenciasSalvando] = useState(false);
   const podeEnviarAvatar = !editandoOutroPerfil;
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    function aplicarAparencia() {
+      const shell = document.querySelector<HTMLElement>(".perfil-theme-shell");
+
+      if (!shell) {
+        return;
+      }
+
+      const temaEfetivo =
+        preferencias.tema_preferido === "system"
+          ? mediaQuery.matches
+            ? "dark"
+            : "light"
+          : preferencias.tema_preferido;
+
+      shell.dataset.theme = preferencias.tema_preferido;
+      shell.dataset.themeEffective = temaEfetivo;
+      shell.dataset.accent = preferencias.cor_preferida;
+      shell.dataset.fontScale = preferencias.fonte_escala;
+    }
+
+    aplicarAparencia();
+    mediaQuery.addEventListener("change", aplicarAparencia);
+
+    return () => {
+      mediaQuery.removeEventListener("change", aplicarAparencia);
+    };
+  }, [preferencias]);
 
   async function enviarAvatar(arquivo: File) {
     const nomeSeguro = normalizarNomeArquivo(arquivo.name);
@@ -199,6 +272,29 @@ export function PerfilUsuarioForm({
     });
   }
 
+  function alterarPreferencia(proximasPreferencias: PreferenciasPerfil) {
+    setPreferencias(proximasPreferencias);
+    setPreferenciasStatus("idle");
+    setPreferenciasMensagem("Salvando preferências...");
+    setPreferenciasSalvando(true);
+
+    void atualizarPreferenciasPerfil(proximasPreferencias)
+      .then((resultado) => {
+        if (resultado.status === "success") {
+          setPreferenciasStatus("success");
+          setPreferenciasMensagem("Preferências salvas.");
+          router.refresh();
+          return;
+        }
+
+        setPreferenciasStatus("error");
+        setPreferenciasMensagem(resultado.message);
+      })
+      .finally(() => {
+        setPreferenciasSalvando(false);
+      });
+  }
+
   return (
     <form
       action={formAction}
@@ -207,7 +303,7 @@ export function PerfilUsuarioForm({
       <input type="hidden" name="perfil_id" value={perfil.id} />
       <input type="hidden" name="avatar_url" value={avatarUrl} />
 
-      <div className="min-w-0">
+      <div className="perfil-scalable min-w-0">
         <div className="space-y-3">
           {aviso ? <Mensagem tipo="alerta" mensagem={aviso} /> : null}
           {modoAdministrativo && editandoOutroPerfil ? (
@@ -305,12 +401,211 @@ export function PerfilUsuarioForm({
         </div>
 
         {!editandoOutroPerfil ? (
-          <SecaoSeguranca />
+          <>
+            <SecaoPreferenciasAparencia
+              preferencias={preferencias}
+              pendente={preferenciasSalvando}
+              mensagem={preferenciasMensagem}
+              status={preferenciasStatus}
+              onChange={alterarPreferencia}
+            />
+            <SecaoSeguranca />
+          </>
         ) : null}
       </div>
 
       <PainelPrivacidade />
     </form>
+  );
+}
+
+function SecaoPreferenciasAparencia({
+  preferencias,
+  pendente,
+  mensagem,
+  status,
+  onChange,
+}: {
+  preferencias: PreferenciasPerfil;
+  pendente: boolean;
+  mensagem: string;
+  status: "idle" | "success" | "error";
+  onChange: (preferencias: PreferenciasPerfil) => void;
+}) {
+  const mensagemClasse =
+    status === "success"
+      ? "text-emerald-700"
+      : status === "error"
+        ? "text-red-700"
+        : "text-gray-600";
+
+  return (
+    <section
+      aria-labelledby="perfil-aparencia-heading"
+      className="perfil-preferences-card mt-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2
+            id="perfil-aparencia-heading"
+            className="text-base font-bold text-gray-950"
+          >
+            Preferências de aparência e acessibilidade
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-gray-600">
+            Ajuste o tema, a cor de destaque e o tamanho da fonte da sua
+            experiência no sistema.
+          </p>
+        </div>
+        <span className="w-fit rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600">
+          Perfil
+        </span>
+      </div>
+
+      <div className="mt-6 grid gap-6">
+        <div className="space-y-6">
+          <GrupoBotoesPreferencia
+            label="Tema"
+            opcoes={OPCOES_TEMA}
+            valorAtual={preferencias.tema_preferido}
+            disabled={pendente}
+            onSelect={(tema) =>
+              onChange({ ...preferencias, tema_preferido: tema as TemaPreferido })
+            }
+          />
+
+          <div>
+            <p className="text-sm font-semibold text-gray-950">
+              Cor de destaque
+            </p>
+            <div
+              className="mt-3 grid gap-3"
+              role="group"
+              aria-label="Cor de destaque"
+            >
+              {OPCOES_COR.map((opcao) => {
+                const ativo = preferencias.cor_preferida === opcao.valor;
+
+                return (
+                  <button
+                    key={opcao.valor}
+                    type="button"
+                    disabled={pendente}
+                    aria-pressed={ativo}
+                    onClick={() =>
+                      onChange({
+                        ...preferencias,
+                        cor_preferida: opcao.valor,
+                      })
+                    }
+                    className={`perfil-color-choice min-h-12 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      ativo
+                        ? "perfil-choice-active"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                    data-color={opcao.valor}
+                  >
+                    <span className="flex items-center gap-3">
+                      <span aria-hidden="true" className="perfil-color-dot" />
+                      {opcao.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <GrupoBotoesPreferencia
+            label="Tamanho da fonte"
+            opcoes={OPCOES_FONTE}
+            valorAtual={preferencias.fonte_escala}
+            disabled={pendente}
+            onSelect={(fonte) =>
+              onChange({
+                ...preferencias,
+                fonte_escala: fonte as FonteEscala,
+              })
+            }
+          />
+
+          <p className={`text-sm font-medium ${mensagemClasse}`} aria-live="polite">
+            {pendente ? "Salvando preferências..." : mensagem}
+          </p>
+        </div>
+
+        <div className="perfil-preview rounded-xl border border-gray-200 p-4">
+          <p className="text-xs font-semibold uppercase text-gray-500">
+            Prévia
+          </p>
+          <div className="mt-4 rounded-lg border border-gray-200 bg-white p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-gray-950">
+                  Card do sistema
+                </p>
+                <p className="mt-1 text-xs text-gray-600">
+                  Chamado #1046 · SLA em acompanhamento
+                </p>
+              </div>
+              <span className="perfil-preview-status rounded-full px-3 py-1 text-xs font-bold">
+                Ativo
+              </span>
+            </div>
+            <div className="mt-4 h-2 rounded-full bg-gray-100">
+              <div className="perfil-preview-bar h-2 w-2/3 rounded-full" />
+            </div>
+            <button
+              type="button"
+              className="perfil-preview-button mt-4 min-h-10 rounded-lg px-4 py-2 text-sm font-semibold"
+            >
+              Ver detalhes
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GrupoBotoesPreferencia<TValor extends string>({
+  label,
+  opcoes,
+  valorAtual,
+  disabled,
+  onSelect,
+}: {
+  label: string;
+  opcoes: Array<{ valor: TValor; label: string }>;
+  valorAtual: TValor;
+  disabled: boolean;
+  onSelect: (valor: TValor) => void;
+}) {
+  return (
+    <div>
+      <p className="text-sm font-semibold text-gray-950">{label}</p>
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={label}>
+        {opcoes.map((opcao) => {
+          const ativo = valorAtual === opcao.valor;
+
+          return (
+            <button
+              key={opcao.valor}
+              type="button"
+              disabled={disabled}
+              aria-pressed={ativo}
+              onClick={() => onSelect(opcao.valor)}
+              className={`min-h-11 rounded-lg border px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
+                ativo
+                  ? "perfil-choice-active"
+                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              {opcao.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 

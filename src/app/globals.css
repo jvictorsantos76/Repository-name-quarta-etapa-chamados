@@ -24,3 +24,210 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.perfil-theme-shell {
+  --perfil-bg: #f8fafc;
+  --perfil-surface: #ffffff;
+  --perfil-surface-muted: #f1f5f9;
+  --perfil-border: #d9e2ec;
+  --perfil-text: #111827;
+  --perfil-text-strong: #030712;
+  --perfil-text-muted: #526070;
+  --perfil-focus: rgb(37 99 235 / 0.22);
+  --perfil-accent: #2563eb;
+  --perfil-accent-hover: #1d4ed8;
+  --perfil-accent-contrast: #ffffff;
+  --perfil-accent-soft: rgb(37 99 235 / 0.12);
+  background: var(--perfil-bg);
+  color: var(--perfil-text);
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease;
+}
+
+.perfil-theme-shell[data-theme-effective="dark"] {
+  --perfil-bg: #0f1115;
+  --perfil-surface: #151922;
+  --perfil-surface-muted: #1d2330;
+  --perfil-border: #2b3442;
+  --perfil-text: #d7dde7;
+  --perfil-text-strong: #f7f8fb;
+  --perfil-text-muted: #9aa6b8;
+  --perfil-focus: rgb(96 165 250 / 0.34);
+  --perfil-accent-soft: rgb(96 165 250 / 0.16);
+}
+
+.perfil-theme-shell[data-accent="verde"] {
+  --perfil-accent: #84cc16;
+  --perfil-accent-hover: #65a30d;
+  --perfil-accent-contrast: #111827;
+  --perfil-accent-soft: rgb(132 204 22 / 0.16);
+  --perfil-focus: rgb(132 204 22 / 0.34);
+}
+
+.perfil-theme-shell[data-accent="roxo"] {
+  --perfil-accent: #8b5cf6;
+  --perfil-accent-hover: #7c3aed;
+  --perfil-accent-contrast: #ffffff;
+  --perfil-accent-soft: rgb(139 92 246 / 0.16);
+  --perfil-focus: rgb(139 92 246 / 0.34);
+}
+
+.perfil-theme-shell[data-accent="laranja"] {
+  --perfil-accent: #f97316;
+  --perfil-accent-hover: #ea580c;
+  --perfil-accent-contrast: #111827;
+  --perfil-accent-soft: rgb(249 115 22 / 0.17);
+  --perfil-focus: rgb(249 115 22 / 0.34);
+}
+
+.perfil-theme-shell[data-accent="neutro"] {
+  --perfil-accent: #64748b;
+  --perfil-accent-hover: #475569;
+  --perfil-accent-contrast: #ffffff;
+  --perfil-accent-soft: rgb(100 116 139 / 0.18);
+  --perfil-focus: rgb(100 116 139 / 0.34);
+}
+
+.perfil-theme-shell :where(.bg-white) {
+  background-color: var(--perfil-surface);
+}
+
+.perfil-theme-shell :where(.bg-gray-50, .bg-gray-100) {
+  background-color: var(--perfil-surface-muted);
+}
+
+.perfil-theme-shell :where(.bg-gray-950, .bg-gray-900) {
+  background-color: var(--perfil-text-strong);
+}
+
+.perfil-theme-shell :where(.text-gray-950, .text-gray-900, .text-gray-800) {
+  color: var(--perfil-text-strong);
+}
+
+.perfil-theme-shell :where(.text-gray-700, .text-gray-600, .text-gray-500) {
+  color: var(--perfil-text-muted);
+}
+
+.perfil-theme-shell :where(.border-gray-300, .border-gray-200) {
+  border-color: var(--perfil-border);
+}
+
+.perfil-theme-shell :where(.ring-gray-100) {
+  --tw-ring-color: var(--perfil-surface-muted);
+}
+
+.perfil-theme-shell :where(.hover\:text-gray-950:hover) {
+  color: var(--perfil-accent);
+}
+
+.perfil-theme-shell :where(.hover\:bg-gray-50:hover, .hover\:bg-gray-100:hover) {
+  background-color: var(--perfil-accent-soft);
+}
+
+.perfil-theme-shell :where(input, textarea, select) {
+  background-color: var(--perfil-surface);
+  border-color: var(--perfil-border);
+  color: var(--perfil-text-strong);
+}
+
+.perfil-theme-shell :where(input::placeholder, textarea::placeholder) {
+  color: var(--perfil-text-muted);
+}
+
+.perfil-theme-shell :where(input:focus, textarea:focus, button:focus-visible, a:focus-visible) {
+  border-color: var(--perfil-accent);
+  box-shadow: 0 0 0 3px var(--perfil-focus);
+  outline: none;
+}
+
+.perfil-theme-shell :where(button[type="submit"], .perfil-preview-button) {
+  background-color: var(--perfil-accent);
+  color: var(--perfil-accent-contrast);
+}
+
+.perfil-theme-shell :where(button[type="submit"]:hover, .perfil-preview-button:hover) {
+  background-color: var(--perfil-accent-hover);
+}
+
+.perfil-choice-active {
+  background-color: var(--perfil-accent);
+  border-color: var(--perfil-accent);
+  color: var(--perfil-accent-contrast);
+}
+
+.perfil-preferences-card,
+.perfil-preview {
+  background-color: var(--perfil-surface);
+  border-color: var(--perfil-border);
+}
+
+.perfil-color-dot {
+  width: 0.875rem;
+  height: 0.875rem;
+  border-radius: 999px;
+  background-color: var(--perfil-accent);
+  box-shadow: 0 0 0 3px var(--perfil-accent-soft);
+}
+
+.perfil-color-choice[data-color="quarta-etapa"] .perfil-color-dot {
+  background-color: #2563eb;
+}
+
+.perfil-color-choice[data-color="verde"] .perfil-color-dot {
+  background-color: #84cc16;
+}
+
+.perfil-color-choice[data-color="roxo"] .perfil-color-dot {
+  background-color: #8b5cf6;
+}
+
+.perfil-color-choice[data-color="laranja"] .perfil-color-dot {
+  background-color: #f97316;
+}
+
+.perfil-color-choice[data-color="neutro"] .perfil-color-dot {
+  background-color: #64748b;
+}
+
+.perfil-preview-status {
+  background-color: var(--perfil-accent-soft);
+  color: var(--perfil-accent);
+}
+
+.perfil-preview-bar {
+  background-color: var(--perfil-accent);
+}
+
+.perfil-theme-shell[data-font-scale="grande"] .perfil-scalable :where(.text-xs) {
+  font-size: 0.8125rem;
+}
+
+.perfil-theme-shell[data-font-scale="grande"] .perfil-scalable :where(.text-sm) {
+  font-size: 0.9375rem;
+}
+
+.perfil-theme-shell[data-font-scale="grande"] .perfil-scalable :where(.text-base) {
+  font-size: 1.0625rem;
+}
+
+.perfil-theme-shell[data-font-scale="grande"] .perfil-scalable :where(.text-lg) {
+  font-size: 1.1875rem;
+}
+
+.perfil-theme-shell[data-font-scale="extra_grande"] .perfil-scalable :where(.text-xs) {
+  font-size: 0.875rem;
+}
+
+.perfil-theme-shell[data-font-scale="extra_grande"] .perfil-scalable :where(.text-sm) {
+  font-size: 1rem;
+}
+
+.perfil-theme-shell[data-font-scale="extra_grande"] .perfil-scalable :where(.text-base) {
+  font-size: 1.125rem;
+}
+
+.perfil-theme-shell[data-font-scale="extra_grande"] .perfil-scalable :where(.text-lg) {
+  font-size: 1.25rem;
+}

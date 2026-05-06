@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { podeAdministrarUsuarios } from "@/lib/auth/permissions";
+import type { CorPreferida, FonteEscala, TemaPreferido } from "@/lib/auth/types";
 import {
   createSupabaseAdminClient,
   requirePerfilAutenticado,
@@ -14,6 +15,20 @@ export type PerfilActionState = {
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const TEMAS_VALIDOS = new Set<TemaPreferido>(["system", "light", "dark"]);
+const CORES_VALIDAS = new Set<CorPreferida>([
+  "quarta-etapa",
+  "verde",
+  "roxo",
+  "laranja",
+  "neutro",
+]);
+const FONTES_VALIDAS = new Set<FonteEscala>([
+  "padrao",
+  "grande",
+  "extra_grande",
+]);
 
 function normalizarTexto(valor: FormDataEntryValue | null) {
   return String(valor ?? "").trim();
@@ -190,5 +205,68 @@ export async function atualizarFotoPerfil(
   return {
     status: "success",
     message: "Foto salva com sucesso.",
+  };
+}
+
+export async function atualizarPreferenciasPerfil(preferencias: {
+  tema_preferido: TemaPreferido;
+  cor_preferida: CorPreferida;
+  fonte_escala: FonteEscala;
+}): Promise<PerfilActionState> {
+  const perfilAtual = await requirePerfilAutenticado();
+
+  if (
+    !TEMAS_VALIDOS.has(preferencias.tema_preferido) ||
+    !CORES_VALIDAS.has(preferencias.cor_preferida) ||
+    !FONTES_VALIDAS.has(preferencias.fonte_escala)
+  ) {
+    return {
+      status: "validation_error",
+      message:
+        "Preferência visual inválida. Recarregue a página e tente novamente.",
+    };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("perfis")
+    .update({
+      tema_preferido: preferencias.tema_preferido,
+      cor_preferida: preferencias.cor_preferida,
+      fonte_escala: preferencias.fonte_escala,
+    })
+    .eq("id", perfilAtual.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Falha ao atualizar preferências do perfil.", {
+      code: error.code,
+      message: error.message,
+      perfilAtualId: perfilAtual.id,
+    });
+
+    return {
+      status: error.code === "42501" ? "permission_error" : "error",
+      message:
+        error.code === "42501"
+          ? "Permissão negada pelo banco de dados para salvar as preferências."
+          : "Não foi possível salvar as preferências. Tente novamente.",
+    };
+  }
+
+  if (!data) {
+    return {
+      status: "permission_error",
+      message:
+        "Não foi possível salvar as preferências. Faça login novamente ou verifique se seu usuário está ativo.",
+    };
+  }
+
+  revalidatePath("/perfil");
+
+  return {
+    status: "success",
+    message: "Preferências salvas com sucesso.",
   };
 }
