@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { LABEL_PAPEL_USUARIO } from "@/lib/auth/permissions";
 import type { PerfilAutenticado } from "@/lib/auth/types";
 import {
+  createSupabaseBrowserClient,
+  syncSupabaseSessionCookies,
+} from "@/lib/supabase/client";
+import {
   atualizarPerfilUsuario,
+  encerrarSessaoUsuario,
   type PerfilActionState,
 } from "./actions";
 
@@ -34,199 +39,286 @@ export function PerfilUsuarioForm({
   const editandoOutroPerfil = perfil.id !== perfilAtual.id;
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form
+      action={formAction}
+      className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_333px]"
+    >
       <input type="hidden" name="perfil_id" value={perfil.id} />
 
-      {aviso ? <Mensagem tipo="alerta" mensagem={aviso} /> : null}
-      {modoAdministrativo && editandoOutroPerfil ? (
-        <Mensagem
-          tipo="alerta"
-          mensagem="Edição administrativa ativa. As permissões finais são validadas pelo Supabase."
-        />
-      ) : null}
-      {state.message ? (
-        <Mensagem
-          tipo={state.status === "success" ? "sucesso" : "erro"}
-          mensagem={state.message}
-        />
-      ) : null}
-
-      <section
-        id="dados-basicos"
-        className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-      >
-        <div className="mb-5">
-          <p className="text-xs font-semibold uppercase text-blue-700">
-            Dados básicos
-          </p>
-          <h2 className="mt-1 text-lg font-bold text-gray-950">
-            Identificação operacional
-          </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Nome, e-mail, nível e cargo seguem as regras administrativas do
-            sistema.
-          </p>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <CampoLeitura label="Nome" value={perfil.nome_completo} />
-          <CampoLeitura label="E-mail" value={perfil.email ?? "Não informado"} />
-          <CampoLeitura
-            label="Nível"
-            value={LABEL_PAPEL_USUARIO[perfil.papel]}
-          />
-          <CampoLeitura label="Cargo" value={perfil.cargo ?? "Não informado"} />
-          <CampoTexto
-            label="Telefone"
-            name="telefone"
-            defaultValue={perfil.telefone ?? ""}
-            disabled={pending}
-            placeholder="(00) 00000-0000"
-          />
-        </div>
-      </section>
-
-      <section
-        id="seguranca"
-        className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-      >
-        <div className="mb-5">
-          <p className="text-xs font-semibold uppercase text-blue-700">
-            Segurança
-          </p>
-          <h2 className="mt-1 text-lg font-bold text-gray-950">
-            Acesso e autenticação
-          </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            O e-mail vem do Supabase Auth e não é editado livremente nesta tela.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 md:flex-1">
-            <span className="block text-xs font-semibold uppercase text-gray-500">
-              Conta autenticada
-            </span>
-            <span className="mt-1 block font-medium text-gray-950">
-              {perfil.email ?? "E-mail não informado"}
-            </span>
-          </div>
-          {!editandoOutroPerfil ? (
-            <Link
-              href="/auth/alterar-senha"
-              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50"
-            >
-              Alterar senha
-            </Link>
+      <div className="min-w-0">
+        <div className="space-y-3">
+          {aviso ? <Mensagem tipo="alerta" mensagem={aviso} /> : null}
+          {modoAdministrativo && editandoOutroPerfil ? (
+            <Mensagem
+              tipo="alerta"
+              mensagem="Edição administrativa ativa. As permissões finais são validadas pelo Supabase."
+            />
+          ) : null}
+          {state.message ? (
+            <Mensagem
+              tipo={state.status === "success" ? "sucesso" : "erro"}
+              mensagem={state.message}
+            />
           ) : null}
         </div>
-      </section>
 
-      <section
-        id="preferencias"
-        className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm"
-      >
-        <div className="mb-5">
-          <p className="text-xs font-semibold uppercase text-blue-700">
-            Preferências / Perfil
-          </p>
-          <h2 className="mt-1 text-lg font-bold text-gray-950">
-            Apresentação do usuário
+        <section aria-labelledby="perfil-info-heading" className="mt-2">
+          <h2
+            id="perfil-info-heading"
+            className="sr-only"
+          >
+            Informações pessoais
           </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Foto por URL e biografia ficam salvas em public.perfis.
-          </p>
-        </div>
 
-        <div className="space-y-4">
-          <CampoTexto
-            label="URL da foto"
-            name="avatar_url"
-            defaultValue={perfil.avatar_url ?? ""}
-            disabled={pending}
-            placeholder="https://..."
-          />
-
-          <div>
-            <label
-              htmlFor="biografia"
-              className="mb-2 block text-sm font-semibold text-gray-900"
-            >
-              Biografia
-            </label>
-            <textarea
-              id="biografia"
+          <div className="divide-y divide-gray-200">
+            <LinhaLeitura
+              label="Nome completo"
+              value={perfil.nome_completo}
+              actionLabel="Bloqueado"
+            />
+            <LinhaLeitura
+              label="E-mail"
+              value={perfil.email ?? "Não informado"}
+              helper="Vem do Supabase Auth e não pode ser editado livremente."
+              actionLabel="Bloqueado"
+            />
+            <LinhaCampoTexto
+              label="Telefone"
+              name="telefone"
+              defaultValue={perfil.telefone ?? ""}
+              disabled={pending}
+              placeholder="(00) 00000-0000"
+              actionLabel={perfil.telefone ? "Editar" : "Adicionar"}
+            />
+            <LinhaLeitura
+              label="Cargo"
+              value={perfil.cargo ?? "Não informado"}
+              actionLabel="Admin"
+            />
+            <LinhaLeitura
+              label="Nível operacional"
+              value={LABEL_PAPEL_USUARIO[perfil.papel]}
+              helper="Definido pela administração conforme permissões em public.perfis."
+              actionLabel="Admin"
+            />
+            <LinhaCampoTexto
+              label="URL da foto"
+              name="avatar_url"
+              defaultValue={perfil.avatar_url ?? ""}
+              disabled={pending}
+              placeholder="https://..."
+              helper="Use uma URL pública para exibir a foto no cabeçalho e no perfil."
+              actionLabel={perfil.avatar_url ? "Editar" : "Adicionar"}
+            />
+            <LinhaTextarea
+              label="Biografia"
               name="biografia"
               defaultValue={perfil.biografia ?? ""}
-              rows={5}
-              maxLength={500}
               disabled={pending}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+              helper="Até 500 caracteres. Use uma descrição objetiva para contexto operacional."
+              actionLabel={perfil.biografia ? "Editar" : "Adicionar"}
             />
-            <p className="mt-1 text-xs text-gray-500">
-              Até 500 caracteres. Use uma descrição objetiva para contexto
-              operacional.
-            </p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-gray-600" aria-live="polite">
-          {pending ? "Salvando alterações..." : "Revise os dados antes de salvar."}
-        </p>
-        <button
-          type="submit"
-          disabled={pending}
-          className="min-h-11 rounded-lg bg-gray-950 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
-        >
-          {pending ? "Salvando..." : "Salvar perfil"}
-        </button>
+        <div className="mt-8 flex flex-col gap-3 border-t border-gray-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-gray-600" aria-live="polite">
+            {pending
+              ? "Salvando alterações..."
+              : "Somente telefone, URL da foto e biografia serão salvos."}
+          </p>
+          <button
+            type="submit"
+            disabled={pending}
+            className="min-h-11 rounded-lg bg-gray-950 px-5 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
+          >
+            {pending ? "Salvando..." : "Salvar alterações"}
+          </button>
+        </div>
+
+        {!editandoOutroPerfil ? (
+          <SecaoSeguranca />
+        ) : null}
       </div>
+
+      <PainelPrivacidade />
     </form>
   );
 }
 
-function CampoLeitura({ label, value }: { label: string; value: string }) {
+function SecaoSeguranca() {
+  const [erroLogout, setErroLogout] = useState("");
+  const [logoutPendente, startLogoutTransition] = useTransition();
+
+  function encerrarSessao() {
+    setErroLogout("");
+
+    startLogoutTransition(async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.auth.signOut();
+
+      syncSupabaseSessionCookies(null);
+
+      if (error) {
+        setErroLogout(
+          "Não foi possível encerrar a sessão no navegador. Tente novamente."
+        );
+        return;
+      }
+
+      const resultado = await encerrarSessaoUsuario();
+
+      if (resultado?.status === "error") {
+        setErroLogout(resultado.message);
+      }
+    });
+  }
+
   return (
-    <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-      <dt className="text-xs font-semibold uppercase text-gray-500">{label}</dt>
-      <dd className="mt-1 break-words text-sm font-medium text-gray-950">
-        {value}
-      </dd>
+    <section
+      aria-labelledby="perfil-seguranca-heading"
+      className="mt-8 border-t border-gray-200 pt-6"
+    >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2
+            id="perfil-seguranca-heading"
+            className="text-base font-bold text-gray-950"
+          >
+            Segurança
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Gerencie senha e encerramento manual da sessão neste dispositivo.
+          </p>
+        </div>
+      </div>
+
+      {erroLogout ? (
+        <div className="mt-4">
+          <Mensagem tipo="erro" mensagem={erroLogout} />
+        </div>
+      ) : null}
+
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Link
+          href="/auth/alterar-senha"
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+        >
+          Alterar senha
+        </Link>
+        <button
+          type="button"
+          onClick={encerrarSessao}
+          disabled={logoutPendente}
+          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {logoutPendente ? "Saindo..." : "Encerrar sessão"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function LinhaLeitura({
+  label,
+  value,
+  helper,
+  actionLabel,
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+  actionLabel: string;
+}) {
+  return (
+    <div className="grid gap-3 py-6 sm:grid-cols-[minmax(0,1fr)_96px]">
+      <div className="min-w-0">
+        <dt className="text-base font-medium text-gray-950">{label}</dt>
+        <dd className="mt-1 break-words text-sm text-gray-600">{value}</dd>
+        {helper ? <p className="mt-1 text-sm text-gray-500">{helper}</p> : null}
+      </div>
+      <span className="text-left text-sm font-semibold text-gray-950 sm:text-right">
+        {actionLabel}
+      </span>
     </div>
   );
 }
 
-function CampoTexto({
+function LinhaCampoTexto({
   label,
   name,
   defaultValue,
   placeholder,
   disabled,
+  helper,
+  actionLabel,
 }: {
   label: string;
   name: string;
   defaultValue: string;
   placeholder?: string;
   disabled: boolean;
+  helper?: string;
+  actionLabel: string;
 }) {
   return (
-    <div>
-      <label
-        htmlFor={name}
-        className="mb-2 block text-sm font-semibold text-gray-900"
-      >
-        {label}
-      </label>
-      <input
-        id={name}
-        name={name}
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        disabled={disabled}
-        className="min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
-      />
+    <div className="grid gap-3 py-6 sm:grid-cols-[minmax(0,1fr)_96px]">
+      <div className="min-w-0">
+        <label htmlFor={name} className="block text-base font-medium text-gray-950">
+          {label}
+        </label>
+        <input
+          id={name}
+          name={name}
+          defaultValue={defaultValue}
+          placeholder={placeholder}
+          disabled={disabled}
+          className="mt-2 min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+        />
+        {helper ? <p className="mt-2 text-sm text-gray-500">{helper}</p> : null}
+      </div>
+      <span className="text-left text-sm font-semibold text-gray-950 underline sm:text-right">
+        {actionLabel}
+      </span>
+    </div>
+  );
+}
+
+function LinhaTextarea({
+  label,
+  name,
+  defaultValue,
+  disabled,
+  helper,
+  actionLabel,
+}: {
+  label: string;
+  name: string;
+  defaultValue: string;
+  disabled: boolean;
+  helper: string;
+  actionLabel: string;
+}) {
+  return (
+    <div className="grid gap-3 py-6 sm:grid-cols-[minmax(0,1fr)_96px]">
+      <div className="min-w-0">
+        <label htmlFor={name} className="block text-base font-medium text-gray-950">
+          {label}
+        </label>
+        <textarea
+          id={name}
+          name={name}
+          defaultValue={defaultValue}
+          rows={4}
+          maxLength={500}
+          disabled={disabled}
+          className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+        />
+        <p className="mt-2 text-sm text-gray-500">{helper}</p>
+      </div>
+      <span className="text-left text-sm font-semibold text-gray-950 underline sm:text-right">
+        {actionLabel}
+      </span>
     </div>
   );
 }
@@ -251,5 +343,52 @@ function Mensagem({
     >
       {mensagem}
     </p>
+  );
+}
+
+function PainelPrivacidade() {
+  return (
+    <aside className="h-fit rounded-xl border border-gray-200 bg-white p-6 lg:sticky lg:top-6">
+      <BlocoAjuda
+        icone="?"
+        titulo="Por que alguns dados não podem ser editados?"
+        texto="Ocultamos e bloqueamos dados sensíveis para proteger a identidade do usuário e preservar a governança de acesso."
+      />
+      <BlocoAjuda
+        icone="!"
+        titulo="Quais detalhes podem ser editados?"
+        texto="Telefone, URL da foto e biografia podem ser atualizados pelo próprio usuário. Nome, e-mail, cargo e nível dependem da administração."
+      />
+      <BlocoAjuda
+        icone="i"
+        titulo="O que é compartilhado no sistema?"
+        texto="As informações do perfil aparecem apenas em fluxos operacionais autorizados, como chamados, evidências, histórico e atribuições."
+        semDivisor
+      />
+    </aside>
+  );
+}
+
+function BlocoAjuda({
+  icone,
+  titulo,
+  texto,
+  semDivisor,
+}: {
+  icone: string;
+  titulo: string;
+  texto: string;
+  semDivisor?: boolean;
+}) {
+  return (
+    <div className={semDivisor ? "pb-0" : "border-b border-gray-200 pb-7 mb-7"}>
+      <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-sm font-bold text-blue-700">
+        {icone}
+      </span>
+      <h3 className="mt-5 text-lg font-bold leading-snug text-gray-950">
+        {titulo}
+      </h3>
+      <p className="mt-4 text-sm leading-6 text-gray-600">{texto}</p>
+    </div>
   );
 }
