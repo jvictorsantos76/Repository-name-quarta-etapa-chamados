@@ -4,9 +4,21 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 const versoes = [
   {
     versao: APP_VERSION,
+    data: "06/05/2026",
+    alteracoes: [
+      "Perfil de Usuário v0.1.1 passa a incluir seção Segurança com alteração de senha e encerramento manual de sessão.",
+    ],
+    correcoes: [
+      "Logout manual executa signOut no Supabase, limpa cookies locais de sessão e redireciona para o login.",
+    ],
+  },
+  {
+    versao: "v0.8.2",
     data: "05/05/2026",
     alteracoes: [],
     correcoes: [
+      "Sessões Supabase expiradas passam a ser renovadas no middleware com refresh_token antes das páginas protegidas validarem o perfil ativo.",
+      "Cookies de sessão inválidos são limpos antes do redirecionamento para login, reduzindo falsos estados de usuário sem acesso ativo no Browser nativo.",
       "Cadastro de Usuário v0.2.1 volta a registrar solicitações públicas no schema atual, sem depender da função de expiração removida do banco.",
       "Solicitações públicas passam a ser criadas com status pendente_aprovacao, preservando o fluxo de aprovação sem liberar acesso automático.",
     ],

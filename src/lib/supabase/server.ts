@@ -41,6 +41,10 @@ export async function getSupabaseAccessToken() {
   return (await cookies()).get(SUPABASE_ACCESS_TOKEN_COOKIE)?.value ?? null;
 }
 
+export async function getSupabaseRefreshToken() {
+  return (await cookies()).get(SUPABASE_REFRESH_TOKEN_COOKIE)?.value ?? null;
+}
+
 export async function setSupabaseSessionCookies(session: Session) {
   const cookieStore = await cookies();
   const secure = process.env.NODE_ENV === "production";
