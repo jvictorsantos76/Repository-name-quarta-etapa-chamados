@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { PerfilAutenticado } from "@/lib/auth/types";
 import { LABEL_PAPEL_USUARIO } from "@/lib/auth/permissions";
+import { ContaAcoesRapidas } from "./ContaAcoesRapidas";
 
 function getIniciais(nome: string) {
   return nome
@@ -18,31 +19,34 @@ export function AppHeader({ perfil }: { perfil: PerfilAutenticado }) {
         <Link href="/" className="text-sm font-bold text-gray-900">
           Quarta Etapa Chamados
         </Link>
-        <Link
-          href="/perfil"
-          className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-left hover:bg-gray-100"
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-900 text-xs font-bold text-white">
-            {perfil.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={perfil.avatar_url}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              getIniciais(perfil.nome_completo)
-            )}
-          </span>
-          <span className="min-w-0">
-            <span className="block max-w-40 truncate text-sm font-semibold text-gray-900">
-              {perfil.nome_completo}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/conta"
+            className="flex min-h-11 items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-left hover:bg-gray-100"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-900 text-xs font-bold text-white">
+              {perfil.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={perfil.avatar_url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                getIniciais(perfil.nome_completo)
+              )}
             </span>
-            <span className="block text-xs text-gray-600">
-              {LABEL_PAPEL_USUARIO[perfil.papel]}
+            <span className="min-w-0">
+              <span className="block max-w-40 truncate text-sm font-semibold text-gray-900">
+                {perfil.nome_completo}
+              </span>
+              <span className="block text-xs text-gray-600">
+                {perfil.cargo || LABEL_PAPEL_USUARIO[perfil.papel]}
+              </span>
             </span>
-          </span>
-        </Link>
+          </Link>
+          <ContaAcoesRapidas />
+        </div>
       </div>
     </header>
   );

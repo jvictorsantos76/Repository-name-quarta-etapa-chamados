@@ -6,6 +6,14 @@ const versoes = [
     versao: APP_VERSION,
     data: "06/05/2026",
     alteracoes: [
+      "Cabeçalho passa a ter ações rápidas de alternar tema claro/escuro e encerrar sessão.",
+      "Conta v0.1.1 remove card redundante de Perfil e mantém acesso ao perfil pelo card principal do usuário.",
+      "Permissões v0.1.1 adiciona ações rápidas de conta também no rodapé da tela.",
+      "Nova área Conta - Quarta Etapa v0.1.0 centraliza Perfil, Aparência e Permissões em cards clicáveis.",
+      "Perfil passa a ficar em /conta/perfil, com /perfil preservado por redirecionamento compatível.",
+      "Aparência e Acessibilidade v0.1.0 fica em tela própria e mantém auto save apenas para preferências visuais.",
+      "Permissões v0.1.0 exibe nível operacional e ações permitidas por tela a partir de matriz centralizada.",
+      "Cargo passa a ser editável pelo próprio usuário com RLS restrito aos campos básicos do perfil.",
       "Preferências de aparência passam a ser aplicadas globalmente no SaaS com fallback em localStorage e carregamento inicial no layout raiz.",
       "Perfil de Usuário v0.1.4 passa a salvar tema, cor e fonte atualizando Supabase, navegador e DOM imediatamente.",
       "Perfil de Usuário v0.1.3 adiciona preferências de aparência e acessibilidade com tema, cor de destaque e escala de fonte salvas em public.perfis.",
@@ -13,6 +21,7 @@ const versoes = [
       "Perfil de Usuário v0.1.1 passa a incluir seção Segurança com alteração de senha e encerramento manual de sessão.",
     ],
     correcoes: [
+      "Remoção de textos decorativos como Editar, Adicionar e Admin quando não representam botões clicáveis.",
       "Salvamento de telefone, biografia e foto do próprio perfil volta a respeitar RLS com update restrito aos campos básicos.",
       "Avatar salvo em public.perfis.avatar_url passa a aparecer no cabeçalho e no avatar grande do perfil após reload.",
       "Logout manual executa signOut no navegador e no servidor, limpa cookies locais de sessão e redireciona para o login sem reativar login automático.",
