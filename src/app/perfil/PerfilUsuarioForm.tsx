@@ -1,25 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { useActionState, useContext, useState, useTransition } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LABEL_PAPEL_USUARIO } from "@/lib/auth/permissions";
-import type {
-  CorPreferida,
-  FonteEscala,
-  TemaPreferido,
-} from "@/lib/theme/types";
 import type { PerfilAutenticado } from "@/lib/auth/types";
-import { ThemeContext } from "@/components/theme/ThemeProvider";
-import {
-  createSupabaseBrowserClient,
-  syncSupabaseSessionCookies,
-  useSupabaseBrowserClient,
-} from "@/lib/supabase/client";
+import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   atualizarFotoPerfil,
   atualizarPerfilUsuario,
-  atualizarPreferenciasPerfil,
   type PerfilActionState,
 } from "./actions";
 
@@ -38,32 +25,6 @@ const avatarMimeTypesAceitos = new Set([
   "image/webp",
 ]);
 const acceptAvatar = ".jpg,.jpeg,.png,.webp";
-
-type PreferenciasPerfil = {
-  tema_preferido: TemaPreferido;
-  cor_preferida: CorPreferida;
-  fonte_escala: FonteEscala;
-};
-
-const OPCOES_TEMA: Array<{ valor: TemaPreferido; label: string }> = [
-  { valor: "system", label: "Sistema" },
-  { valor: "light", label: "Claro" },
-  { valor: "dark", label: "Escuro" },
-];
-
-const OPCOES_COR: Array<{ valor: CorPreferida; label: string }> = [
-  { valor: "quarta-etapa", label: "Azul Quarta Etapa" },
-  { valor: "verde", label: "Verde" },
-  { valor: "roxo", label: "Roxo" },
-  { valor: "laranja", label: "Laranja" },
-  { valor: "neutro", label: "Cinza/neutro" },
-];
-
-const OPCOES_FONTE: Array<{ valor: FonteEscala; label: string }> = [
-  { valor: "padrao", label: "Padrão" },
-  { valor: "grande", label: "Grande" },
-  { valor: "extra_grande", label: "Extra grande" },
-];
 
 type PerfilUsuarioFormProps = {
   perfil: PerfilAutenticado;
@@ -149,28 +110,17 @@ export function PerfilUsuarioForm({
 }: PerfilUsuarioFormProps) {
   const router = useRouter();
   const supabase = useSupabaseBrowserClient();
-  const { setPreferencias: setPreferenciasGlobais } = useContext(ThemeContext);
   const [state, formAction, pending] = useActionState(
     atualizarPerfilUsuario,
     ESTADO_INICIAL
   );
   const editandoOutroPerfil = perfil.id !== perfilAtual.id;
   const [avatarUrl, setAvatarUrl] = useState(perfil.avatar_url ?? "");
-  const [preferencias, setPreferencias] = useState<PreferenciasPerfil>({
-    tema_preferido: perfil.tema_preferido ?? "system",
-    cor_preferida: perfil.cor_preferida ?? "quarta-etapa",
-    fonte_escala: perfil.fonte_escala ?? "padrao",
-  });
-  const [preferenciasMensagem, setPreferenciasMensagem] = useState("");
-  const [preferenciasStatus, setPreferenciasStatus] = useState<
-    "idle" | "success" | "error"
-  >("idle");
   const [avatarMensagem, setAvatarMensagem] = useState("");
   const [avatarStatus, setAvatarStatus] = useState<
     "idle" | "success" | "error"
   >("idle");
   const [avatarPendente, startAvatarTransition] = useTransition();
-  const [preferenciasSalvando, setPreferenciasSalvando] = useState(false);
   const podeEnviarAvatar = !editandoOutroPerfil;
 
   async function enviarAvatar(arquivo: File) {
@@ -254,39 +204,12 @@ export function PerfilUsuarioForm({
     });
   }
 
-  function alterarPreferencia(proximasPreferencias: PreferenciasPerfil) {
-    setPreferencias(proximasPreferencias);
-    setPreferenciasGlobais(proximasPreferencias);
-    setPreferenciasStatus("idle");
-    setPreferenciasMensagem("Salvando preferências...");
-    setPreferenciasSalvando(true);
-
-    void atualizarPreferenciasPerfil(proximasPreferencias)
-      .then((resultado) => {
-        if (resultado.status === "success") {
-          setPreferenciasStatus("success");
-          setPreferenciasMensagem("Preferências salvas.");
-          router.refresh();
-          return;
-        }
-
-        setPreferenciasStatus("error");
-        setPreferenciasMensagem(resultado.message);
-      })
-      .finally(() => {
-        setPreferenciasSalvando(false);
-      });
-  }
-
   return (
-    <form
-      action={formAction}
-      className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_333px]"
-    >
+    <form action={formAction} className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
       <input type="hidden" name="perfil_id" value={perfil.id} />
       <input type="hidden" name="avatar_url" value={avatarUrl} />
 
-      <div className="perfil-scalable min-w-0">
+      <div className="min-w-0">
         <div className="space-y-3">
           {aviso ? <Mensagem tipo="alerta" mensagem={aviso} /> : null}
           {modoAdministrativo && editandoOutroPerfil ? (
@@ -304,43 +227,34 @@ export function PerfilUsuarioForm({
         </div>
 
         <section aria-labelledby="perfil-info-heading" className="mt-2">
-          <h2
-            id="perfil-info-heading"
-            className="sr-only"
-          >
+          <h2 id="perfil-info-heading" className="sr-only">
             Informações pessoais
           </h2>
 
           <div className="divide-y divide-gray-200">
-            <LinhaLeitura
-              label="Nome completo"
-              value={perfil.nome_completo}
-              actionLabel="Bloqueado"
-            />
+            <LinhaLeitura label="Nome completo" value={perfil.nome_completo} />
             <LinhaLeitura
               label="E-mail"
               value={perfil.email ?? "Não informado"}
               helper="Vem do Supabase Auth e não pode ser editado livremente."
-              actionLabel="Bloqueado"
+            />
+            <LinhaCampoTexto
+              label="Cargo"
+              name="cargo"
+              defaultValue={perfil.cargo ?? ""}
+              disabled={pending}
+              required
+              maxLength={120}
+              placeholder="Ex.: Analista de suporte"
             />
             <LinhaCampoTexto
               label="Telefone"
               name="telefone"
               defaultValue={perfil.telefone ?? ""}
               disabled={pending}
+              required
+              maxLength={30}
               placeholder="(00) 00000-0000"
-              actionLabel={perfil.telefone ? "Editar" : "Adicionar"}
-            />
-            <LinhaLeitura
-              label="Cargo"
-              value={perfil.cargo ?? "Não informado"}
-              actionLabel="Admin"
-            />
-            <LinhaLeitura
-              label="Nível operacional"
-              value={LABEL_PAPEL_USUARIO[perfil.papel]}
-              helper="Definido pela administração conforme permissões em public.perfis."
-              actionLabel="Admin"
             />
             <LinhaUploadAvatar
               avatarUrl={avatarUrl}
@@ -350,10 +264,9 @@ export function PerfilUsuarioForm({
               mensagem={avatarMensagem}
               status={avatarStatus}
               onChange={selecionarAvatar}
-              actionLabel={avatarUrl ? "Editar" : "Adicionar"}
               helper={
                 podeEnviarAvatar
-                  ? "Envie JPG, PNG ou WEBP. A foto será salva no perfil e exibida no cabeçalho."
+                  ? "Envie JPG, PNG ou WEBP. A foto é obrigatória para salvar o perfil completo."
                   : "A foto só pode ser enviada pelo próprio usuário."
               }
             />
@@ -362,8 +275,8 @@ export function PerfilUsuarioForm({
               name="biografia"
               defaultValue={perfil.biografia ?? ""}
               disabled={pending}
+              required
               helper="Até 500 caracteres. Use uma descrição objetiva para contexto operacional."
-              actionLabel={perfil.biografia ? "Editar" : "Adicionar"}
             />
           </div>
         </section>
@@ -372,7 +285,7 @@ export function PerfilUsuarioForm({
           <p className="text-sm text-gray-600" aria-live="polite">
             {pending
               ? "Salvando alterações..."
-              : "Somente telefone, foto e biografia serão salvos."}
+              : "Cargo, telefone, foto e biografia são obrigatórios."}
           </p>
           <button
             type="submit"
@@ -382,19 +295,6 @@ export function PerfilUsuarioForm({
             {pending ? "Salvando..." : "Salvar alterações"}
           </button>
         </div>
-
-        {!editandoOutroPerfil ? (
-          <>
-            <SecaoPreferenciasAparencia
-              preferencias={preferencias}
-              pendente={preferenciasSalvando}
-              mensagem={preferenciasMensagem}
-              status={preferenciasStatus}
-              onChange={alterarPreferencia}
-            />
-            <SecaoSeguranca />
-          </>
-        ) : null}
       </div>
 
       <PainelPrivacidade />
@@ -402,286 +302,20 @@ export function PerfilUsuarioForm({
   );
 }
 
-function SecaoPreferenciasAparencia({
-  preferencias,
-  pendente,
-  mensagem,
-  status,
-  onChange,
-}: {
-  preferencias: PreferenciasPerfil;
-  pendente: boolean;
-  mensagem: string;
-  status: "idle" | "success" | "error";
-  onChange: (preferencias: PreferenciasPerfil) => void;
-}) {
-  const mensagemClasse =
-    status === "success"
-      ? "text-emerald-700"
-      : status === "error"
-        ? "text-red-700"
-        : "text-gray-600";
-
-  return (
-    <section
-      aria-labelledby="perfil-aparencia-heading"
-      className="perfil-preferences-card mt-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-    >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2
-            id="perfil-aparencia-heading"
-            className="text-base font-bold text-gray-950"
-          >
-            Preferências de aparência e acessibilidade
-          </h2>
-          <p className="mt-1 text-sm leading-6 text-gray-600">
-            Ajuste o tema, a cor de destaque e o tamanho da fonte da sua
-            experiência no sistema.
-          </p>
-        </div>
-        <span className="w-fit rounded-full border border-gray-200 px-3 py-1 text-xs font-semibold text-gray-600">
-          Perfil
-        </span>
-      </div>
-
-      <div className="mt-6 grid gap-6">
-        <div className="space-y-6">
-          <GrupoBotoesPreferencia
-            label="Tema"
-            opcoes={OPCOES_TEMA}
-            valorAtual={preferencias.tema_preferido}
-            disabled={pendente}
-            onSelect={(tema) =>
-              onChange({ ...preferencias, tema_preferido: tema as TemaPreferido })
-            }
-          />
-
-          <div>
-            <p className="text-sm font-semibold text-gray-950">
-              Cor de destaque
-            </p>
-            <div
-              className="mt-3 grid gap-3"
-              role="group"
-              aria-label="Cor de destaque"
-            >
-              {OPCOES_COR.map((opcao) => {
-                const ativo = preferencias.cor_preferida === opcao.valor;
-
-                return (
-                  <button
-                    key={opcao.valor}
-                    type="button"
-                    disabled={pendente}
-                    aria-pressed={ativo}
-                    onClick={() =>
-                      onChange({
-                        ...preferencias,
-                        cor_preferida: opcao.valor,
-                      })
-                    }
-                    className={`perfil-color-choice min-h-12 rounded-lg border px-3 py-2 text-left text-sm font-semibold transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                      ativo
-                        ? "perfil-choice-active"
-                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                    }`}
-                    data-color={opcao.valor}
-                  >
-                    <span className="flex items-center gap-3">
-                      <span aria-hidden="true" className="perfil-color-dot" />
-                      {opcao.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <GrupoBotoesPreferencia
-            label="Tamanho da fonte"
-            opcoes={OPCOES_FONTE}
-            valorAtual={preferencias.fonte_escala}
-            disabled={pendente}
-            onSelect={(fonte) =>
-              onChange({
-                ...preferencias,
-                fonte_escala: fonte as FonteEscala,
-              })
-            }
-          />
-
-          <p className={`text-sm font-medium ${mensagemClasse}`} aria-live="polite">
-            {pendente ? "Salvando preferências..." : mensagem}
-          </p>
-        </div>
-
-        <div className="perfil-preview rounded-xl border border-gray-200 p-4">
-          <p className="text-xs font-semibold uppercase text-gray-500">
-            Prévia
-          </p>
-          <div className="mt-4 rounded-lg border border-gray-200 bg-white p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-gray-950">
-                  Card do sistema
-                </p>
-                <p className="mt-1 text-xs text-gray-600">
-                  Chamado #1046 · SLA em acompanhamento
-                </p>
-              </div>
-              <span className="perfil-preview-status rounded-full px-3 py-1 text-xs font-bold">
-                Ativo
-              </span>
-            </div>
-            <div className="mt-4 h-2 rounded-full bg-gray-100">
-              <div className="perfil-preview-bar h-2 w-2/3 rounded-full" />
-            </div>
-            <button
-              type="button"
-              className="perfil-preview-button mt-4 min-h-10 rounded-lg px-4 py-2 text-sm font-semibold"
-            >
-              Ver detalhes
-            </button>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function GrupoBotoesPreferencia<TValor extends string>({
-  label,
-  opcoes,
-  valorAtual,
-  disabled,
-  onSelect,
-}: {
-  label: string;
-  opcoes: Array<{ valor: TValor; label: string }>;
-  valorAtual: TValor;
-  disabled: boolean;
-  onSelect: (valor: TValor) => void;
-}) {
-  return (
-    <div>
-      <p className="text-sm font-semibold text-gray-950">{label}</p>
-      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={label}>
-        {opcoes.map((opcao) => {
-          const ativo = valorAtual === opcao.valor;
-
-          return (
-            <button
-              key={opcao.valor}
-              type="button"
-              disabled={disabled}
-              aria-pressed={ativo}
-              onClick={() => onSelect(opcao.valor)}
-              className={`min-h-11 rounded-lg border px-4 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-60 ${
-                ativo
-                  ? "perfil-choice-active"
-                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {opcao.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function SecaoSeguranca() {
-  const [erroLogout, setErroLogout] = useState("");
-  const [logoutPendente, startLogoutTransition] = useTransition();
-
-  function encerrarSessao() {
-    setErroLogout("");
-
-    startLogoutTransition(async () => {
-      const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.auth.signOut();
-
-      syncSupabaseSessionCookies(null);
-
-      if (error) {
-        setErroLogout(
-          "Não foi possível encerrar a sessão no navegador. Tente novamente."
-        );
-        return;
-      }
-
-      window.location.assign("/auth/logout");
-    });
-  }
-
-  return (
-    <section
-      aria-labelledby="perfil-seguranca-heading"
-      className="mt-8 border-t border-gray-200 pt-6"
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2
-            id="perfil-seguranca-heading"
-            className="text-base font-bold text-gray-950"
-          >
-            Segurança
-          </h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Gerencie senha e encerramento manual da sessão neste dispositivo.
-          </p>
-        </div>
-      </div>
-
-      {erroLogout ? (
-        <div className="mt-4">
-          <Mensagem tipo="erro" mensagem={erroLogout} />
-        </div>
-      ) : null}
-
-      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Link
-          href="/auth/alterar-senha"
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
-        >
-          Alterar senha
-        </Link>
-        <button
-          type="button"
-          onClick={encerrarSessao}
-          disabled={logoutPendente}
-          className="inline-flex min-h-11 items-center justify-center rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {logoutPendente ? "Saindo..." : "Encerrar sessão"}
-        </button>
-      </div>
-    </section>
-  );
-}
-
 function LinhaLeitura({
   label,
   value,
   helper,
-  actionLabel,
 }: {
   label: string;
   value: string;
   helper?: string;
-  actionLabel: string;
 }) {
   return (
-    <div className="grid gap-3 py-6 sm:grid-cols-[minmax(0,1fr)_96px]">
-      <div className="min-w-0">
-        <dt className="text-base font-medium text-gray-950">{label}</dt>
-        <dd className="mt-1 break-words text-sm text-gray-600">{value}</dd>
-        {helper ? <p className="mt-1 text-sm text-gray-500">{helper}</p> : null}
-      </div>
-      <span className="text-left text-sm font-semibold text-gray-950 sm:text-right">
-        {actionLabel}
-      </span>
+    <div className="py-6">
+      <dt className="text-base font-medium text-gray-950">{label}</dt>
+      <dd className="mt-1 break-words text-sm text-gray-600">{value}</dd>
+      {helper ? <p className="mt-1 text-sm text-gray-500">{helper}</p> : null}
     </div>
   );
 }
@@ -692,36 +326,32 @@ function LinhaCampoTexto({
   defaultValue,
   placeholder,
   disabled,
-  helper,
-  actionLabel,
+  required,
+  maxLength,
 }: {
   label: string;
   name: string;
   defaultValue: string;
   placeholder?: string;
   disabled: boolean;
-  helper?: string;
-  actionLabel: string;
+  required?: boolean;
+  maxLength?: number;
 }) {
   return (
-    <div className="grid gap-3 py-6 sm:grid-cols-[minmax(0,1fr)_96px]">
-      <div className="min-w-0">
-        <label htmlFor={name} className="block text-base font-medium text-gray-950">
-          {label}
-        </label>
-        <input
-          id={name}
-          name={name}
-          defaultValue={defaultValue}
-          placeholder={placeholder}
-          disabled={disabled}
-          className="mt-2 min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
-        />
-        {helper ? <p className="mt-2 text-sm text-gray-500">{helper}</p> : null}
-      </div>
-      <span className="text-left text-sm font-semibold text-gray-950 underline sm:text-right">
-        {actionLabel}
-      </span>
+    <div className="py-6">
+      <label htmlFor={name} className="block text-base font-medium text-gray-950">
+        {label}
+      </label>
+      <input
+        id={name}
+        name={name}
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+        maxLength={maxLength}
+        className="mt-2 min-h-11 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+      />
     </div>
   );
 }
@@ -734,7 +364,6 @@ function LinhaUploadAvatar({
   mensagem,
   status,
   helper,
-  actionLabel,
   onChange,
 }: {
   avatarUrl: string;
@@ -744,7 +373,6 @@ function LinhaUploadAvatar({
   mensagem: string;
   status: "idle" | "success" | "error";
   helper: string;
-  actionLabel: string;
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   const mensagemClasse =
@@ -755,46 +383,34 @@ function LinhaUploadAvatar({
         : "text-gray-600";
 
   return (
-    <div className="grid gap-3 py-6 sm:grid-cols-[minmax(0,1fr)_96px]">
-      <div className="min-w-0">
-        <label
-          htmlFor="avatar_upload"
-          className="block text-base font-medium text-gray-950"
-        >
-          Foto do perfil
-        </label>
-        <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-950 text-lg font-bold text-white ring-4 ring-gray-100">
-            {avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={avatarUrl}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              getIniciais(nome)
-            )}
-          </span>
-          <div className="min-w-0 flex-1">
-            <input
-              id="avatar_upload"
-              type="file"
-              accept={acceptAvatar}
-              disabled={disabled}
-              onChange={onChange}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 file:mr-3 file:rounded-md file:border-0 file:bg-gray-950 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white disabled:cursor-not-allowed disabled:bg-gray-100"
-            />
-            <p className="mt-2 text-sm text-gray-500">{helper}</p>
-            <p className={`mt-2 text-sm font-medium ${mensagemClasse}`} aria-live="polite">
-              {uploading ? "Enviando foto..." : mensagem}
-            </p>
-          </div>
+    <div className="py-6">
+      <label htmlFor="avatar_upload" className="block text-base font-medium text-gray-950">
+        Foto
+      </label>
+      <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-center">
+        <span className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-950 text-lg font-bold text-white ring-4 ring-gray-100">
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+          ) : (
+            getIniciais(nome)
+          )}
+        </span>
+        <div className="min-w-0 flex-1">
+          <input
+            id="avatar_upload"
+            type="file"
+            accept={acceptAvatar}
+            disabled={disabled}
+            onChange={onChange}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 file:mr-3 file:rounded-md file:border-0 file:bg-gray-950 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white disabled:cursor-not-allowed disabled:bg-gray-100"
+          />
+          <p className="mt-2 text-sm text-gray-500">{helper}</p>
+          <p className={`mt-2 text-sm font-medium ${mensagemClasse}`} aria-live="polite">
+            {uploading ? "Enviando foto..." : mensagem}
+          </p>
         </div>
       </div>
-      <span className="text-left text-sm font-semibold text-gray-950 underline sm:text-right">
-        {uploading ? "Enviando" : actionLabel}
-      </span>
     </div>
   );
 }
@@ -805,35 +421,31 @@ function LinhaTextarea({
   defaultValue,
   disabled,
   helper,
-  actionLabel,
+  required,
 }: {
   label: string;
   name: string;
   defaultValue: string;
   disabled: boolean;
   helper: string;
-  actionLabel: string;
+  required?: boolean;
 }) {
   return (
-    <div className="grid gap-3 py-6 sm:grid-cols-[minmax(0,1fr)_96px]">
-      <div className="min-w-0">
-        <label htmlFor={name} className="block text-base font-medium text-gray-950">
-          {label}
-        </label>
-        <textarea
-          id={name}
-          name={name}
-          defaultValue={defaultValue}
-          rows={4}
-          maxLength={500}
-          disabled={disabled}
-          className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
-        />
-        <p className="mt-2 text-sm text-gray-500">{helper}</p>
-      </div>
-      <span className="text-left text-sm font-semibold text-gray-950 underline sm:text-right">
-        {actionLabel}
-      </span>
+    <div className="py-6">
+      <label htmlFor={name} className="block text-base font-medium text-gray-950">
+        {label}
+      </label>
+      <textarea
+        id={name}
+        name={name}
+        defaultValue={defaultValue}
+        rows={4}
+        maxLength={500}
+        required={required}
+        disabled={disabled}
+        className="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-100"
+      />
+      <p className="mt-2 text-sm text-gray-500">{helper}</p>
     </div>
   );
 }
@@ -865,19 +477,19 @@ function PainelPrivacidade() {
   return (
     <aside className="h-fit rounded-xl border border-gray-200 bg-white p-6 lg:sticky lg:top-6">
       <BlocoAjuda
-        icone="?"
-        titulo="Por que alguns dados não podem ser editados?"
-        texto="Ocultamos e bloqueamos dados sensíveis para proteger a identidade do usuário e preservar a governança de acesso."
+        icone="ID"
+        titulo="Dados protegidos"
+        texto="Nome e e-mail vêm da base de autenticação e não são alterados livremente pelo usuário."
       />
       <BlocoAjuda
-        icone="!"
-        titulo="Quais detalhes podem ser editados?"
-        texto="Telefone, foto e biografia podem ser atualizados pelo próprio usuário. Nome, e-mail, cargo e nível dependem da administração."
+        icone="OK"
+        titulo="Perfil completo"
+        texto="Cargo, telefone, biografia e foto ajudam a identificar responsáveis nos chamados e evidências."
       />
       <BlocoAjuda
-        icone="i"
-        titulo="O que é compartilhado no sistema?"
-        texto="As informações do perfil aparecem apenas em fluxos operacionais autorizados, como chamados, evidências, histórico e atribuições."
+        icone="LG"
+        titulo="Uso operacional"
+        texto="As informações aparecem apenas em fluxos autorizados, como chamados, histórico, evidências e atribuições."
         semDivisor
       />
     </aside>
@@ -896,8 +508,8 @@ function BlocoAjuda({
   semDivisor?: boolean;
 }) {
   return (
-    <div className={semDivisor ? "pb-0" : "border-b border-gray-200 pb-7 mb-7"}>
-      <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-sm font-bold text-blue-700">
+    <div className={semDivisor ? "pb-0" : "mb-7 border-b border-gray-200 pb-7"}>
+      <span className="flex h-10 w-10 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-xs font-bold text-blue-700">
         {icone}
       </span>
       <h3 className="mt-5 text-lg font-bold leading-snug text-gray-950">

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { PerfilAutenticado, PapelUsuario } from "@/lib/auth/types";
+import type { PerfilAutenticado } from "@/lib/auth/types";
+import { podeAlterarChamadoFaturado } from "@/lib/auth/permissions";
 import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   formatarStatus,
@@ -16,10 +17,6 @@ type StatusUpdateFormProps = {
   statusAtual: string;
   perfilAtual: PerfilAutenticado;
 };
-
-function podeAlterarStatusFaturado(papel: PapelUsuario) {
-  return papel === "super_admin" || papel === "analista" || papel === "admin";
-}
 
 export function StatusUpdateForm({
   chamadoId,
@@ -35,7 +32,7 @@ export function StatusUpdateForm({
   const supabase = useSupabaseBrowserClient();
 
   const statusFaturadoBloqueado =
-    statusAtual === "faturado" && !podeAlterarStatusFaturado(perfilAtual.papel);
+    statusAtual === "faturado" && !podeAlterarChamadoFaturado(perfilAtual.papel);
 
   async function salvarStatus(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

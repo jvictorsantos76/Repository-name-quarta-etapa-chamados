@@ -59,8 +59,30 @@ export async function atualizarPerfilUsuario(
   }
 
   const telefone = normalizarTexto(formData.get("telefone"));
+  const cargo = normalizarTexto(formData.get("cargo"));
   const avatarUrl = normalizarTexto(formData.get("avatar_url"));
   const biografia = normalizarTexto(formData.get("biografia"));
+
+  if (!cargo) {
+    return {
+      status: "validation_error",
+      message: "Cargo é obrigatório para salvar o perfil.",
+    };
+  }
+
+  if (cargo.length > 120) {
+    return {
+      status: "validation_error",
+      message: "Cargo deve ter no máximo 120 caracteres.",
+    };
+  }
+
+  if (!telefone) {
+    return {
+      status: "validation_error",
+      message: "Telefone é obrigatório para salvar o perfil.",
+    };
+  }
 
   if (telefone.length > 30) {
     return {
@@ -69,10 +91,24 @@ export async function atualizarPerfilUsuario(
     };
   }
 
+  if (!avatarUrl) {
+    return {
+      status: "validation_error",
+      message: "Foto é obrigatória para salvar o perfil completo.",
+    };
+  }
+
   if (avatarUrl.length > 2048 || !validarUrlAvatar(avatarUrl)) {
     return {
       status: "validation_error",
       message: "Informe uma URL de foto válida começando com http:// ou https://.",
+    };
+  }
+
+  if (!biografia) {
+    return {
+      status: "validation_error",
+      message: "Biografia é obrigatória para salvar o perfil.",
     };
   }
 
@@ -87,9 +123,10 @@ export async function atualizarPerfilUsuario(
   const { data, error } = await supabase
     .from("perfis")
     .update({
-      telefone: telefone || null,
-      avatar_url: avatarUrl || null,
-      biografia: biografia || null,
+      telefone,
+      cargo,
+      avatar_url: avatarUrl,
+      biografia,
     })
     .eq("id", perfilIdAlvo)
     .select("id")
@@ -130,6 +167,8 @@ export async function atualizarPerfilUsuario(
   }
 
   revalidatePath("/perfil");
+  revalidatePath("/conta");
+  revalidatePath("/conta/perfil");
 
   return {
     status: "success",
@@ -187,6 +226,8 @@ export async function atualizarFotoPerfil(
   }
 
   revalidatePath("/perfil");
+  revalidatePath("/conta");
+  revalidatePath("/conta/perfil");
   revalidatePath("/");
 
   return {
@@ -251,6 +292,7 @@ export async function atualizarPreferenciasPerfil(preferencias: {
   }
 
   revalidatePath("/perfil");
+  revalidatePath("/conta/aparencia");
 
   return {
     status: "success",
