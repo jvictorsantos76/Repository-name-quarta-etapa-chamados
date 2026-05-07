@@ -10,6 +10,14 @@ const statusFormSource = await readFile(
   new URL("../src/app/chamados/[numero]/StatusUpdateForm.tsx", import.meta.url),
   "utf8"
 );
+const cadastroActionsSource = await readFile(
+  new URL("../src/app/cadastro/actions.ts", import.meta.url),
+  "utf8"
+);
+const middlewareSource = await readFile(
+  new URL("../middleware.ts", import.meta.url),
+  "utf8"
+);
 const perfilGrantMigration = await readFile(
   new URL(
     "../supabase/migrations/202605060004_perfis_self_update_cargo.sql",
@@ -19,7 +27,12 @@ const perfilGrantMigration = await readFile(
 );
 
 function extractArray(source, constantName) {
-  const declarationStart = source.indexOf(`export const ${constantName}:`);
+  const exportedDeclarationStart = source.indexOf(`export const ${constantName}:`);
+  const internalDeclarationStart = source.indexOf(`const ${constantName} =`);
+  const declarationStart =
+    exportedDeclarationStart === -1
+      ? internalDeclarationStart
+      : exportedDeclarationStart;
   assert.notEqual(declarationStart, -1, `Nao foi possivel localizar ${constantName}.`);
 
   const arrayStart = source.indexOf("[", declarationStart);
@@ -61,5 +74,41 @@ test("authenticated users can update only the expected self-service perfil field
   assert.doesNotMatch(
     perfilGrantMigration,
     /grant update\s*\([\s\S]*(?:papel|ativo|email|nome_completo|cliente_id|loja_id)[\s\S]*\)\s*on table public\.perfis to authenticated;/i
+  );
+});
+
+test("public registration records a pending access request without creating an operational account", () => {
+  assert.match(cadastroActionsSource, /from\("solicitacoes_acesso"\)\s*\.\s*insert/);
+  assert.match(cadastroActionsSource, /status:\s*"pendente_aprovacao"/);
+  assert.match(cadastroActionsSource, /from\("aceites_legais"\)\s*\.\s*insert/);
+  assert.match(cadastroActionsSource, /tipo_documento:\s*"termos_uso"/);
+  assert.match(cadastroActionsSource, /tipo_documento:\s*"politica_privacidade"/);
+  assert.match(cadastroActionsSource, /versao_documento:\s*LEGAL_DOCUMENTS_VERSION/);
+  assert.doesNotMatch(cadastroActionsSource, /\.auth\.(?:signUp|admin\.createUser)/);
+  assert.doesNotMatch(cadastroActionsSource, /from\("perfis"\)\s*\.\s*insert/);
+});
+
+test("middleware keeps only expected access and legal routes public", () => {
+  const publicPaths = extractArray(middlewareSource, "PUBLIC_PATHS");
+
+  for (const path of [
+    "/login",
+    "/auth",
+    "/cadastro",
+    "/aguardando-aprovacao",
+    "/politica-privacidade",
+    "/termos-uso",
+  ]) {
+    assert.match(publicPaths, new RegExp(`"${path}"`));
+  }
+
+  assert.doesNotMatch(publicPaths, /"\/(?:admin|chamados|conta|perfil)"/);
+  assert.match(
+    middlewareSource,
+    /if \(!accessToken && !isPublicPath\) \{\s*return NextResponse\.redirect\(new URL\("\/login", request\.url\)\);/s
+  );
+  assert.match(
+    middlewareSource,
+    /const isAuthEntryPath = pathname === "\/login" \|\| pathname === "\/cadastro";/
   );
 });
