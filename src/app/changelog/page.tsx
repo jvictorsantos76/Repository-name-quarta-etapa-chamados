@@ -6,6 +6,8 @@ const versoes = [
     versao: APP_VERSION,
     data: "06/05/2026",
     alteracoes: [
+      "Preferências de aparência passam a ser aplicadas globalmente no SaaS com fallback em localStorage e carregamento inicial no layout raiz.",
+      "Perfil de Usuário v0.1.4 passa a salvar tema, cor e fonte atualizando Supabase, navegador e DOM imediatamente.",
       "Perfil de Usuário v0.1.3 adiciona preferências de aparência e acessibilidade com tema, cor de destaque e escala de fonte salvas em public.perfis.",
       "Perfil de Usuário v0.1.2 passa a ter upload de foto com Supabase Storage e prévia no formulário.",
       "Perfil de Usuário v0.1.1 passa a incluir seção Segurança com alteração de senha e encerramento manual de sessão.",

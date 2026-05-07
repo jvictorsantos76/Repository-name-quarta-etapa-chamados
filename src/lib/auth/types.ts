@@ -1,3 +1,5 @@
+import type { CorPreferida, FonteEscala, TemaPreferido } from "@/lib/theme/types";
+
 export type PapelUsuario =
   | "super_admin"
   | "admin"
@@ -7,17 +9,6 @@ export type PapelUsuario =
   | "tecnico"
   | "cliente"
   | "solicitante";
-
-export type TemaPreferido = "system" | "light" | "dark";
-
-export type CorPreferida =
-  | "quarta-etapa"
-  | "verde"
-  | "roxo"
-  | "laranja"
-  | "neutro";
-
-export type FonteEscala = "padrao" | "grande" | "extra_grande";
 
 export type PerfilAutenticado = {
   id: string;

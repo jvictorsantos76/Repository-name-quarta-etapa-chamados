@@ -110,18 +110,8 @@ export default async function PerfilPage({ searchParams }: PageProps) {
     usuarioParam
   );
   const editandoOutroPerfil = perfil.id !== perfilAtual.id;
-  const temaPreferido = perfil.tema_preferido ?? "system";
-  const corPreferida = perfil.cor_preferida ?? "quarta-etapa";
-  const fonteEscala = perfil.fonte_escala ?? "padrao";
-
   return (
-    <main
-      className="perfil-theme-shell min-h-screen bg-white text-gray-900"
-      data-theme={temaPreferido}
-      data-theme-effective={temaPreferido === "dark" ? "dark" : "light"}
-      data-accent={corPreferida}
-      data-font-scale={fonteEscala}
-    >
+    <main className="min-h-screen bg-white text-gray-900">
       <AppHeader perfil={perfilAtual} />
       <section className="mx-auto max-w-6xl px-6 pb-14 pt-4 md:px-8 md:pt-8">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

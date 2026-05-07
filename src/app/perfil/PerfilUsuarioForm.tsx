@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useContext, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LABEL_PAPEL_USUARIO } from "@/lib/auth/permissions";
 import type {
   CorPreferida,
   FonteEscala,
-  PerfilAutenticado,
   TemaPreferido,
-} from "@/lib/auth/types";
+} from "@/lib/theme/types";
+import type { PerfilAutenticado } from "@/lib/auth/types";
+import { ThemeContext } from "@/components/theme/ThemeProvider";
 import {
   createSupabaseBrowserClient,
   syncSupabaseSessionCookies,
@@ -148,6 +149,7 @@ export function PerfilUsuarioForm({
 }: PerfilUsuarioFormProps) {
   const router = useRouter();
   const supabase = useSupabaseBrowserClient();
+  const { setPreferencias: setPreferenciasGlobais } = useContext(ThemeContext);
   const [state, formAction, pending] = useActionState(
     atualizarPerfilUsuario,
     ESTADO_INICIAL
@@ -170,37 +172,6 @@ export function PerfilUsuarioForm({
   const [avatarPendente, startAvatarTransition] = useTransition();
   const [preferenciasSalvando, setPreferenciasSalvando] = useState(false);
   const podeEnviarAvatar = !editandoOutroPerfil;
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-
-    function aplicarAparencia() {
-      const shell = document.querySelector<HTMLElement>(".perfil-theme-shell");
-
-      if (!shell) {
-        return;
-      }
-
-      const temaEfetivo =
-        preferencias.tema_preferido === "system"
-          ? mediaQuery.matches
-            ? "dark"
-            : "light"
-          : preferencias.tema_preferido;
-
-      shell.dataset.theme = preferencias.tema_preferido;
-      shell.dataset.themeEffective = temaEfetivo;
-      shell.dataset.accent = preferencias.cor_preferida;
-      shell.dataset.fontScale = preferencias.fonte_escala;
-    }
-
-    aplicarAparencia();
-    mediaQuery.addEventListener("change", aplicarAparencia);
-
-    return () => {
-      mediaQuery.removeEventListener("change", aplicarAparencia);
-    };
-  }, [preferencias]);
 
   async function enviarAvatar(arquivo: File) {
     const nomeSeguro = normalizarNomeArquivo(arquivo.name);
@@ -285,6 +256,7 @@ export function PerfilUsuarioForm({
 
   function alterarPreferencia(proximasPreferencias: PreferenciasPerfil) {
     setPreferencias(proximasPreferencias);
+    setPreferenciasGlobais(proximasPreferencias);
     setPreferenciasStatus("idle");
     setPreferenciasMensagem("Salvando preferências...");
     setPreferenciasSalvando(true);

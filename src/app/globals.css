@@ -1,8 +1,68 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #111827;
+  --muted: #f1f5f9;
+  --muted-foreground: #526070;
+  --card: #ffffff;
+  --card-foreground: #030712;
+  --border: #d9e2ec;
+  --input: #ffffff;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-foreground: #ffffff;
+  --primary-soft: rgb(37 99 235 / 0.12);
+  --ring: rgb(37 99 235 / 0.22);
+  --inverse: #111827;
+  --inverse-muted: #d1d5db;
+}
+
+html[data-theme-effective="dark"] {
+  --background: #0f1115;
+  --foreground: #d7dde7;
+  --muted: #1d2330;
+  --muted-foreground: #9aa6b8;
+  --card: #151922;
+  --card-foreground: #f7f8fb;
+  --border: #2b3442;
+  --input: #151922;
+  --primary-soft: rgb(96 165 250 / 0.16);
+  --ring: rgb(96 165 250 / 0.34);
+  --inverse: #07090d;
+  --inverse-muted: #cbd5e1;
+}
+
+html[data-accent="verde"] {
+  --primary: #84cc16;
+  --primary-hover: #65a30d;
+  --primary-foreground: #111827;
+  --primary-soft: rgb(132 204 22 / 0.16);
+  --ring: rgb(132 204 22 / 0.34);
+}
+
+html[data-accent="roxo"] {
+  --primary: #8b5cf6;
+  --primary-hover: #7c3aed;
+  --primary-foreground: #ffffff;
+  --primary-soft: rgb(139 92 246 / 0.16);
+  --ring: rgb(139 92 246 / 0.34);
+}
+
+html[data-accent="laranja"] {
+  --primary: #f97316;
+  --primary-hover: #ea580c;
+  --primary-foreground: #111827;
+  --primary-soft: rgb(249 115 22 / 0.17);
+  --ring: rgb(249 115 22 / 0.34);
+}
+
+html[data-accent="neutro"] {
+  --primary: #64748b;
+  --primary-hover: #475569;
+  --primary-foreground: #ffffff;
+  --primary-soft: rgb(100 116 139 / 0.18);
+  --ring: rgb(100 116 139 / 0.34);
 }
 
 @theme inline {
@@ -12,11 +72,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html[data-font-scale="grande"] {
+  font-size: 106.25%;
+}
+
+html[data-font-scale="extra_grande"] {
+  font-size: 112.5%;
 }
 
 body {
@@ -25,150 +86,125 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-.perfil-theme-shell {
-  --perfil-bg: #f8fafc;
-  --perfil-surface: #ffffff;
-  --perfil-surface-muted: #f1f5f9;
-  --perfil-border: #d9e2ec;
-  --perfil-text: #111827;
-  --perfil-text-strong: #030712;
-  --perfil-text-muted: #526070;
-  --perfil-focus: rgb(37 99 235 / 0.22);
-  --perfil-accent: #2563eb;
-  --perfil-accent-hover: #1d4ed8;
-  --perfil-accent-contrast: #ffffff;
-  --perfil-accent-soft: rgb(37 99 235 / 0.12);
-  background: var(--perfil-bg);
-  color: var(--perfil-text);
-  transition:
-    background-color 180ms ease,
-    color 180ms ease,
-    border-color 180ms ease;
+body :where(.bg-gray-100) {
+  background-color: var(--background);
 }
 
-.perfil-theme-shell[data-theme-effective="dark"] {
-  --perfil-bg: #0f1115;
-  --perfil-surface: #151922;
-  --perfil-surface-muted: #1d2330;
-  --perfil-border: #2b3442;
-  --perfil-text: #d7dde7;
-  --perfil-text-strong: #f7f8fb;
-  --perfil-text-muted: #9aa6b8;
-  --perfil-focus: rgb(96 165 250 / 0.34);
-  --perfil-accent-soft: rgb(96 165 250 / 0.16);
+body :where(.bg-white, .bg-gray-50) {
+  background-color: var(--card);
 }
 
-.perfil-theme-shell[data-accent="verde"] {
-  --perfil-accent: #84cc16;
-  --perfil-accent-hover: #65a30d;
-  --perfil-accent-contrast: #111827;
-  --perfil-accent-soft: rgb(132 204 22 / 0.16);
-  --perfil-focus: rgb(132 204 22 / 0.34);
+body :where(.bg-gray-950) {
+  background-color: var(--inverse);
 }
 
-.perfil-theme-shell[data-accent="roxo"] {
-  --perfil-accent: #8b5cf6;
-  --perfil-accent-hover: #7c3aed;
-  --perfil-accent-contrast: #ffffff;
-  --perfil-accent-soft: rgb(139 92 246 / 0.16);
-  --perfil-focus: rgb(139 92 246 / 0.34);
+body :where(.bg-gray-900) {
+  background-color: var(--primary);
 }
 
-.perfil-theme-shell[data-accent="laranja"] {
-  --perfil-accent: #f97316;
-  --perfil-accent-hover: #ea580c;
-  --perfil-accent-contrast: #111827;
-  --perfil-accent-soft: rgb(249 115 22 / 0.17);
-  --perfil-focus: rgb(249 115 22 / 0.34);
+body :where(.hover\:bg-gray-800:hover, .hover\:bg-gray-900:hover) {
+  background-color: var(--primary-hover);
 }
 
-.perfil-theme-shell[data-accent="neutro"] {
-  --perfil-accent: #64748b;
-  --perfil-accent-hover: #475569;
-  --perfil-accent-contrast: #ffffff;
-  --perfil-accent-soft: rgb(100 116 139 / 0.18);
-  --perfil-focus: rgb(100 116 139 / 0.34);
+body :where(.bg-blue-50) {
+  background-color: var(--primary-soft);
 }
 
-.perfil-theme-shell :where(.bg-white) {
-  background-color: var(--perfil-surface);
+body :where(.bg-blue-600, .bg-blue-700) {
+  background-color: var(--primary);
 }
 
-.perfil-theme-shell :where(.bg-gray-50, .bg-gray-100) {
-  background-color: var(--perfil-surface-muted);
+body :where(.hover\:bg-blue-50:hover, .hover\:bg-gray-50:hover, .hover\:bg-gray-100:hover) {
+  background-color: var(--primary-soft);
 }
 
-.perfil-theme-shell :where(.bg-gray-950, .bg-gray-900) {
-  background-color: var(--perfil-text-strong);
+body :where(.text-gray-950, .text-gray-900, .text-gray-800) {
+  color: var(--card-foreground);
 }
 
-.perfil-theme-shell :where(.text-gray-950, .text-gray-900, .text-gray-800) {
-  color: var(--perfil-text-strong);
+body :where(.text-gray-700, .text-gray-600, .text-gray-500, .text-gray-400) {
+  color: var(--muted-foreground);
 }
 
-.perfil-theme-shell :where(.text-gray-700, .text-gray-600, .text-gray-500) {
-  color: var(--perfil-text-muted);
+body :where(.text-blue-600, .text-blue-700, .text-blue-300, .text-blue-200) {
+  color: var(--primary);
 }
 
-.perfil-theme-shell :where(.border-gray-300, .border-gray-200) {
-  border-color: var(--perfil-border);
+body :where(.hover\:text-blue-600:hover, .hover\:text-blue-700:hover, .hover\:text-gray-900:hover, .hover\:text-gray-950:hover) {
+  color: var(--primary);
 }
 
-.perfil-theme-shell :where(.ring-gray-100) {
-  --tw-ring-color: var(--perfil-surface-muted);
+body :where(.border-gray-300, .border-gray-200, .border-blue-200) {
+  border-color: var(--border);
 }
 
-.perfil-theme-shell :where(.hover\:text-gray-950:hover) {
-  color: var(--perfil-accent);
+body :where(.border-blue-300\/50) {
+  border-color: var(--primary);
 }
 
-.perfil-theme-shell :where(.hover\:bg-gray-50:hover, .hover\:bg-gray-100:hover) {
-  background-color: var(--perfil-accent-soft);
+body :where(.ring-gray-100) {
+  --tw-ring-color: var(--muted);
 }
 
-.perfil-theme-shell :where(input, textarea, select) {
-  background-color: var(--perfil-surface);
-  border-color: var(--perfil-border);
-  color: var(--perfil-text-strong);
+body :where(input, textarea, select) {
+  background-color: var(--input);
+  border-color: var(--border);
+  color: var(--card-foreground);
 }
 
-.perfil-theme-shell :where(input::placeholder, textarea::placeholder) {
-  color: var(--perfil-text-muted);
+body :where(input::placeholder, textarea::placeholder) {
+  color: var(--muted-foreground);
 }
 
-.perfil-theme-shell :where(input:focus, textarea:focus, button:focus-visible, a:focus-visible) {
-  border-color: var(--perfil-accent);
-  box-shadow: 0 0 0 3px var(--perfil-focus);
+body :where(input:focus, textarea:focus, select:focus, button:focus-visible, a:focus-visible) {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--ring);
   outline: none;
 }
 
-.perfil-theme-shell :where(button[type="submit"], .perfil-preview-button) {
-  background-color: var(--perfil-accent);
-  color: var(--perfil-accent-contrast);
+body :where(button[type="submit"]) {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
 }
 
-.perfil-theme-shell :where(button[type="submit"]:hover, .perfil-preview-button:hover) {
-  background-color: var(--perfil-accent-hover);
+body :where(button[type="submit"]:hover) {
+  background-color: var(--primary-hover);
+}
+
+body :where(.shadow, .shadow-sm) {
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.08);
+}
+
+html[data-theme-effective="dark"] body :where(.shadow, .shadow-sm) {
+  box-shadow: 0 18px 50px rgb(0 0 0 / 0.35);
+}
+
+html[data-theme-effective="dark"] body :where(.text-white) {
+  color: #f7f8fb;
+}
+
+html[data-theme-effective="dark"] body :where(.text-gray-300) {
+  color: var(--inverse-muted);
 }
 
 .perfil-choice-active {
-  background-color: var(--perfil-accent);
-  border-color: var(--perfil-accent);
-  color: var(--perfil-accent-contrast);
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
 }
 
 .perfil-preferences-card,
 .perfil-preview {
-  background-color: var(--perfil-surface);
-  border-color: var(--perfil-border);
+  background-color: var(--card);
+  border-color: var(--border);
 }
 
 .perfil-color-dot {
   width: 0.875rem;
   height: 0.875rem;
   border-radius: 999px;
-  background-color: var(--perfil-accent);
-  box-shadow: 0 0 0 3px var(--perfil-accent-soft);
+  background-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
 }
 
 .perfil-color-choice[data-color="quarta-etapa"] .perfil-color-dot {
@@ -192,42 +228,19 @@ body {
 }
 
 .perfil-preview-status {
-  background-color: var(--perfil-accent-soft);
-  color: var(--perfil-accent);
+  background-color: var(--primary-soft);
+  color: var(--primary);
 }
 
 .perfil-preview-bar {
-  background-color: var(--perfil-accent);
+  background-color: var(--primary);
 }
 
-.perfil-theme-shell[data-font-scale="grande"] .perfil-scalable :where(.text-xs) {
-  font-size: 0.8125rem;
+.perfil-preview-button {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
 }
 
-.perfil-theme-shell[data-font-scale="grande"] .perfil-scalable :where(.text-sm) {
-  font-size: 0.9375rem;
-}
-
-.perfil-theme-shell[data-font-scale="grande"] .perfil-scalable :where(.text-base) {
-  font-size: 1.0625rem;
-}
-
-.perfil-theme-shell[data-font-scale="grande"] .perfil-scalable :where(.text-lg) {
-  font-size: 1.1875rem;
-}
-
-.perfil-theme-shell[data-font-scale="extra_grande"] .perfil-scalable :where(.text-xs) {
-  font-size: 0.875rem;
-}
-
-.perfil-theme-shell[data-font-scale="extra_grande"] .perfil-scalable :where(.text-sm) {
-  font-size: 1rem;
-}
-
-.perfil-theme-shell[data-font-scale="extra_grande"] .perfil-scalable :where(.text-base) {
-  font-size: 1.125rem;
-}
-
-.perfil-theme-shell[data-font-scale="extra_grande"] .perfil-scalable :where(.text-lg) {
-  font-size: 1.25rem;
+.perfil-preview-button:hover {
+  background-color: var(--primary-hover);
 }

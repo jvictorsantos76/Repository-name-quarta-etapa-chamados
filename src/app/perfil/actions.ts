@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { podeAdministrarUsuarios } from "@/lib/auth/permissions";
-import type { CorPreferida, FonteEscala, TemaPreferido } from "@/lib/auth/types";
+import type { CorPreferida, FonteEscala, TemaPreferido } from "@/lib/theme/types";
+import { CORES_VALIDAS, FONTES_VALIDAS, TEMAS_VALIDOS } from "@/lib/theme/constants";
 import {
   createSupabaseServerClient,
   requirePerfilAutenticado,
@@ -15,20 +16,6 @@ export type PerfilActionState = {
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-const TEMAS_VALIDOS = new Set<TemaPreferido>(["system", "light", "dark"]);
-const CORES_VALIDAS = new Set<CorPreferida>([
-  "quarta-etapa",
-  "verde",
-  "roxo",
-  "laranja",
-  "neutro",
-]);
-const FONTES_VALIDAS = new Set<FonteEscala>([
-  "padrao",
-  "grande",
-  "extra_grande",
-]);
 
 function normalizarTexto(valor: FormDataEntryValue | null) {
   return String(valor ?? "").trim();
@@ -216,9 +203,9 @@ export async function atualizarPreferenciasPerfil(preferencias: {
   const perfilAtual = await requirePerfilAutenticado();
 
   if (
-    !TEMAS_VALIDOS.has(preferencias.tema_preferido) ||
-    !CORES_VALIDAS.has(preferencias.cor_preferida) ||
-    !FONTES_VALIDAS.has(preferencias.fonte_escala)
+    !TEMAS_VALIDOS.includes(preferencias.tema_preferido) ||
+    !CORES_VALIDAS.includes(preferencias.cor_preferida) ||
+    !FONTES_VALIDAS.includes(preferencias.fonte_escala)
   ) {
     return {
       status: "validation_error",
