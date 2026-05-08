@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requirePerfilAutenticado } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/AppHeader";
+import { NOVO_CHAMADO_PAGE_VERSION } from "@/config/version";
 import { NovoChamadoForm } from "./NovoChamadoForm";
 
 export default async function NovoChamado() {
@@ -9,29 +10,35 @@ export default async function NovoChamado() {
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">
       <AppHeader perfil={perfilAtual} />
-      <section className="mx-auto max-w-4xl px-6 pb-8 md:px-8">
-        <div className="mb-6">
-          <Link href="/" className="text-sm font-semibold text-blue-600">
-            Voltar para chamados
-          </Link>
+      <section className="mx-auto max-w-6xl px-6 pb-14 pt-4 md:px-8 md:pt-8">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <nav
+              aria-label="Navegação de chamados"
+              className="flex items-center gap-2 text-sm font-semibold text-gray-600"
+            >
+              <Link href="/" className="hover:text-gray-950">
+                Chamados
+              </Link>
+              <span aria-hidden="true" className="text-gray-400">
+                &gt;
+              </span>
+              <span className="text-gray-950">Novo chamado</span>
+            </nav>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-gray-950">
+              Abrir novo chamado técnico
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm text-gray-600">
+              Registre os dados iniciais para triagem e acompanhamento do
+              atendimento.
+            </p>
+          </div>
+          <span className="w-fit rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-600">
+            Tela v{NOVO_CHAMADO_PAGE_VERSION.replace(/^v/, "")}
+          </span>
         </div>
 
-        <div className="rounded-xl bg-white p-6 shadow">
-          <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-            Novo chamado
-          </p>
-
-          <h1 className="mt-2 text-2xl font-bold">
-            Abrir novo chamado técnico
-          </h1>
-
-          <p className="mt-3 text-gray-600">
-            Registre os dados iniciais para triagem e acompanhamento do
-            atendimento.
-          </p>
-
-          <NovoChamadoForm perfilAtual={perfilAtual} />
-        </div>
+        <NovoChamadoForm perfilAtual={perfilAtual} />
       </section>
     </main>
   );

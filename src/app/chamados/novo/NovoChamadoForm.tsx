@@ -385,6 +385,51 @@ type NovoChamadoFormProps = {
   perfilAtual: PerfilAutenticado;
 };
 
+type BlocoChamadoProps = {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+  className?: string;
+};
+
+const mensagemBlocoFuturo =
+  "Campos deste bloco serão implementados em etapa posterior.";
+
+function BlocoChamado({
+  title,
+  description,
+  children,
+  className = "",
+}: BlocoChamadoProps) {
+  return (
+    <section
+      className={`rounded-xl border border-gray-200 bg-white p-6 shadow-sm ${className}`}
+    >
+      <div className="mb-5">
+        <h2 className="text-lg font-bold text-gray-950">{title}</h2>
+        <p className="mt-2 text-sm leading-6 text-gray-600">{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function BlocoFuturo({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <BlocoChamado title={title} description={description}>
+      <p className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+        {mensagemBlocoFuturo}
+      </p>
+    </BlocoChamado>
+  );
+}
+
 export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
   const router = useRouter();
   const supabase = useSupabaseBrowserClient();
@@ -650,81 +695,134 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
   }
 
   return (
-    <form onSubmit={salvarChamado} className="mt-6 space-y-5">
+    <form onSubmit={salvarChamado} className="space-y-6">
       {mensagemErro && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700 shadow-sm">
           {mensagemErro}
         </div>
       )}
 
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-        <div className="grid gap-5 md:grid-cols-3">
-          <div>
-            <label className="mb-2 block text-sm font-semibold">
-              Usuário
-            </label>
-            <input
-              value={`${usuarioAtual.nome} (${usuarioAtual.papel})`}
-              readOnly
-              className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-700"
-            />
-          </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <BlocoChamado
+          title="1. Identificação do chamado"
+          description="Dados iniciais de abertura e origem operacional."
+        >
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Usuário
+              </label>
+              <input
+                value={`${usuarioAtual.nome} (${usuarioAtual.papel})`}
+                readOnly
+                className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-700"
+              />
+            </div>
 
-          <div className="md:col-span-2">
-            <p className="text-sm font-semibold">Permissões aplicadas</p>
-            <div className="mt-2 flex flex-col gap-2 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
-              <p>
-                O perfil autenticado define analista e técnico
-                responsáveis.
-              </p>
-              <Link href="/faq/permissoes" className="font-semibold text-blue-600">
-                Ver FAQ de permissões
-              </Link>
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Tipo do chamado
+              </label>
+              <select
+                value={tipoChamado}
+                onChange={(event) =>
+                  setTipoChamado(event.target.value as TipoChamado)
+                }
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                {tiposChamado.map((tipo) => (
+                  <option key={tipo.value} value={tipo.value}>
+                    {tipo.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm font-semibold">
+                Origem
+              </label>
+              <select
+                value={origem}
+                onChange={(event) => setOrigem(event.target.value as Origem)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                {origens.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 md:col-span-2">
+              <p className="text-sm font-semibold">Permissões aplicadas</p>
+              <div className="mt-2 flex flex-col gap-2 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  O perfil autenticado define analista e técnico responsáveis.
+                </p>
+                <Link
+                  href="/faq/permissoes"
+                  className="font-semibold text-blue-600"
+                >
+                  Ver FAQ de permissões
+                </Link>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </BlocoChamado>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block text-sm font-semibold">Cliente</label>
-          <select
-            value={clienteId}
-            onChange={(event) => {
-              setClienteId(event.target.value);
-              setLojaId("");
-            }}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-          >
-            <option value="">Selecione um cliente</option>
-            {clientes.map((cliente) => (
-              <option key={cliente.id} value={cliente.id}>
-                {cliente.nome_fantasia}
-              </option>
-            ))}
-          </select>
-        </div>
+        <BlocoChamado
+          title="2. Cliente, loja e unidade"
+          description="Contexto do cliente e unidade onde o atendimento será tratado."
+        >
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Cliente
+              </label>
+              <select
+                value={clienteId}
+                onChange={(event) => {
+                  setClienteId(event.target.value);
+                  setLojaId("");
+                }}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">Selecione um cliente</option>
+                {clientes.map((cliente) => (
+                  <option key={cliente.id} value={cliente.id}>
+                    {cliente.nome_fantasia}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Loja/Unidade
-          </label>
-          <select
-            value={lojaId}
-            onChange={(event) => setLojaId(event.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-            disabled={!clienteId}
-          >
-            <option value="">Selecione uma loja</option>
-            {lojasFiltradas.map((loja) => (
-              <option key={loja.id} value={loja.id}>
-                {loja.nome_loja}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Loja/Unidade
+              </label>
+              <select
+                value={lojaId}
+                onChange={(event) => setLojaId(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                disabled={!clienteId}
+              >
+                <option value="">Selecione uma loja</option>
+                {lojasFiltradas.map((loja) => (
+                  <option key={loja.id} value={loja.id}>
+                    {loja.nome_loja}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </BlocoChamado>
 
-        <div>
+        <BlocoChamado
+          title="3. Solicitante e contato"
+          description="Identificação de quem acionou o atendimento."
+        >
           <label className="mb-2 block text-sm font-semibold">
             Solicitante
           </label>
@@ -735,289 +833,326 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
             placeholder="Nome de quem solicitou o atendimento"
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
-        </div>
+        </BlocoChamado>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Tipo do chamado
-          </label>
-          <select
-            value={tipoChamado}
-            onChange={(event) =>
-              setTipoChamado(event.target.value as TipoChamado)
-            }
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-          >
-            {tiposChamado.map((tipo) => (
-              <option key={tipo.value} value={tipo.value}>
-                {tipo.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <BlocoChamado
+          title="4. Classificação e triagem"
+          description="Categoria, impacto e urgência usados para calcular a prioridade."
+        >
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Categoria
+              </label>
+              <select
+                value={categoria}
+                onChange={(event) => {
+                  setCategoria(event.target.value as CategoriaChamado | "");
+                  setAtivoTipo("");
+                }}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                required
+              >
+                <option value="">Selecione uma categoria</option>
+                {categoriaChamadoOpcoes.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">Impacto</label>
-          <select
-            value={impacto}
-            onChange={(event) => setImpacto(event.target.value as Impacto)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-          >
-            {impactos.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Impacto
+              </label>
+              <select
+                value={impacto}
+                onChange={(event) => setImpacto(event.target.value as Impacto)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                {impactos.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">Urgência</label>
-          <select
-            value={urgencia}
-            onChange={(event) => setUrgencia(event.target.value as Urgencia)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-          >
-            {urgencias.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Urgência
+              </label>
+              <select
+                value={urgencia}
+                onChange={(event) => setUrgencia(event.target.value as Urgencia)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                {urgencias.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">Origem</label>
-          <select
-            value={origem}
-            onChange={(event) => setOrigem(event.target.value as Origem)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-          >
-            {origens.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold">Categoria</label>
-          <select
-            value={categoria}
-            onChange={(event) => {
-              setCategoria(event.target.value as CategoriaChamado | "");
-              setAtivoTipo("");
-            }}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-            required
-          >
-            <option value="">Selecione uma categoria</option>
-            {categoriaChamadoOpcoes.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Prioridade calculada
-          </label>
-          <div className="flex min-h-10 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-            <span className={getPrioridadeClass(prioridadeCalculada)}>
-              {getPrioridadeLabel(prioridadeCalculada)}
-            </span>
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Prioridade calculada
+              </label>
+              <div className="flex min-h-10 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                <span className={getPrioridadeClass(prioridadeCalculada)}>
+                  {getPrioridadeLabel(prioridadeCalculada)}
+                </span>
+              </div>
+            </div>
           </div>
-        </div>
+        </BlocoChamado>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Analista responsável
-          </label>
-          <select
-            value={analistaResponsavelEfetivo}
-            onChange={(event) => setAnalistaResponsavelId(event.target.value)}
-            disabled={analistaBloqueado}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
-          >
-            <option value="">Sem analista definido</option>
-            {analistas.map((analista) => (
-              <option key={analista.id} value={analista.id}>
-                {analista.nome}
-              </option>
-            ))}
-          </select>
-        </div>
+        <BlocoChamado
+          title="5. Ativo, equipamento e PDV"
+          description="Ativo afetado e dados básicos do equipamento informado."
+          className="lg:col-span-2"
+        >
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold">Ativo</label>
+              <select
+                value={ativoTipo}
+                onChange={(event) => setAtivoTipo(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                disabled={!categoria}
+                required
+              >
+                <option value="">Selecione um ativo</option>
+                {ativosDisponiveis.map((ativo) => (
+                  <option key={ativo} value={ativo}>
+                    {ativo}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Técnico responsável
-          </label>
-          <select
-            value={tecnicoResponsavelEfetivo}
-            onChange={(event) => setTecnicoResponsavelId(event.target.value)}
-            disabled={tecnicoBloqueado}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
-          >
-            <option value="">Sem técnico atribuído</option>
-            {tecnicos.map((tecnico) => (
-              <option key={tecnico.id} value={tecnico.id}>
-                {tecnico.nome}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Complemento do ativo
+              </label>
+              <input
+                type="text"
+                value={ativoDescricao}
+                onChange={(event) => setAtivoDescricao(event.target.value)}
+                placeholder="Ex.: PDV 03, corredor 2, rack principal"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Ativo
-          </label>
-          <select
-            value={ativoTipo}
-            onChange={(event) => setAtivoTipo(event.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
-            disabled={!categoria}
-            required
-          >
-            <option value="">Selecione um ativo</option>
-            {ativosDisponiveis.map((ativo) => (
-              <option key={ativo} value={ativo}>
-                {ativo}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold">Marca</label>
+              <input
+                type="text"
+                value={marca}
+                onChange={(event) => setMarca(event.target.value)}
+                placeholder="Ex.: Epson, Dell, Intelbras"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">
-            Complemento do ativo
-          </label>
-          <input
-            type="text"
-            value={ativoDescricao}
-            onChange={(event) => setAtivoDescricao(event.target.value)}
-            placeholder="Ex.: PDV 03, corredor 2, rack principal"
+            <div>
+              <label className="mb-2 block text-sm font-semibold">Modelo</label>
+              <input
+                type="text"
+                value={modelo}
+                onChange={(event) => setModelo(event.target.value)}
+                placeholder="Ex.: TM-T20, OptiPlex 3080, VIP 1230"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+        </BlocoChamado>
+
+        <BlocoChamado
+          title="6. Descrição, diagnóstico e solução"
+          description="Registro inicial do problema, contexto e impacto relatado."
+          className="lg:col-span-2"
+        >
+          <label className="mb-2 block text-sm font-semibold">Descrição</label>
+          <textarea
+            value={descricao}
+            onChange={(event) => setDescricao(event.target.value)}
+            rows={5}
+            placeholder="Descreva a necessidade, impacto e contexto informado pela loja."
             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
           />
-        </div>
+        </BlocoChamado>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">Marca</label>
-          <input
-            type="text"
-            value={marca}
-            onChange={(event) => setMarca(event.target.value)}
-            placeholder="Ex.: Epson, Dell, Intelbras"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
+        <BlocoChamado
+          title="7. Responsáveis e operadores"
+          description="Atribuição operacional conforme permissões do perfil autenticado."
+        >
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Analista responsável
+              </label>
+              <select
+                value={analistaResponsavelEfetivo}
+                onChange={(event) =>
+                  setAnalistaResponsavelId(event.target.value)
+                }
+                disabled={analistaBloqueado}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+              >
+                <option value="">Sem analista definido</option>
+                {analistas.map((analista) => (
+                  <option key={analista.id} value={analista.id}>
+                    {analista.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-semibold">Modelo</label>
-          <input
-            type="text"
-            value={modelo}
-            onChange={(event) => setModelo(event.target.value)}
-            placeholder="Ex.: TM-T20, OptiPlex 3080, VIP 1230"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </div>
-      </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Técnico responsável
+              </label>
+              <select
+                value={tecnicoResponsavelEfetivo}
+                onChange={(event) =>
+                  setTecnicoResponsavelId(event.target.value)
+                }
+                disabled={tecnicoBloqueado}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+              >
+                <option value="">Sem técnico atribuído</option>
+                {tecnicos.map((tecnico) => (
+                  <option key={tecnico.id} value={tecnico.id}>
+                    {tecnico.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </BlocoChamado>
 
-      <div>
-        <label className="mb-2 block text-sm font-semibold">Descrição</label>
-        <textarea
-          value={descricao}
-          onChange={(event) => setDescricao(event.target.value)}
-          rows={5}
-          placeholder="Descreva a necessidade, impacto e contexto informado pela loja."
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+        <BlocoChamado
+          title="8. Evidências e anexos"
+          description="Arquivos iniciais para apoiar a triagem do atendimento."
+          className="lg:col-span-2"
+        >
+          <label className="mb-2 block text-sm font-semibold">
+            Evidências iniciais
+          </label>
+          <div
+            onDragOver={(event) => {
+              event.preventDefault();
+              setArrastando(true);
+            }}
+            onDragLeave={() => setArrastando(false)}
+            onDrop={receberArquivosArrastados}
+            className={`rounded-lg border-2 border-dashed p-5 transition ${
+              arrastando
+                ? "border-blue-400 bg-blue-50"
+                : "border-gray-300 bg-gray-50"
+            }`}
+          >
+            <input
+              type="file"
+              multiple
+              accept={acceptEvidencias}
+              onChange={selecionarEvidencias}
+              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+            />
+            <p className="mt-3 text-sm text-gray-600">
+              Arraste arquivos para esta área ou selecione pelo campo acima.
+            </p>
+          </div>
+
+          {evidencias.length > 0 && (
+            <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <p className="text-sm font-semibold">
+                {evidencias.length} arquivo(s) selecionado(s)
+              </p>
+
+              <ul className="mt-3 space-y-2 text-sm text-gray-700">
+                {evidencias.map((evidencia, indice) => (
+                  <li
+                    key={`${evidencia.name}-${evidencia.size}-${evidencia.lastModified}`}
+                    className="flex flex-col rounded border border-gray-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <span className="break-all font-medium">
+                        {evidencia.name}
+                      </span>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {obterTipoArquivo(evidencia)} ·{" "}
+                        {formatarTamanho(evidencia.size)}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => removerEvidencia(indice)}
+                      className="mt-2 text-left text-sm font-semibold text-red-600 sm:mt-0"
+                    >
+                      Remover
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </BlocoChamado>
+
+        <BlocoFuturo
+          title="9. Datas, agendamento e SLA"
+          description="Reserva para prazos, janelas de atendimento e indicadores de SLA."
+        />
+        <BlocoFuturo
+          title="10. Peças, equipamentos e substituições"
+          description="Reserva para itens aplicados, trocas e substituições técnicas."
+        />
+        <BlocoFuturo
+          title="11. Custos e financeiro"
+          description="Reserva para custos, valores e impactos financeiros."
+        />
+        <BlocoFuturo
+          title="12. Controle, validação e encerramento"
+          description="Reserva para aprovação, validação final e encerramento operacional."
+        />
+        <BlocoFuturo
+          title="13. Integrações e dados externos"
+          description="Reserva para vínculos com sistemas externos e referências integradas."
         />
       </div>
 
-      <div>
-        <label className="mb-2 block text-sm font-semibold">
-          Evidências iniciais
-        </label>
-        <div
-          onDragOver={(event) => {
-            event.preventDefault();
-            setArrastando(true);
-          }}
-          onDragLeave={() => setArrastando(false)}
-          onDrop={receberArquivosArrastados}
-          className={`rounded-lg border-2 border-dashed p-5 transition ${
-            arrastando
-              ? "border-blue-400 bg-blue-50"
-              : "border-gray-300 bg-gray-50"
-          }`}
-        >
-          <input
-            type="file"
-            multiple
-            accept={acceptEvidencias}
-            onChange={selecionarEvidencias}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-          />
-          <p className="mt-3 text-sm text-gray-600">
-            Arraste arquivos para esta área ou selecione pelo campo acima.
-          </p>
-        </div>
-
-        {evidencias.length > 0 && (
-          <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-            <p className="text-sm font-semibold">
-              {evidencias.length} arquivo(s) selecionado(s)
+      <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-base font-bold text-gray-950">
+              Ações do chamado
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Revise os dados informados antes de abrir o chamado técnico.
             </p>
-
-            <ul className="mt-3 space-y-2 text-sm text-gray-700">
-              {evidencias.map((evidencia, indice) => (
-                <li
-                  key={`${evidencia.name}-${evidencia.size}-${evidencia.lastModified}`}
-                  className="flex flex-col rounded border border-gray-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <span className="break-all font-medium">
-                      {evidencia.name}
-                    </span>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {obterTipoArquivo(evidencia)} ·{" "}
-                      {formatarTamanho(evidencia.size)}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => removerEvidencia(indice)}
-                    className="mt-2 text-left text-sm font-semibold text-red-600 sm:mt-0"
-                  >
-                    Remover
-                  </button>
-                </li>
-              ))}
-            </ul>
           </div>
-        )}
-      </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            <Link
+              href="/"
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-center text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+            >
+              Cancelar
+            </Link>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-        <Link
-          href="/"
-          className="rounded-lg border border-gray-300 px-4 py-2 text-center text-sm font-semibold"
-        >
-          Cancelar
-        </Link>
-
-        <button
-          type="submit"
-          disabled={salvando}
-          className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {salvando ? "Salvando..." : "Abrir chamado"}
-        </button>
-      </div>
+            <button
+              type="submit"
+              disabled={salvando}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {salvando ? "Salvando..." : "Abrir chamado"}
+            </button>
+          </div>
+        </div>
+      </section>
     </form>
   );
 }
