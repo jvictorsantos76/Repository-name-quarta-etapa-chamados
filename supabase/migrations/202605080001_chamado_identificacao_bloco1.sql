@@ -12,8 +12,7 @@ begin
         from public.perfis
         where id = auth.uid()
           and ativo = true
-          and papel in ('super_admin', 'admin', 'gestor', 'analista')
-      );
+and papel::text in ('super_admin', 'admin', 'gestor', 'analista')
     $function$;
 
     grant execute on function public.usuario_catalogo_chamados_ativo() to authenticated;
