@@ -23,6 +23,9 @@ type Chamado = {
   marca: string | null;
   modelo: string | null;
   prioridade: string;
+  organizacao: {
+    nome_fantasia: string;
+  } | null;
   clientes: {
     nome_fantasia: string;
   } | null;
@@ -49,6 +52,9 @@ export default async function Home() {
     marca,
     modelo,
     prioridade,
+    organizacao:clientes!chamados_organizacao_id_fkey (
+      nome_fantasia
+    ),
     clientes (
       nome_fantasia
     ),
@@ -185,7 +191,8 @@ function ChamadosHome({
               <div className="space-y-2 text-sm text-gray-700">
                 <p>
                   <span className="font-semibold">Cliente:</span>{" "}
-                  {chamado.clientes?.nome_fantasia}
+                  {chamado.organizacao?.nome_fantasia ??
+                    chamado.clientes?.nome_fantasia}
                 </p>
 
                 <p>
@@ -274,7 +281,10 @@ function ChamadosHome({
                       {chamado.titulo}
                     </Link>
                   </td>
-                  <td className="px-4 py-3">{chamado.clientes?.nome_fantasia}</td>
+                  <td className="px-4 py-3">
+                    {chamado.organizacao?.nome_fantasia ??
+                      chamado.clientes?.nome_fantasia}
+                  </td>
                   <td className="px-4 py-3">{chamado.lojas?.nome_loja}</td>
                   <td className="px-4 py-3">{formatarCategoria(chamado.categoria)}</td>
                   <td className="px-4 py-3">

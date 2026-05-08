@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PapelUsuario, PerfilAutenticado } from "@/lib/auth/types";
 import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -13,30 +12,25 @@ import {
   getPrioridadeClass,
   getPrioridadeLabel,
 } from "../chamadoVisual";
+import {
+  carregarDadosNovoChamado,
+  criarBaseConhecimento,
+  criarChamadoIdentificacao,
+  criarGrupoAtendimento,
+  criarOrigemChamado,
+  criarOrganizacao,
+  criarTipoChamado,
+  type BaseConhecimentoItem,
+  type CatalogoItem,
+  type ClienteItem,
+  type NovoChamadoDados,
+  type PerfilItem,
+} from "./actions";
 
-type TipoChamado = "incidente" | "requisicao_servico";
 type Impacto = "baixo" | "medio" | "alto";
 type Urgencia = "baixa" | "media" | "alta";
-type Origem = "sistema" | "whatsapp" | "telefone" | "tecnico";
 type Prioridade = "baixa" | "media" | "alta" | "critica";
-type StatusChamado = "pendente_agendamento";
-
-type Cliente = {
-  id: string;
-  nome_fantasia: string;
-};
-
-type Loja = {
-  id: string;
-  cliente_id: string;
-  nome_loja: string;
-};
-
-type Perfil = {
-  id: string;
-  nome_completo: string;
-  papel: string;
-};
+type InlineTipo = "tipo" | "origem" | "organizacao" | "grupo" | "base";
 
 type UsuarioOperacional = {
   id: string;
@@ -58,35 +52,7 @@ type AnexoEvidencia = {
   enviado_em: string;
 };
 
-type ChamadoInsert = {
-  cliente_id: string;
-  loja_id: string;
-  operador_id: string;
-  tecnico_id?: string | null;
-  analista_responsavel_id?: string | null;
-  tecnico_responsavel_id?: string | null;
-  tipo_chamado?: TipoChamado;
-  impacto?: Impacto;
-  urgencia?: Urgencia;
-  origem?: Origem;
-  ativo_afetado?: string | null;
-  categoria?: CategoriaChamado;
-  ativo_tipo?: string | null;
-  ativo_descricao?: string | null;
-  marca?: string | null;
-  modelo?: string | null;
-  titulo: string;
-  descricao_problema: string;
-  status: StatusChamado;
-  prioridade: Prioridade;
-};
-
 const EVIDENCIAS_BUCKET = "evidencias-chamados";
-
-const tiposChamado: Opcao<TipoChamado>[] = [
-  { value: "incidente", label: "Incidente" },
-  { value: "requisicao_servico", label: "Requisição de Serviço" },
-];
 
 const impactos: Opcao<Impacto>[] = [
   { value: "baixo", label: "Baixo" },
@@ -98,13 +64,6 @@ const urgencias: Opcao<Urgencia>[] = [
   { value: "baixa", label: "Baixa" },
   { value: "media", label: "Média" },
   { value: "alta", label: "Alta" },
-];
-
-const origens: Opcao<Origem>[] = [
-  { value: "sistema", label: "Sistema" },
-  { value: "whatsapp", label: "WhatsApp" },
-  { value: "telefone", label: "Telefone" },
-  { value: "tecnico", label: "Técnico" },
 ];
 
 const matrizPrioridade: Record<Impacto, Record<Urgencia, Prioridade>> = {
@@ -161,6 +120,16 @@ const acceptEvidencias = [
   ".csv",
 ].join(",");
 
+const dadosIniciais: NovoChamadoDados = {
+  tipos: [],
+  origens: [],
+  grupos: [],
+  bases: [],
+  clientes: [],
+  lojas: [],
+  perfis: [],
+};
+
 function obterExtensao(nomeArquivo: string) {
   return nomeArquivo.split(".").pop()?.toLowerCase() ?? "";
 }
@@ -200,16 +169,6 @@ function formatarTamanho(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function obterLabel<T extends string>(opcoes: Opcao<T>[], value: T) {
-  return opcoes.find((opcao) => opcao.value === value)?.label ?? value;
-}
-
-function isSchemaCacheError(message: string | undefined) {
-  return Boolean(
-    message?.includes("schema cache") || message?.includes("Could not find")
-  );
-}
-
 function normalizarPapel(papel: string): PapelUsuario | null {
   if (
     papel === "admin" ||
@@ -236,7 +195,16 @@ function podeAtribuirResponsaveis(papel: PapelUsuario | undefined) {
   );
 }
 
-function montarUsuariosOperacionais(perfis: Perfil[]) {
+function podeCriarCatalogo(papel: PapelUsuario | undefined) {
+  return (
+    papel === "super_admin" ||
+    papel === "admin" ||
+    papel === "gestor" ||
+    papel === "analista"
+  );
+}
+
+function montarUsuariosOperacionais(perfis: PerfilItem[]) {
   const usuarios: UsuarioOperacional[] = [];
 
   for (const perfil of perfis) {
@@ -258,67 +226,6 @@ function montarUsuariosOperacionais(perfis: Perfil[]) {
 
 export function calcularPrioridade(impacto: Impacto, urgencia: Urgencia) {
   return matrizPrioridade[impacto][urgencia];
-}
-
-function useNovoChamadoDados(supabase: SupabaseClient) {
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [lojas, setLojas] = useState<Loja[]>([]);
-  const [perfis, setPerfis] = useState<Perfil[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [erroCarregamento, setErroCarregamento] = useState("");
-
-  useEffect(() => {
-    let ativo = true;
-
-    async function carregarDados() {
-      const [clientesResposta, lojasResposta, perfisResposta] =
-        await Promise.all([
-          supabase
-            .from("clientes")
-            .select("id, nome_fantasia")
-            .eq("ativo", true)
-            .order("nome_fantasia"),
-
-          supabase
-            .from("lojas")
-            .select("id, cliente_id, nome_loja")
-            .eq("ativo", true)
-            .order("nome_loja"),
-
-          supabase
-            .from("perfis")
-            .select("id, nome_completo, papel")
-            .eq("ativo", true)
-            .order("nome_completo"),
-        ]);
-
-      if (!ativo) {
-        return;
-      }
-
-      if (clientesResposta.error) {
-        setErroCarregamento(clientesResposta.error.message);
-      } else if (lojasResposta.error) {
-        setErroCarregamento(lojasResposta.error.message);
-      } else if (perfisResposta.error) {
-        setErroCarregamento(perfisResposta.error.message);
-      } else {
-        setClientes((clientesResposta.data as Cliente[]) ?? []);
-        setLojas((lojasResposta.data as Loja[]) ?? []);
-        setPerfis((perfisResposta.data as Perfil[]) ?? []);
-      }
-
-      setCarregando(false);
-    }
-
-    carregarDados();
-
-    return () => {
-      ativo = false;
-    };
-  }, [supabase]);
-
-  return { clientes, lojas, perfis, carregando, erroCarregamento };
 }
 
 function useEvidenciasChamado(onErroChange: (erro: string) => void) {
@@ -374,7 +281,6 @@ function useEvidenciasChamado(onErroChange: (erro: string) => void) {
     evidencias,
     arrastando,
     setArrastando,
-    adicionarEvidencias,
     selecionarEvidencias,
     removerEvidencia,
     receberArquivosArrastados,
@@ -430,19 +336,157 @@ function BlocoFuturo({
   );
 }
 
+function CampoInformativo({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-semibold">{label}</label>
+      <input
+        value={value}
+        readOnly
+        className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-700"
+      />
+    </div>
+  );
+}
+
+function BotaoNovo({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+    >
+      {children}
+    </button>
+  );
+}
+
+function InlineModal({
+  tipo,
+  onClose,
+  onSubmit,
+  salvando,
+  erro,
+}: {
+  tipo: InlineTipo;
+  onClose: () => void;
+  onSubmit: (campos: { nome: string; descricao: string; url: string }) => void;
+  salvando: boolean;
+  erro: string;
+}) {
+  const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [url, setUrl] = useState("");
+  const config: Record<InlineTipo, { titulo: string; label: string }> = {
+    tipo: { titulo: "Novo tipo de chamado", label: "Nome do tipo" },
+    origem: { titulo: "Nova origem", label: "Nome da origem" },
+    organizacao: { titulo: "Nova organização", label: "Nome da organização" },
+    grupo: { titulo: "Novo grupo de atendimento", label: "Nome do grupo" },
+    base: { titulo: "Nova base de conhecimento", label: "Título" },
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+        <div className="flex items-start justify-between gap-4">
+          <h3 className="text-base font-bold text-gray-950">
+            {config[tipo].titulo}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-700"
+          >
+            Fechar
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-4">
+          {erro && (
+            <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+              {erro}
+            </p>
+          )}
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold">
+              {config[tipo].label}
+            </label>
+            <input
+              value={nome}
+              onChange={(event) => setNome(event.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+            />
+          </div>
+
+          {tipo === "base" && (
+            <div>
+              <label className="mb-2 block text-sm font-semibold">URL</label>
+              <input
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://..."
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+          )}
+
+          {tipo !== "organizacao" && (
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Descrição ou resumo
+              </label>
+              <textarea
+                value={descricao}
+                onChange={(event) => setDescricao(event.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+          )}
+
+          <button
+            type="button"
+            disabled={salvando}
+            onClick={() => onSubmit({ nome, descricao, url })}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {salvando ? "Salvando..." : "Salvar cadastro"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
   const router = useRouter();
   const supabase = useSupabaseBrowserClient();
-  const { clientes, lojas, perfis, carregando, erroCarregamento } =
-    useNovoChamadoDados(supabase);
-
+  const [dados, setDados] = useState<NovoChamadoDados>(dadosIniciais);
+  const [carregando, setCarregando] = useState(true);
+  const [titulo, setTitulo] = useState("");
+  const [tipoChamadoId, setTipoChamadoId] = useState("");
+  const [origemId, setOrigemId] = useState("");
+  const [idExterno, setIdExterno] = useState("");
   const [clienteId, setClienteId] = useState("");
+  const [grupoAtendimentoId, setGrupoAtendimentoId] = useState("");
+  const [basesSelecionadas, setBasesSelecionadas] = useState<string[]>([]);
   const [lojaId, setLojaId] = useState("");
   const [solicitante, setSolicitante] = useState("");
-  const [tipoChamado, setTipoChamado] = useState<TipoChamado>("incidente");
   const [impacto, setImpacto] = useState<Impacto>("medio");
   const [urgencia, setUrgencia] = useState<Urgencia>("media");
-  const [origem, setOrigem] = useState<Origem>("sistema");
   const [categoria, setCategoria] = useState<CategoriaChamado | "">("");
   const [ativoTipo, setAtivoTipo] = useState("");
   const [ativoDescricao, setAtivoDescricao] = useState("");
@@ -453,6 +497,9 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
   const [tecnicoResponsavelId, setTecnicoResponsavelId] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
+  const [modalAberto, setModalAberto] = useState<InlineTipo | null>(null);
+  const [erroInline, setErroInline] = useState("");
+  const [salvandoInline, startInlineTransition] = useTransition();
   const {
     evidencias,
     arrastando,
@@ -462,9 +509,39 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     receberArquivosArrastados,
   } = useEvidenciasChamado(setErro);
 
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregar() {
+      const resultado = await carregarDadosNovoChamado();
+
+      if (!ativo) {
+        return;
+      }
+
+      if (resultado.status !== "success" || !resultado.data) {
+        setErro(resultado.message);
+        setCarregando(false);
+        return;
+      }
+
+      setDados(resultado.data);
+      setTipoChamadoId(resultado.data.tipos[0]?.id ?? "");
+      setOrigemId(resultado.data.origens[0]?.id ?? "");
+      setGrupoAtendimentoId(resultado.data.grupos[0]?.id ?? "");
+      setCarregando(false);
+    }
+
+    carregar();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
   const usuariosOperacionais = useMemo(
-    () => montarUsuariosOperacionais(perfis),
-    [perfis]
+    () => montarUsuariosOperacionais(dados.perfis),
+    [dados.perfis]
   );
   const usuarioAtual: UsuarioOperacional = {
     id: perfilAtual.id,
@@ -472,6 +549,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     papel: perfilAtual.papel,
   };
   const papelAtual = usuarioAtual.papel;
+  const podeCriarInline = podeCriarCatalogo(papelAtual);
   const analistas = useMemo(
     () =>
       usuariosOperacionais.filter((usuario) => usuario.papel === "analista"),
@@ -483,36 +561,27 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
   );
   const prioridadeCalculada = calcularPrioridade(impacto, urgencia);
   const lojasFiltradas = useMemo(
-    () => lojas.filter((loja) => loja.cliente_id === clienteId),
-    [clienteId, lojas]
+    () => dados.lojas.filter((loja) => loja.cliente_id === clienteId),
+    [clienteId, dados.lojas]
   );
-  const tipoSelecionado = obterLabel(tiposChamado, tipoChamado);
-  const categoriaSelecionada = categoria
-    ? obterLabel(categoriaChamadoOpcoes, categoria)
-    : "";
   const ativosDisponiveis = useMemo(
     () => (categoria ? ativosPorCategoria[categoria] : []),
     [categoria]
   );
   const podeAtribuir = podeAtribuirResponsaveis(papelAtual);
-  const tecnicoBloqueado =
-    !podeAtribuir || origem === "tecnico";
   const analistaBloqueado = !podeAtribuir;
   const analistaResponsavelEfetivo =
     papelAtual === "analista"
       ? analistaResponsavelId || usuarioAtual.id
       : podeAtribuir
         ? analistaResponsavelId || analistas[0]?.id || ""
-      : "";
+        : "";
   const tecnicoResponsavelEfetivo =
     papelAtual === "tecnico"
       ? usuarioAtual.id
-      : origem === "tecnico" && podeAtribuir
-        ? tecnicoResponsavelId || tecnicos[0]?.id || ""
       : !podeAtribuir
         ? ""
         : tecnicoResponsavelId;
-  const mensagemErro = erro || erroCarregamento;
 
   async function enviarEvidencias(chamadoId: string, usuarioId: string) {
     if (!supabase || evidencias.length === 0) {
@@ -563,24 +632,98 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     }
   }
 
+  function alternarBaseConhecimento(baseId: string) {
+    setBasesSelecionadas((basesAtuais) =>
+      basesAtuais.includes(baseId)
+        ? basesAtuais.filter((id) => id !== baseId)
+        : [...basesAtuais, baseId]
+    );
+  }
+
+  async function salvarInline(campos: {
+    nome: string;
+    descricao: string;
+    url: string;
+  }) {
+    if (!modalAberto) {
+      return;
+    }
+
+    setErroInline("");
+
+    startInlineTransition(async () => {
+      const resultado =
+        modalAberto === "tipo"
+          ? await criarTipoChamado(campos.nome, campos.descricao)
+          : modalAberto === "origem"
+            ? await criarOrigemChamado(campos.nome, campos.descricao)
+            : modalAberto === "grupo"
+              ? await criarGrupoAtendimento(campos.nome, campos.descricao)
+              : modalAberto === "organizacao"
+                ? await criarOrganizacao(campos.nome)
+                : await criarBaseConhecimento({
+                    titulo: campos.nome,
+                    url: campos.url,
+                    resumo: campos.descricao,
+                  });
+
+      if (resultado.status !== "success" || !resultado.data) {
+        setErroInline(resultado.message);
+        return;
+      }
+
+      if (modalAberto === "tipo") {
+        const item = resultado.data as CatalogoItem;
+        setDados((atual) => ({ ...atual, tipos: [...atual.tipos, item] }));
+        setTipoChamadoId(item.id);
+      } else if (modalAberto === "origem") {
+        const item = resultado.data as CatalogoItem;
+        setDados((atual) => ({ ...atual, origens: [...atual.origens, item] }));
+        setOrigemId(item.id);
+      } else if (modalAberto === "grupo") {
+        const item = resultado.data as CatalogoItem;
+        setDados((atual) => ({ ...atual, grupos: [...atual.grupos, item] }));
+        setGrupoAtendimentoId(item.id);
+      } else if (modalAberto === "organizacao") {
+        const item = resultado.data as ClienteItem;
+        setDados((atual) => ({ ...atual, clientes: [...atual.clientes, item] }));
+        setClienteId(item.id);
+        setLojaId("");
+      } else {
+        const item = resultado.data as BaseConhecimentoItem;
+        setDados((atual) => ({ ...atual, bases: [...atual.bases, item] }));
+        setBasesSelecionadas((basesAtuais) => [...basesAtuais, item.id]);
+      }
+
+      setModalAberto(null);
+      setErroInline("");
+    });
+  }
+
   async function salvarChamado(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (origem === "tecnico" && papelAtual !== "tecnico" && !tecnicoResponsavelEfetivo) {
-      setErro("Cadastre ou selecione um técnico responsável para origem técnico.");
+    if (!titulo.trim()) {
+      setErro("Informe o Título / Assunto do chamado.");
       return;
     }
 
     if (
+      !tipoChamadoId ||
+      !origemId ||
       !clienteId ||
-      !lojaId ||
-      !solicitante.trim() ||
-      !categoria ||
-      !ativoTipo ||
-      !descricao.trim()
+      !grupoAtendimentoId ||
+      !lojaId
     ) {
       setErro(
-        "Preencha cliente, loja/unidade, solicitante, categoria, ativo e descrição."
+        "Selecione tipo, origem, organização, loja/unidade e grupo de atendimento."
+      );
+      return;
+    }
+
+    if (!solicitante.trim() || !categoria || !ativoTipo || !descricao.trim()) {
+      setErro(
+        "Preencha solicitante, categoria, ativo e descrição antes de abrir o chamado."
       );
       return;
     }
@@ -588,78 +731,40 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     setErro("");
     setSalvando(true);
 
-    const usuarioId = usuarioAtual.id;
-    const descricaoProblema = [
-      `Solicitante: ${solicitante.trim()}`,
-      `Tipo do chamado: ${tipoSelecionado}`,
-      `Impacto: ${obterLabel(impactos, impacto)}`,
-      `Urgência: ${obterLabel(urgencias, urgencia)}`,
-      `Origem: ${obterLabel(origens, origem)}`,
-      `Categoria: ${categoriaSelecionada}`,
-      `Ativo: ${ativoTipo}`,
-      `Complemento do ativo: ${ativoDescricao.trim() || "Não informado"}`,
-      `Marca: ${marca.trim() || "Não informada"}`,
-      `Modelo: ${modelo.trim() || "Não informado"}`,
-      `Usuário: ${usuarioAtual.nome}`,
-      `Papel: ${papelAtual}`,
-      "",
-      descricao.trim(),
-    ].join("\n");
-
-    const chamadoBase: ChamadoInsert = {
-      cliente_id: clienteId,
+    const respostaChamado = await criarChamadoIdentificacao({
+      titulo,
+      tipo_chamado_id: tipoChamadoId,
+      origem_id: origemId,
+      id_externo: idExterno,
+      organizacao_id: clienteId,
+      grupo_atendimento_id: grupoAtendimentoId,
+      base_conhecimento_ids: basesSelecionadas,
       loja_id: lojaId,
-      operador_id: usuarioId,
-      tecnico_id: tecnicoResponsavelEfetivo || null,
-      titulo: `${tipoSelecionado} - ${categoriaSelecionada}`,
-      descricao_problema: descricaoProblema,
-      status: "pendente_agendamento",
-      prioridade: prioridadeCalculada,
-    };
-
-    const chamadoComCamposNovos: ChamadoInsert = {
-      ...chamadoBase,
-      analista_responsavel_id: analistaResponsavelEfetivo || null,
-      tecnico_responsavel_id: tecnicoResponsavelEfetivo || null,
-      tipo_chamado: tipoChamado,
+      solicitante,
       impacto,
       urgencia,
-      origem,
-      ativo_afetado: ativoTipo,
+      prioridade: prioridadeCalculada,
       categoria,
       ativo_tipo: ativoTipo,
-      ativo_descricao: ativoDescricao.trim() || null,
-      marca: marca.trim() || null,
-      modelo: modelo.trim() || null,
-    };
+      ativo_descricao: ativoDescricao,
+      marca,
+      modelo,
+      descricao,
+      analista_responsavel_id: analistaResponsavelEfetivo || "",
+      tecnico_responsavel_id: tecnicoResponsavelEfetivo || "",
+    });
 
-    let respostaChamado = await supabase
-      .from("chamados")
-      .insert(chamadoComCamposNovos)
-      .select("id, numero")
-      .single();
-
-    if (isSchemaCacheError(respostaChamado.error?.message)) {
-      respostaChamado = await supabase
-        .from("chamados")
-        .insert(chamadoBase)
-        .select("id, numero")
-        .single();
-    }
-
-    if (respostaChamado.error || !respostaChamado.data) {
-      setErro(respostaChamado.error?.message ?? "Erro ao criar chamado.");
+    if (respostaChamado.status !== "success" || !respostaChamado.data) {
+      setErro(respostaChamado.message);
       setSalvando(false);
       return;
     }
 
-    const chamadoCriado = respostaChamado.data;
-
     try {
-      await enviarEvidencias(chamadoCriado.id, usuarioId);
+      await enviarEvidencias(respostaChamado.data.id, usuarioAtual.id);
     } catch (error) {
       setErro(
-        `Chamado #${chamadoCriado.numero} criado, mas houve erro nas evidências. ${
+        `Chamado #${respostaChamado.data.numero} criado, mas houve erro nas evidências. ${
           error instanceof Error ? error.message : "Tente enviar novamente."
         }`
       );
@@ -667,23 +772,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
       return;
     }
 
-    const { error: erroHistorico } = await supabase
-      .from("historico_status")
-      .insert({
-        chamado_id: chamadoCriado.id,
-        usuario_id: usuarioId,
-        status_anterior: null,
-        status_novo: "pendente_agendamento",
-        observacao: "Chamado aberto pelo sistema.",
-      });
-
-    if (erroHistorico) {
-      setErro(erroHistorico.message);
-      setSalvando(false);
-      return;
-    }
-
-    router.push(`/chamados/${chamadoCriado.numero}`);
+    router.push(`/chamados/${respostaChamado.data.numero}`);
   }
 
   if (carregando) {
@@ -696,91 +785,129 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
 
   return (
     <form onSubmit={salvarChamado} className="space-y-6">
-      {mensagemErro && (
+      {erro && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700 shadow-sm">
-          {mensagemErro}
+          {erro}
         </div>
+      )}
+
+      {modalAberto && (
+        <InlineModal
+          tipo={modalAberto}
+          onClose={() => {
+            setModalAberto(null);
+            setErroInline("");
+          }}
+          onSubmit={salvarInline}
+          salvando={salvandoInline}
+          erro={erroInline}
+        />
       )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <BlocoChamado
-          title="1. Identificação do chamado"
-          description="Dados iniciais de abertura e origem operacional."
+          title="Identificação do chamado"
+          description="Dados iniciais para classificar a demanda e direcionar o atendimento."
+          className="lg:col-span-2"
         >
           <div className="grid gap-5 md:grid-cols-2">
-            <div>
+            <CampoInformativo
+              label="Número do chamado"
+              value="Gerado após salvar"
+            />
+
+            <CampoInformativo
+              label="Status"
+              value="Pendente de agendamento"
+            />
+
+            <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-semibold">
-                Usuário
+                Título / Assunto <span className="text-red-600">*</span>
               </label>
               <input
-                value={`${usuarioAtual.nome} (${usuarioAtual.papel})`}
-                readOnly
-                className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-700"
+                type="text"
+                value={titulo}
+                onChange={(event) => setTitulo(event.target.value)}
+                placeholder="Resumo objetivo do chamado"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold">
-                Tipo do chamado
-              </label>
-              <select
-                value={tipoChamado}
-                onChange={(event) =>
-                  setTipoChamado(event.target.value as TipoChamado)
-                }
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-              >
-                {tiposChamado.map((tipo) => (
-                  <option key={tipo.value} value={tipo.value}>
-                    {tipo.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="mb-2 block text-sm font-semibold">
-                Origem
-              </label>
-              <select
-                value={origem}
-                onChange={(event) => setOrigem(event.target.value as Origem)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-              >
-                {origens.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 md:col-span-2">
-              <p className="text-sm font-semibold">Permissões aplicadas</p>
-              <div className="mt-2 flex flex-col gap-2 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between">
-                <p>
-                  O perfil autenticado define analista e técnico responsáveis.
-                </p>
-                <Link
-                  href="/faq/permissoes"
-                  className="font-semibold text-blue-600"
-                >
-                  Ver FAQ de permissões
-                </Link>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-semibold">
+                  Tipo de chamado <span className="text-red-600">*</span>
+                </label>
+                {podeCriarInline && (
+                  <BotaoNovo onClick={() => setModalAberto("tipo")}>
+                    + Novo tipo
+                  </BotaoNovo>
+                )}
               </div>
+              <select
+                value={tipoChamadoId}
+                onChange={(event) => setTipoChamadoId(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">Selecione um tipo</option>
+                {dados.tipos.map((tipo) => (
+                  <option key={tipo.id} value={tipo.id}>
+                    {tipo.nome}
+                  </option>
+                ))}
+              </select>
             </div>
-          </div>
-        </BlocoChamado>
 
-        <BlocoChamado
-          title="2. Cliente, loja e unidade"
-          description="Contexto do cliente e unidade onde o atendimento será tratado."
-        >
-          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-semibold">
+                  Origem <span className="text-red-600">*</span>
+                </label>
+                {podeCriarInline && (
+                  <BotaoNovo onClick={() => setModalAberto("origem")}>
+                    + Nova origem
+                  </BotaoNovo>
+                )}
+              </div>
+              <select
+                value={origemId}
+                onChange={(event) => setOrigemId(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">Selecione uma origem</option>
+                {dados.origens.map((origem) => (
+                  <option key={origem.id} value={origem.id}>
+                    {origem.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="mb-2 block text-sm font-semibold">
-                Cliente
+                ID externo
               </label>
+              <input
+                type="text"
+                value={idExterno}
+                onChange={(event) => setIdExterno(event.target.value)}
+                placeholder="Ex.: Jira, Freshservice, GLPI"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-semibold">
+                  Organização <span className="text-red-600">*</span>
+                </label>
+                {podeCriarInline && (
+                  <BotaoNovo onClick={() => setModalAberto("organizacao")}>
+                    + Nova organização
+                  </BotaoNovo>
+                )}
+              </div>
               <select
                 value={clienteId}
                 onChange={(event) => {
@@ -789,8 +916,8 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
               >
-                <option value="">Selecione um cliente</option>
-                {clientes.map((cliente) => (
+                <option value="">Selecione uma organização</option>
+                {dados.clientes.map((cliente) => (
                   <option key={cliente.id} value={cliente.id}>
                     {cliente.nome_fantasia}
                   </option>
@@ -799,24 +926,96 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold">
-                Loja/Unidade
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-semibold">
+                  Grupo de atendimento <span className="text-red-600">*</span>
+                </label>
+                {podeCriarInline && (
+                  <BotaoNovo onClick={() => setModalAberto("grupo")}>
+                    + Novo grupo
+                  </BotaoNovo>
+                )}
+              </div>
               <select
-                value={lojaId}
-                onChange={(event) => setLojaId(event.target.value)}
+                value={grupoAtendimentoId}
+                onChange={(event) => setGrupoAtendimentoId(event.target.value)}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                disabled={!clienteId}
               >
-                <option value="">Selecione uma loja</option>
-                {lojasFiltradas.map((loja) => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome_loja}
+                <option value="">Selecione um grupo</option>
+                {dados.grupos.map((grupo) => (
+                  <option key={grupo.id} value={grupo.id}>
+                    {grupo.nome}
                   </option>
                 ))}
               </select>
             </div>
+
+            <div className="md:col-span-2">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-semibold">
+                  Base de conhecimento relacionada
+                </label>
+                {podeCriarInline && (
+                  <BotaoNovo onClick={() => setModalAberto("base")}>
+                    + Nova base
+                  </BotaoNovo>
+                )}
+              </div>
+              <div className="max-h-44 space-y-2 overflow-auto rounded-lg border border-gray-300 bg-white p-3">
+                {dados.bases.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Nenhuma base cadastrada.
+                  </p>
+                ) : (
+                  dados.bases.map((base) => (
+                    <label
+                      key={base.id}
+                      className="flex items-start gap-2 rounded-md px-2 py-1 text-sm hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={basesSelecionadas.includes(base.id)}
+                        onChange={() => alternarBaseConhecimento(base.id)}
+                        className="mt-1"
+                      />
+                      <span>
+                        <span className="font-medium text-gray-900">
+                          {base.titulo}
+                        </span>
+                        {base.url && (
+                          <span className="block break-all text-xs text-gray-500">
+                            {base.url}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
+        </BlocoChamado>
+
+        <BlocoChamado
+          title="2. Loja e unidade"
+          description="Unidade onde o atendimento será tratado."
+        >
+          <label className="mb-2 block text-sm font-semibold">
+            Loja/Unidade <span className="text-red-600">*</span>
+          </label>
+          <select
+            value={lojaId}
+            onChange={(event) => setLojaId(event.target.value)}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+            disabled={!clienteId}
+          >
+            <option value="">Selecione uma loja</option>
+            {lojasFiltradas.map((loja) => (
+              <option key={loja.id} value={loja.id}>
+                {loja.nome_loja}
+              </option>
+            ))}
+          </select>
         </BlocoChamado>
 
         <BlocoChamado
@@ -824,7 +1023,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
           description="Identificação de quem acionou o atendimento."
         >
           <label className="mb-2 block text-sm font-semibold">
-            Solicitante
+            Solicitante <span className="text-red-600">*</span>
           </label>
           <input
             type="text"
@@ -838,11 +1037,12 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         <BlocoChamado
           title="4. Classificação e triagem"
           description="Categoria, impacto e urgência usados para calcular a prioridade."
+          className="lg:col-span-2"
         >
           <div className="grid gap-5 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-semibold">
-                Categoria
+                Categoria <span className="text-red-600">*</span>
               </label>
               <select
                 value={categoria}
@@ -851,7 +1051,6 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
                   setAtivoTipo("");
                 }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-                required
               >
                 <option value="">Selecione uma categoria</option>
                 {categoriaChamadoOpcoes.map((item) => (
@@ -916,13 +1115,14 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         >
           <div className="grid gap-5 md:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-semibold">Ativo</label>
+              <label className="mb-2 block text-sm font-semibold">
+                Ativo <span className="text-red-600">*</span>
+              </label>
               <select
                 value={ativoTipo}
                 onChange={(event) => setAtivoTipo(event.target.value)}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
                 disabled={!categoria}
-                required
               >
                 <option value="">Selecione um ativo</option>
                 {ativosDisponiveis.map((ativo) => (
@@ -975,7 +1175,9 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
           description="Registro inicial do problema, contexto e impacto relatado."
           className="lg:col-span-2"
         >
-          <label className="mb-2 block text-sm font-semibold">Descrição</label>
+          <label className="mb-2 block text-sm font-semibold">
+            Descrição <span className="text-red-600">*</span>
+          </label>
           <textarea
             value={descricao}
             onChange={(event) => setDescricao(event.target.value)}
@@ -1020,7 +1222,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
                 onChange={(event) =>
                   setTecnicoResponsavelId(event.target.value)
                 }
-                disabled={tecnicoBloqueado}
+                disabled={!podeAtribuir}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
               >
                 <option value="">Sem técnico atribuído</option>

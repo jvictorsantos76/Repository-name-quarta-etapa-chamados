@@ -29,6 +29,7 @@ type ChamadoDetalhe = {
   impacto: string | null;
   urgencia: string | null;
   origem: string | null;
+  id_externo: string | null;
   ativo_afetado: string | null;
   categoria: string | null;
   ativo_tipo: string | null;
@@ -42,6 +43,18 @@ type ChamadoDetalhe = {
   aberto_em: string;
   atendimento_iniciado_em: string | null;
   finalizado_em: string | null;
+  tipo_relacionado: {
+    nome: string;
+  } | null;
+  origem_relacionada: {
+    nome: string;
+  } | null;
+  grupo_atendimento: {
+    nome: string;
+  } | null;
+  organizacao: {
+    nome_fantasia: string;
+  } | null;
   clientes: {
     nome_fantasia: string;
   } | null;
@@ -53,6 +66,14 @@ type ChamadoDetalhe = {
   tecnico: {
     nome_completo: string;
   } | null;
+  chamados_bases_conhecimento:
+    | {
+        bases_conhecimento: {
+          titulo: string;
+          url: string | null;
+        } | null;
+      }[]
+    | null;
 };
 
 type RegistroTecnico = {
@@ -127,6 +148,7 @@ export default async function DetalheChamado({ params }: PageProps) {
       impacto,
       urgencia,
       origem,
+      id_externo,
       ativo_afetado,
       categoria,
       ativo_tipo,
@@ -140,6 +162,18 @@ export default async function DetalheChamado({ params }: PageProps) {
       aberto_em,
       atendimento_iniciado_em,
       finalizado_em,
+      tipo_relacionado:chamado_tipos!chamados_tipo_chamado_id_fkey (
+        nome
+      ),
+      origem_relacionada:chamado_origens!chamados_origem_id_fkey (
+        nome
+      ),
+      grupo_atendimento:grupos_atendimento!chamados_grupo_atendimento_id_fkey (
+        nome
+      ),
+      organizacao:clientes!chamados_organizacao_id_fkey (
+        nome_fantasia
+      ),
       clientes (
         nome_fantasia
       ),
@@ -220,6 +254,7 @@ export default async function DetalheChamado({ params }: PageProps) {
       impacto: chamadoParcial.impacto ?? null,
       urgencia: chamadoParcial.urgencia ?? null,
       origem: chamadoParcial.origem ?? null,
+      id_externo: chamadoParcial.id_externo ?? null,
       ativo_afetado: chamadoParcial.ativo_afetado ?? null,
       categoria: chamadoParcial.categoria ?? null,
       ativo_tipo: chamadoParcial.ativo_tipo ?? null,
@@ -229,7 +264,23 @@ export default async function DetalheChamado({ params }: PageProps) {
       analista_responsavel_id:
         chamadoParcial.analista_responsavel_id ?? null,
       tecnico_responsavel_id: chamadoParcial.tecnico_responsavel_id ?? null,
+      tipo_relacionado: chamadoParcial.tipo_relacionado ?? null,
+      origem_relacionada: chamadoParcial.origem_relacionada ?? null,
+      grupo_atendimento: chamadoParcial.grupo_atendimento ?? null,
+      organizacao: chamadoParcial.organizacao ?? null,
+      chamados_bases_conhecimento:
+        chamadoParcial.chamados_bases_conhecimento ?? null,
     } as ChamadoDetalhe;
+
+  const { data: basesRelacionadas } = await supabase
+    .from("chamados_bases_conhecimento")
+    .select(`
+      bases_conhecimento (
+        titulo,
+        url
+      )
+    `)
+    .eq("chamado_id", chamadoDetalhe.id);
 
   const { data: registrosTecnicos } = await supabase
     .from("registros_tecnicos")
@@ -271,6 +322,10 @@ export default async function DetalheChamado({ params }: PageProps) {
   const listaRegistros = (registrosTecnicos as RegistroTecnico[] | null) ?? [];
   const listaEvidencias = (evidencias as Evidencia[] | null) ?? [];
   const listaHistorico = (historico as HistoricoStatus[] | null) ?? [];
+  const listaBases =
+    (basesRelacionadas as ChamadoDetalhe["chamados_bases_conhecimento"]) ??
+    chamadoDetalhe.chamados_bases_conhecimento ??
+    [];
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">
@@ -314,7 +369,9 @@ export default async function DetalheChamado({ params }: PageProps) {
           <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm font-medium text-gray-500">Tipo</p>
             <p className="mt-2 font-semibold">
-              {chamadoDetalhe.tipo_chamado ?? "Não informado"}
+              {chamadoDetalhe.tipo_relacionado?.nome ??
+                chamadoDetalhe.tipo_chamado ??
+                "Não informado"}
             </p>
           </div>
 
@@ -342,7 +399,16 @@ export default async function DetalheChamado({ params }: PageProps) {
           <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm font-medium text-gray-500">Origem</p>
             <p className="mt-2 font-semibold">
-              {chamadoDetalhe.origem ?? "Não informado"}
+              {chamadoDetalhe.origem_relacionada?.nome ??
+                chamadoDetalhe.origem ??
+                "Não informado"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">ID externo</p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.id_externo ?? "Não informado"}
             </p>
           </div>
 
@@ -390,7 +456,8 @@ export default async function DetalheChamado({ params }: PageProps) {
           <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm font-medium text-gray-500">Cliente</p>
             <p className="mt-2 font-semibold">
-              {chamadoDetalhe.clientes?.nome_fantasia}
+              {chamadoDetalhe.organizacao?.nome_fantasia ??
+                chamadoDetalhe.clientes?.nome_fantasia}
             </p>
           </div>
 
@@ -407,6 +474,15 @@ export default async function DetalheChamado({ params }: PageProps) {
               {chamadoDetalhe.tecnico?.nome_completo ??
                 chamadoDetalhe.tecnico_responsavel_id ??
                 "Não definido"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">
+              Grupo de atendimento
+            </p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.grupo_atendimento?.nome ?? "Não informado"}
             </p>
           </div>
         </div>
@@ -442,6 +518,45 @@ export default async function DetalheChamado({ params }: PageProps) {
               {formatarData(chamadoDetalhe.finalizado_em)}
             </p>
           </div>
+        </div>
+
+        <div className="mb-6 rounded-xl bg-white p-6 shadow">
+          <h2 className="text-xl font-bold">Base de conhecimento</h2>
+
+          {listaBases.length === 0 ? (
+            <p className="mt-4 text-sm text-gray-600">
+              Nenhuma base relacionada a este chamado.
+            </p>
+          ) : (
+            <div className="mt-4 space-y-3">
+              {listaBases.map((item) => {
+                const base = item.bases_conhecimento;
+
+                if (!base) {
+                  return null;
+                }
+
+                return (
+                  <div
+                    key={`${base.titulo}-${base.url ?? ""}`}
+                    className="rounded-lg border p-4 text-sm"
+                  >
+                    <p className="font-semibold">{base.titulo}</p>
+                    {base.url && (
+                      <a
+                        href={base.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 block break-all font-semibold text-blue-600"
+                      >
+                        {base.url}
+                      </a>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="mb-6 rounded-xl bg-white p-6 shadow">

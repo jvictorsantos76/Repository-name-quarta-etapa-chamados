@@ -17,6 +17,21 @@ const perfilGrantMigration = await readFile(
   ),
   "utf8"
 );
+const chamadoIdentificacaoMigration = await readFile(
+  new URL(
+    "../supabase/migrations/202605080001_chamado_identificacao_bloco1.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const novoChamadoActionsSource = await readFile(
+  new URL("../src/app/chamados/novo/actions.ts", import.meta.url),
+  "utf8"
+);
+const novoChamadoFormSource = await readFile(
+  new URL("../src/app/chamados/novo/NovoChamadoForm.tsx", import.meta.url),
+  "utf8"
+);
 
 function extractArray(source, constantName) {
   const declarationStart = source.indexOf(`export const ${constantName}:`);
@@ -62,4 +77,56 @@ test("authenticated users can update only the expected self-service perfil field
     perfilGrantMigration,
     /grant update\s*\([\s\S]*(?:papel|ativo|email|nome_completo|cliente_id|loja_id)[\s\S]*\)\s*on table public\.perfis to authenticated;/i
   );
+});
+
+test("ticket identification block creates catalog tables with RLS and no physical delete policy", () => {
+  for (const tableName of [
+    "chamado_tipos",
+    "chamado_origens",
+    "grupos_atendimento",
+    "bases_conhecimento",
+    "chamados_bases_conhecimento",
+  ]) {
+    assert.match(
+      chamadoIdentificacaoMigration,
+      new RegExp(`create table if not exists public\\.${tableName}`, "i")
+    );
+    assert.match(
+      chamadoIdentificacaoMigration,
+      new RegExp(`alter table public\\.${tableName} enable row level security`, "i")
+    );
+  }
+
+  assert.match(chamadoIdentificacaoMigration, /tipo_chamado_id uuid null references public\.chamado_tipos\(id\)/i);
+  assert.match(chamadoIdentificacaoMigration, /origem_id uuid null references public\.chamado_origens\(id\)/i);
+  assert.match(chamadoIdentificacaoMigration, /id_externo text null/i);
+  assert.match(chamadoIdentificacaoMigration, /organizacao_id uuid null references public\.clientes\(id\)/i);
+  assert.match(chamadoIdentificacaoMigration, /grupo_atendimento_id uuid null references public\.grupos_atendimento\(id\)/i);
+  assert.doesNotMatch(chamadoIdentificacaoMigration, /for delete/i);
+});
+
+test("inline ticket catalog writes are restricted to admin gestor and analyst roles", () => {
+  assert.match(
+    chamadoIdentificacaoMigration,
+    /papel in \('super_admin', 'admin', 'gestor', 'analista'\)/i
+  );
+  assert.match(
+    chamadoIdentificacaoMigration,
+    /with check \(public\.usuario_catalogo_chamados_ativo\(\) and criado_por = auth\.uid\(\)\)/i
+  );
+  assert.match(novoChamadoActionsSource, /await requirePerfilAutenticado\(\)/);
+  assert.match(novoChamadoActionsSource, /PAPEIS_CATALOGO[\s\S]*"analista"/);
+  assert.doesNotMatch(
+    novoChamadoActionsSource,
+    /PAPEIS_CATALOGO[\s\S]*"(?:operador|tecnico|cliente|solicitante)"/
+  );
+});
+
+test("new ticket form requires manual title and keeps status and number read only", () => {
+  assert.match(novoChamadoFormSource, /Título \/ Assunto/);
+  assert.match(novoChamadoFormSource, /Informe o Título \/ Assunto do chamado\./);
+  assert.match(novoChamadoFormSource, /value="Gerado após salvar"/);
+  assert.match(novoChamadoFormSource, /value="Pendente de agendamento"/);
+  assert.match(novoChamadoFormSource, /Base de conhecimento relacionada/);
+  assert.match(novoChamadoFormSource, /criarChamadoIdentificacao/);
 });

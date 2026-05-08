@@ -4,8 +4,11 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 const versoes = [
   {
     versao: APP_VERSION,
-    data: "06/05/2026",
+    data: "08/05/2026",
     alteracoes: [
+      "Novo Chamado v0.2.0 implementa o Bloco 1 - Identificação do chamado com título manual, tipo, origem, ID externo, organização, grupo e bases relacionadas.",
+      "Catálogos de tipo, origem, grupo de atendimento e base de conhecimento passam a ter tabelas próprias, RLS e cadastro inline restrito a admin, gestor e analista.",
+      "Abertura de chamados passa a salvar vínculos estruturados preservando campos legados para compatibilidade com listagem e detalhe.",
       "Cabeçalho passa a ter ações rápidas de alternar tema claro/escuro e encerrar sessão.",
       "Conta v0.1.1 remove card redundante de Perfil e mantém acesso ao perfil pelo card principal do usuário.",
       "Permissões v0.1.1 adiciona ações rápidas de conta também no rodapé da tela.",
