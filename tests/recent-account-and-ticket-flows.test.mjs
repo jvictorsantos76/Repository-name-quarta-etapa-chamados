@@ -108,7 +108,7 @@ test("ticket identification block creates catalog tables with RLS and no physica
 test("inline ticket catalog writes are restricted to admin gestor and analyst roles", () => {
   assert.match(
     chamadoIdentificacaoMigration,
-    /papel in \('super_admin', 'admin', 'gestor', 'analista'\)/i
+    /papel(?:::text)?\s+in\s+\('super_admin', 'admin', 'gestor', 'analista'\)/i
   );
   assert.match(
     chamadoIdentificacaoMigration,

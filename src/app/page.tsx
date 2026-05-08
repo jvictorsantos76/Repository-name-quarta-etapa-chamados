@@ -55,7 +55,7 @@ export default async function Home() {
     organizacao:clientes!chamados_organizacao_id_fkey (
       nome_fantasia
     ),
-    clientes (
+    clientes:clientes!chamados_cliente_id_fkey (
       nome_fantasia
     ),
     lojas (
@@ -78,7 +78,7 @@ export default async function Home() {
       titulo,
       status,
       prioridade,
-      clientes (
+      clientes:clientes!chamados_cliente_id_fkey (
         nome_fantasia
       ),
       lojas (

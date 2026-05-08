@@ -174,7 +174,7 @@ export default async function DetalheChamado({ params }: PageProps) {
       organizacao:clientes!chamados_organizacao_id_fkey (
         nome_fantasia
       ),
-      clientes (
+      clientes:clientes!chamados_cliente_id_fkey (
         nome_fantasia
       ),
       lojas (
@@ -202,7 +202,7 @@ export default async function DetalheChamado({ params }: PageProps) {
         aberto_em,
         atendimento_iniciado_em,
         finalizado_em,
-        clientes (
+        clientes:clientes!chamados_cliente_id_fkey (
           nome_fantasia
         ),
         lojas (
