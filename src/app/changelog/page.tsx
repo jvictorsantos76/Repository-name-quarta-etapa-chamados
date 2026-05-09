@@ -6,6 +6,10 @@ const versoes = [
     versao: APP_VERSION,
     data: "08/05/2026",
     alteracoes: [
+      "Header global v0.9.0 passa a usar navegação responsiva com logo Quarta Etapa à esquerda, menu principal, dropdown Programas, busca global inicial, FAQ e menu completo do usuário.",
+      "Logo do header passa a alternar automaticamente entre versão clara e escura conforme o tema ativo.",
+      "Menu principal remove Unidades da navegação de primeiro nível e mantém cadastros secundários acessíveis por áreas existentes.",
+      "Busca global inicial exibe o campo operacional sem criar consultas novas nem ampliar acesso a dados.",
       "Novo Chamado v0.2.0 implementa o Bloco 1 - Identificação do chamado com título manual, tipo, origem, ID externo, organização, grupo e bases relacionadas.",
       "Catálogos de tipo, origem, grupo de atendimento e base de conhecimento passam a ter tabelas próprias, RLS e cadastro inline restrito a admin, gestor e analista.",
       "Abertura de chamados passa a salvar vínculos estruturados preservando campos legados para compatibilidade com listagem e detalhe.",

@@ -244,3 +244,23 @@ html[data-theme-effective="dark"] body :where(.text-gray-300) {
 .perfil-preview-button:hover {
   background-color: var(--primary-hover);
 }
+
+.qe-app-header {
+  backdrop-filter: blur(18px);
+}
+
+html[data-theme-effective="dark"] .qe-logo-light {
+  display: none;
+}
+
+html[data-theme-effective="dark"] .qe-logo-dark {
+  display: block;
+}
+
+html[data-theme-effective="light"] .qe-logo-light {
+  display: block;
+}
+
+html[data-theme-effective="light"] .qe-logo-dark {
+  display: none;
+}
