@@ -236,6 +236,50 @@ function SearchForm({ compact = false, onSubmit }: { compact?: boolean; onSubmit
   );
 }
 
+function MenuSearch({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="mb-3 px-1">
+      <label className="relative block">
+        <span className="sr-only">Buscar no menu</span>
+        <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+        <input
+          type="search"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="Encontrar um menu"
+          className="qe-menu-search h-10 w-full rounded-lg border pl-10 pr-3 text-sm font-semibold outline-none"
+        />
+      </label>
+    </div>
+  );
+}
+
+function MenuGroupControls({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <div className="mb-3 px-1">
+      <button
+        type="button"
+        onClick={onClick}
+        className="qe-sidebar-link min-h-9 w-full rounded-lg border px-3 text-xs font-bold transition"
+      >
+        {label}
+      </button>
+    </div>
+  );
+}
+
 function SidebarItem({
   item,
   active,
@@ -374,6 +418,7 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
   const [mobileBuscaAberta, setMobileBuscaAberta] = useState(false);
   const [usuarioAberto, setUsuarioAberto] = useState(false);
   const [menuTerm, setMenuTerm] = useState("");
+  const [groupBulkAction, setGroupBulkAction] = useState<"expand" | "collapse">("collapse");
   const [mensagem, setMensagem] = useState("");
   const [pendente, startTransition] = useTransition();
   const active = findNavigationItem(pathname);
@@ -416,6 +461,14 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
       }))
       .filter((group) => group.items.length > 0);
   }, [menuTerm]);
+  const allGroupsOpen = navigationGroups.every((group) => openGroups[group.id] ?? true);
+  const allGroupsClosed = navigationGroups.every((group) => !(openGroups[group.id] ?? true));
+  const effectiveGroupAction = allGroupsOpen
+    ? "collapse"
+    : allGroupsClosed
+      ? "expand"
+      : groupBulkAction;
+  const groupControlLabel = effectiveGroupAction === "collapse" ? "Recolher todos" : "Expandir todos";
 
   useEffect(() => {
     document.documentElement.dataset.sidebarState = sidebarCollapsed ? "collapsed" : "expanded";
@@ -476,6 +529,25 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
     setOpenGroups((current) => ({ ...current, [groupId]: !current[groupId] }));
   }
 
+  function expandAllGroups() {
+    setOpenGroups(Object.fromEntries(navigationGroups.map((group) => [group.id, true])));
+    setGroupBulkAction("collapse");
+  }
+
+  function collapseAllGroups() {
+    setOpenGroups(Object.fromEntries(navigationGroups.map((group) => [group.id, false])));
+    setGroupBulkAction("expand");
+  }
+
+  function toggleAllGroups() {
+    if (effectiveGroupAction === "collapse") {
+      collapseAllGroups();
+      return;
+    }
+
+    expandAllGroups();
+  }
+
   return (
     <>
       <aside className="qe-sidebar fixed inset-y-0 left-0 z-50 hidden w-72 overflow-y-auto overflow-x-hidden border-r px-2 py-3 shadow-sm md:block">
@@ -504,22 +576,13 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
           ) : null}
         </div>
         {!sidebarCollapsed ? (
-          <div className="mb-3 px-1">
-            <label className="relative block">
-              <span className="sr-only">Buscar no menu</span>
-              <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-              <input
-                type="search"
-                value={menuTerm}
-                onChange={(event) => setMenuTerm(event.target.value)}
-                placeholder="Encontrar um menu"
-                className="qe-menu-search h-10 w-full rounded-lg border pl-10 pr-3 text-sm font-semibold outline-none"
-              />
-            </label>
-            <p className="mt-2 px-2 text-xs text-gray-500">
-              Filtre apenas os menus laterais. A busca de chamados, clientes e técnicos fica no header.
-            </p>
-          </div>
+          <>
+            <MenuSearch value={menuTerm} onChange={setMenuTerm} />
+            <MenuGroupControls
+              label={groupControlLabel}
+              onClick={toggleAllGroups}
+            />
+          </>
         ) : null}
         <nav className="grid gap-1" aria-label="Navegação principal">
           {filteredGroups.map((group) => (
@@ -644,18 +707,13 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
 
         {mobileAberto ? (
           <div className="qe-sidebar mt-3 rounded-xl border p-3 shadow-sm md:hidden">
-            <div className="qe-sidebar-top mb-3 flex items-center border-b pb-3">
-              <button
-                type="button"
-                onClick={() => setMobileAberto(false)}
-                className="qe-menu-button flex h-10 w-10 items-center justify-center rounded-lg"
-                aria-label="Fechar menu"
-              >
-                <CloseIcon />
-              </button>
-            </div>
+            <MenuSearch value={menuTerm} onChange={setMenuTerm} />
+            <MenuGroupControls
+              label={groupControlLabel}
+              onClick={toggleAllGroups}
+            />
             <nav className="grid gap-1" aria-label="Menu mobile">
-              {navigationGroups.map((group) => (
+              {filteredGroups.map((group) => (
                 <SidebarGroup
                   key={group.id}
                   group={group}
@@ -665,6 +723,11 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
                   onNavigate={() => setMobileAberto(false)}
                 />
               ))}
+              {filteredGroups.length === 0 ? (
+                <p className="rounded-lg border border-current px-3 py-4 text-sm font-semibold opacity-75">
+                  Nenhum menu encontrado.
+                </p>
+              ) : null}
             </nav>
           </div>
         ) : null}
