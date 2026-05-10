@@ -17,9 +17,27 @@ const camposIniciais = {
   loja_unidade: "",
   cargo: "",
   motivo_acesso: "",
+  senha: "",
+  confirmacao_senha: "",
   aceite_termos: false,
   aceite_privacidade: false,
 };
+
+const termosUsoResumo = [
+  "O Portal de Atendimento Quarta Etapa é destinado à abertura, acompanhamento e gestão de chamados técnicos.",
+  "O acesso é pessoal, intransferível e pode ser limitado, suspenso ou encerrado quando houver risco operacional, uso indevido ou ausência de aprovação administrativa.",
+  "Durante o período temporário de análise, o usuário pode registrar chamados próprios e acompanhar apenas informações vinculadas ao seu atendimento.",
+  "Solicitações aprovadas recebem um perfil operacional com papel, cliente e unidade definidos por responsável autorizado.",
+  "A Quarta Etapa mantém registros de autenticação, solicitações, chamados, evidências e alterações para segurança, auditoria e melhoria contínua do serviço.",
+];
+
+const politicaPrivacidadeResumo = [
+  "Os dados informados no cadastro são usados para validação de identidade, controle de acesso, comunicação operacional e gestão de chamados.",
+  "Podem ser tratados dados de identificação, contato, empresa, unidade, cargo, histórico de acesso, chamados, anexos e evidências enviadas pelo usuário.",
+  "O tratamento segue bases legais ligadas à execução de contrato, legítimo interesse, cumprimento de obrigação legal e segurança do serviço.",
+  "O acesso aos dados é restrito por autenticação, autorização, RLS no Supabase e políticas internas de necessidade operacional.",
+  "O titular pode solicitar informações, correção ou revisão de dados pelos canais administrativos da Quarta Etapa.",
+];
 
 export default function CadastroPage() {
   const [campos, setCampos] = useState(camposIniciais);
@@ -47,7 +65,17 @@ export default function CadastroPage() {
     }
 
     if (!campos.aceite_termos || !campos.aceite_privacidade) {
-      setErro("É necessário aceitar os Termos de Uso e a Política de Privacidade.");
+      setErro("Leia e confirme os Termos de Uso e a Política de Privacidade.");
+      return;
+    }
+
+    if (campos.senha.length < 8) {
+      setErro("Informe uma senha com pelo menos 8 caracteres.");
+      return;
+    }
+
+    if (campos.senha !== campos.confirmacao_senha) {
+      setErro("A confirmação de senha não confere.");
       return;
     }
 
@@ -90,14 +118,15 @@ export default function CadastroPage() {
         <p className="mt-2 text-sm text-gray-600">
           O envio deste formulário não libera acesso automático. A solicitação
           será validada pela Quarta Etapa ou por responsável autorizado. Ao ser
-          aprovado, você receberá um convite por e-mail para definir seu acesso.
-          O prazo administrativo inicial é de 72 horas úteis.
+          enviado, confirme seu e-mail para iniciar o acesso temporário restrito
+          por até 72 horas úteis.
         </p>
 
         {sucesso ? (
           <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
             Solicitação recebida com sucesso. A liberação depende de validação
-            operacional. O e-mail de acesso será enviado somente após aprovação.
+            operacional. Confirme o e-mail enviado para iniciar o acesso
+            temporário restrito.
           </div>
         ) : (
           <form onSubmit={enviarSolicitacao} className="mt-6 space-y-5">
@@ -108,13 +137,15 @@ export default function CadastroPage() {
             )}
 
             <div className="grid gap-4 md:grid-cols-2">
-              <CampoTexto label="Nome completo" value={campos.nome_completo} onChange={(valor) => atualizarCampo("nome_completo", valor)} required />
-              <CampoTexto label="E-mail" type="email" value={campos.email} onChange={(valor) => atualizarCampo("email", valor)} required />
-              <CampoTexto label="Telefone" value={campos.telefone} onChange={(valor) => atualizarCampo("telefone", valor)} />
-              <CampoTexto label="Empresa" value={campos.empresa} onChange={(valor) => atualizarCampo("empresa", valor)} required />
+              <CampoTexto label="Nome completo" value={campos.nome_completo} onChange={(valor) => atualizarCampo("nome_completo", valor)} autoComplete="name" required />
+              <CampoTexto label="E-mail" type="email" value={campos.email} onChange={(valor) => atualizarCampo("email", valor)} autoComplete="username" required />
+              <CampoTexto label="Telefone" value={campos.telefone} onChange={(valor) => atualizarCampo("telefone", valor)} autoComplete="tel" />
+              <CampoTexto label="Empresa" value={campos.empresa} onChange={(valor) => atualizarCampo("empresa", valor)} autoComplete="organization" required />
               <CampoTexto label="CNPJ" value={campos.cnpj} onChange={(valor) => atualizarCampo("cnpj", valor)} />
               <CampoTexto label="Loja/Unidade" value={campos.loja_unidade} onChange={(valor) => atualizarCampo("loja_unidade", valor)} />
               <CampoTexto label="Cargo" value={campos.cargo} onChange={(valor) => atualizarCampo("cargo", valor)} />
+              <CampoTexto label="Senha" type="password" value={campos.senha} onChange={(valor) => atualizarCampo("senha", valor)} required />
+              <CampoTexto label="Confirmar senha" type="password" value={campos.confirmacao_senha} onChange={(valor) => atualizarCampo("confirmacao_senha", valor)} required />
             </div>
 
             <div>
@@ -131,41 +162,21 @@ export default function CadastroPage() {
               />
             </div>
 
-            <label className="flex gap-3 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={campos.aceite_termos}
-                onChange={(event) =>
-                  atualizarCampo("aceite_termos", event.target.checked)
-                }
-                className="mt-1"
-              />
-              <span>
-                Li e aceito os{" "}
-                <Link href="/termos-uso" className="font-semibold text-blue-600">
-                  Termos de Uso
-                </Link>
-                .
-              </span>
-            </label>
+            <LeituraObrigatoria
+              titulo="Termos de Uso"
+              href="/termos-uso"
+              itens={termosUsoResumo}
+              confirmado={campos.aceite_termos}
+              onConfirmar={() => atualizarCampo("aceite_termos", true)}
+            />
 
-            <label className="flex gap-3 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={campos.aceite_privacidade}
-                onChange={(event) =>
-                  atualizarCampo("aceite_privacidade", event.target.checked)
-                }
-                className="mt-1"
-              />
-              <span>
-                Li e aceito a{" "}
-                <Link href="/politica-privacidade" className="font-semibold text-blue-600">
-                  Política de Privacidade
-                </Link>
-                .
-              </span>
-            </label>
+            <LeituraObrigatoria
+              titulo="Política de Privacidade"
+              href="/politica-privacidade"
+              itens={politicaPrivacidadeResumo}
+              confirmado={campos.aceite_privacidade}
+              onConfirmar={() => atualizarCampo("aceite_privacidade", true)}
+            />
 
             <button
               type="submit"
@@ -181,17 +192,87 @@ export default function CadastroPage() {
   );
 }
 
+function LeituraObrigatoria({
+  titulo,
+  href,
+  itens,
+  confirmado,
+  onConfirmar,
+}: {
+  titulo: string;
+  href: string;
+  itens: string[];
+  confirmado: boolean;
+  onConfirmar: () => void;
+}) {
+  const [rolagemCompleta, setRolagemCompleta] = useState(false);
+
+  function verificarRolagem(event: React.UIEvent<HTMLDivElement>) {
+    const elemento = event.currentTarget;
+    const chegouAoFim =
+      elemento.scrollTop + elemento.clientHeight >= elemento.scrollHeight - 8;
+
+    if (chegouAoFim) {
+      setRolagemCompleta(true);
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-bold text-gray-900">{titulo}</h2>
+          <Link href={href} className="text-xs font-semibold text-blue-600">
+            Abrir documento completo
+          </Link>
+        </div>
+        <span className="w-fit rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-600">
+          {confirmado ? "Leitura confirmada" : "Leitura obrigatória"}
+        </span>
+      </div>
+
+      <div
+        onScroll={verificarRolagem}
+        className="mt-3 max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white p-3 text-sm leading-6 text-gray-700"
+      >
+        {itens.map((item) => (
+          <p key={item} className="mb-3 last:mb-0">
+            {item}
+          </p>
+        ))}
+      </div>
+
+      {rolagemCompleta && !confirmado && (
+        <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+          Leitura concluída. Confirme para prosseguir com a solicitação.
+        </div>
+      )}
+
+      <button
+        type="button"
+        disabled={!rolagemCompleta || confirmado}
+        onClick={onConfirmar}
+        className="mt-3 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {confirmado ? "Confirmado" : "Confirmar leitura"}
+      </button>
+    </section>
+  );
+}
+
 function CampoTexto({
   label,
   value,
   onChange,
   type = "text",
+  autoComplete,
   required = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
+  autoComplete?: string;
   required?: boolean;
 }) {
   return (
@@ -202,6 +283,7 @@ function CampoTexto({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         required={required}
+        autoComplete={autoComplete ?? (type === "password" ? "new-password" : undefined)}
         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
       />
     </div>

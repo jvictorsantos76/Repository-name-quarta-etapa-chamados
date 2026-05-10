@@ -32,6 +32,11 @@ type SolicitacaoAcesso = {
   aprovado_em: string | null;
   rejeitado_por: string | null;
   rejeitado_em: string | null;
+  motivo_rejeicao: string | null;
+  email_confirmado_em: string | null;
+  expira_em: string | null;
+  bloqueado_em: string | null;
+  user_id: string | null;
   auth_user_id: string | null;
   perfil_id: string | null;
   provisionado_em: string | null;
@@ -60,6 +65,8 @@ const STATUS_LABEL: Record<string, string> = {
   aprovado: "Aprovado",
   rejeitado: "Rejeitado",
   cancelado: "Cancelado",
+  pendente_confirmacao_email: "Aguardando e-mail",
+  expirado: "Expirado",
 };
 
 const PAPEIS_PROVISIONAMENTO_DISPONIVEIS: PapelUsuario[] =
@@ -279,8 +286,10 @@ async function atualizarSolicitacao(formData: FormData) {
       .update({
         status: "rejeitado",
         observacao_interna: motivoRejeicao,
+        motivo_rejeicao: motivoRejeicao,
         rejeitado_por: perfil.id,
         rejeitado_em: agora,
+        bloqueado_em: agora,
         erro_provisionamento: null,
       })
       .eq("id", id)
@@ -314,7 +323,7 @@ async function atualizarSolicitacao(formData: FormData) {
   const { data: solicitacao, error: erroSolicitacao } = await supabase
     .from("solicitacoes_acesso")
     .select(
-      "id, nome_completo, email, telefone, cargo, status, auth_user_id, perfil_id, provisionado_em, erro_provisionamento"
+      "id, nome_completo, email, telefone, cargo, status, user_id, auth_user_id, perfil_id, provisionado_em, erro_provisionamento"
     )
     .eq("id", id)
     .maybeSingle();
@@ -397,6 +406,7 @@ async function atualizarSolicitacao(formData: FormData) {
       status: "aprovado",
       aprovado_por: perfil.id,
       aprovado_em: agora,
+      user_id: resultadoConvite.user.id,
       auth_user_id: resultadoConvite.user.id,
       perfil_id: resultadoConvite.user.id,
       provisionado_em: agora,
@@ -451,7 +461,7 @@ export default async function AdminUsuariosPage() {
     supabase
       .from("solicitacoes_acesso")
       .select(
-        "id, nome_completo, email, telefone, empresa, cnpj, loja_unidade, cargo, status, observacao_interna, created_at, aprovado_por, aprovado_em, rejeitado_por, rejeitado_em, auth_user_id, perfil_id, provisionado_em, erro_provisionamento, link_acesso_manual, link_acesso_manual_gerado_em"
+        "id, nome_completo, email, telefone, empresa, cnpj, loja_unidade, cargo, status, observacao_interna, created_at, aprovado_por, aprovado_em, rejeitado_por, rejeitado_em, motivo_rejeicao, email_confirmado_em, expira_em, bloqueado_em, user_id, auth_user_id, perfil_id, provisionado_em, erro_provisionamento, link_acesso_manual, link_acesso_manual_gerado_em"
       )
       .order("created_at", { ascending: false }),
     supabase.from("clientes").select("id, nome_fantasia").order("nome_fantasia"),

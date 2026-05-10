@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { ContaAcoesRapidas } from "@/components/ContaAcoesRapidas";
 import { CONTA_PERMISSOES_PAGE_VERSION } from "@/config/version";
@@ -10,6 +11,11 @@ import { requirePerfilAutenticado } from "@/lib/supabase/server";
 
 export default async function ContaPermissoesPage() {
   const perfilAtual = await requirePerfilAutenticado();
+
+  if (perfilAtual.papel === "solicitante") {
+    redirect("/conta/perfil");
+  }
+
   const permissoes = getPermissoesPorPapel(perfilAtual.papel);
 
   return (

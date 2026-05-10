@@ -65,7 +65,7 @@ function AuthCallbackContent() {
           return;
         }
 
-        router.replace(nextPath);
+        router.replace(perfil.papel === "solicitante" ? "/chamados/novo" : nextPath);
         router.refresh();
       } catch {
         if (ativo) {

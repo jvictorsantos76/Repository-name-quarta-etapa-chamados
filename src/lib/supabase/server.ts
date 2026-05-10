@@ -123,6 +123,45 @@ export function createSupabaseAdminClient(): SupabaseClient {
   });
 }
 
+async function bloquearSolicitacaoExpirada(userId: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const agora = new Date().toISOString();
+
+  await supabaseAdmin
+    .from("solicitacoes_acesso")
+    .update({
+      status: "expirado",
+      bloqueado_em: agora,
+      erro_provisionamento:
+        "Acesso temporário expirado automaticamente após 72 horas úteis.",
+    })
+    .or(`user_id.eq.${userId},auth_user_id.eq.${userId},perfil_id.eq.${userId}`)
+    .eq("status", "pendente_aprovacao")
+    .not("expira_em", "is", null)
+    .lt("expira_em", agora);
+}
+
+async function buscarSolicitacaoAcesso(userId: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+
+  await bloquearSolicitacaoExpirada(userId);
+
+  const { data } = await supabaseAdmin
+    .from("solicitacoes_acesso")
+    .select("status, expira_em, email_confirmado_em, bloqueado_em")
+    .or(`user_id.eq.${userId},auth_user_id.eq.${userId},perfil_id.eq.${userId}`)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return data as {
+    status: string;
+    expira_em: string | null;
+    email_confirmado_em: string | null;
+    bloqueado_em: string | null;
+  } | null;
+}
+
 export async function requirePerfilAutenticado() {
   const accessToken = await getSupabaseAccessToken();
 
@@ -152,7 +191,26 @@ export async function requirePerfilAutenticado() {
     redirect("/aguardando-aprovacao");
   }
 
-  return perfil as PerfilAutenticado;
+  const solicitacao = await buscarSolicitacaoAcesso(userData.user.id);
+
+  if (perfil.papel === "solicitante") {
+    const acessoTemporarioAtivo =
+      solicitacao?.status === "pendente_aprovacao" &&
+      Boolean(solicitacao.email_confirmado_em) &&
+      Boolean(solicitacao.expira_em) &&
+      new Date(solicitacao.expira_em as string).getTime() > Date.now() &&
+      !solicitacao.bloqueado_em;
+
+    if (!acessoTemporarioAtivo) {
+      redirect("/aguardando-aprovacao");
+    }
+  }
+
+  return {
+    ...(perfil as PerfilAutenticado),
+    acesso_status: solicitacao?.status ?? null,
+    acesso_expira_em: solicitacao?.expira_em ?? null,
+  };
 }
 
 export async function requireAdminOuGestor() {

@@ -6,6 +6,11 @@ const versoes = [
     versao: APP_VERSION,
     data: "10/05/2026",
     alteracoes: [
+      "Cadastro de Usuário v0.3.0 passa a criar conta Supabase com senha, exigir confirmação de e-mail e registrar a solicitação como pendente_confirmacao_email.",
+      "Confirmação de e-mail ativa acesso temporário restrito como solicitante por até 72 horas úteis, com expiração calculada no banco.",
+      "Novo Chamado v0.2.1 restringe usuários pendentes à abertura de chamados próprios na unidade vinculada ao cadastro.",
+      "RLS de chamados, clientes, lojas, histórico, registros técnicos e evidências passa a bloquear policies amplas de desenvolvimento e separar acesso operacional de acesso temporário.",
+      "Solicitações de Acesso v0.3.0 registra confirmação de e-mail, expiração, bloqueio, motivo de rejeição e vínculo com usuário Auth para auditoria.",
       "Solicitações de Acesso v0.2.1 ajusta o provisionamento para convite Supabase Auth em usuários novos e recuperação de senha em usuários Auth já existentes.",
       "Aprovação administrativa deixa de gerar magic link como caminho operacional de provisionamento, preservando o fluxo de definição de senha e login por e-mail/senha.",
       "Navegação principal v0.9.1 passa a usar Sidebar fixa e recolhível no desktop/tablet, inspirada na lógica visual do GLPI e com identidade Quarta Etapa.",

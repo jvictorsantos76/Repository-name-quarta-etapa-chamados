@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   createSupabaseServerClient,
   requirePerfilAutenticado,
@@ -39,6 +40,11 @@ type Chamado = {
 
 export default async function Home() {
   const perfilAtual = await requirePerfilAutenticado();
+
+  if (perfilAtual.papel === "solicitante") {
+    redirect("/chamados/novo");
+  }
+
   const supabase = await createSupabaseServerClient();
 
   const chamadosResposta = await supabase

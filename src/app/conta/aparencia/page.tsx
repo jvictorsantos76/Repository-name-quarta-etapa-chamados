@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { CONTA_APARENCIA_PAGE_VERSION } from "@/config/version";
 import { requirePerfilAutenticado } from "@/lib/supabase/server";
@@ -6,6 +7,10 @@ import { AparenciaForm } from "./AparenciaForm";
 
 export default async function ContaAparenciaPage() {
   const perfilAtual = await requirePerfilAutenticado();
+
+  if (perfilAtual.papel === "solicitante") {
+    redirect("/conta/perfil");
+  }
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">

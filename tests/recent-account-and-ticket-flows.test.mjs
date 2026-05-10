@@ -36,9 +36,31 @@ const adminUsuariosSource = await readFile(
   new URL("../src/app/admin/usuarios/page.tsx", import.meta.url),
   "utf8"
 );
+const pendingAccessMigration = await readFile(
+  new URL(
+    "../supabase/migrations/202605100001_onboarding_pending_access_governance.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const serverSupabaseSource = await readFile(
+  new URL("../src/lib/supabase/server.ts", import.meta.url),
+  "utf8"
+);
+const authConfirmSource = await readFile(
+  new URL("../src/app/auth/confirm/route.ts", import.meta.url),
+  "utf8"
+);
+const cadastroActionsSource = await readFile(
+  new URL("../src/app/cadastro/actions.ts", import.meta.url),
+  "utf8"
+);
 
 function extractArray(source, constantName) {
-  const declarationStart = source.indexOf(`export const ${constantName}:`);
+  let declarationStart = source.indexOf(`export const ${constantName}:`);
+  if (declarationStart === -1) {
+    declarationStart = source.indexOf(`const ${constantName}:`);
+  }
   assert.notEqual(declarationStart, -1, `Nao foi possivel localizar ${constantName}.`);
 
   const arrayStart = source.indexOf("[", declarationStart);
@@ -119,11 +141,9 @@ test("inline ticket catalog writes are restricted to admin gestor and analyst ro
     /with check \(public\.usuario_catalogo_chamados_ativo\(\) and criado_por = auth\.uid\(\)\)/i
   );
   assert.match(novoChamadoActionsSource, /await requirePerfilAutenticado\(\)/);
-  assert.match(novoChamadoActionsSource, /PAPEIS_CATALOGO[\s\S]*"analista"/);
-  assert.doesNotMatch(
-    novoChamadoActionsSource,
-    /PAPEIS_CATALOGO[\s\S]*"(?:operador|tecnico|cliente|solicitante)"/
-  );
+  const papeisCatalogo = extractArray(novoChamadoActionsSource, "PAPEIS_CATALOGO");
+  assert.match(papeisCatalogo, /"analista"/);
+  assert.doesNotMatch(papeisCatalogo, /"(?:operador|tecnico|cliente|solicitante)"/);
 });
 
 test("new ticket form requires manual title and keeps status and number read only", () => {
@@ -143,4 +163,80 @@ test("access request provisioning uses invite and recovery links instead of magi
   assert.match(adminUsuariosSource, /gerarLinkRecuperacaoManual/);
   assert.match(adminUsuariosSource, /type: "recovery"/);
   assert.doesNotMatch(adminUsuariosSource, /magiclink/);
+});
+
+test("pending access migration adds email confirmation expiration and audit states", () => {
+  for (const column of [
+    "user_id",
+    "email_confirmado_em",
+    "criado_em",
+    "expira_em",
+    "motivo_rejeicao",
+    "bloqueado_em",
+  ]) {
+    assert.match(pendingAccessMigration, new RegExp(`add column if not exists ${column}`, "i"));
+  }
+
+  for (const status of [
+    "pendente_confirmacao_email",
+    "pendente_aprovacao",
+    "aprovado",
+    "rejeitado",
+    "expirado",
+    "cancelado",
+  ]) {
+    assert.match(pendingAccessMigration, new RegExp(`'${status}'`, "i"));
+  }
+
+  assert.match(pendingAccessMigration, /calcular_expiracao_horas_uteis/i);
+  assert.match(pendingAccessMigration, /extract\(isodow from cursor_hora\) between 1 and 5/i);
+});
+
+test("RLS removes broad development policies and restricts pending ticket access", () => {
+  for (const policy of [
+    "dev_select_chamados",
+    "dev_insert_chamados",
+    "dev_update_chamados",
+    "dev_select_clientes",
+    "dev_select_lojas",
+    "dev_select_historico_status",
+    "dev_insert_historico_status",
+    "dev_select_registros_tecnicos",
+    "dev_insert_registros_tecnicos",
+  ]) {
+    assert.match(pendingAccessMigration, new RegExp(`drop policy if exists ${policy}`, "i"));
+  }
+
+  assert.match(pendingAccessMigration, /usuario_solicitacao_pendente_ativa/i);
+  assert.match(pendingAccessMigration, /usuario_acesso_chamados_ativo/i);
+  assert.match(pendingAccessMigration, /operador_id = auth\.uid\(\)/i);
+  assert.match(pendingAccessMigration, /s\.cliente_id = chamados\.cliente_id/i);
+  assert.match(pendingAccessMigration, /s\.loja_id = chamados\.loja_id/i);
+  assert.match(pendingAccessMigration, /registros_tecnicos_insert_operacionais/i);
+  assert.doesNotMatch(pendingAccessMigration, /to anon, authenticated[\s\S]*with check \(true\)/i);
+});
+
+test("server guards expire or block pending rejected users before granting access", () => {
+  assert.match(serverSupabaseSource, /auth\.getUser\(\s*accessToken\s*\)/);
+  assert.match(serverSupabaseSource, /bloquearSolicitacaoExpirada/);
+  assert.match(serverSupabaseSource, /status: "expirado"/);
+  assert.match(serverSupabaseSource, /perfil\.papel === "solicitante"/);
+  assert.match(serverSupabaseSource, /redirect\("\/aguardando-aprovacao"\)/);
+});
+
+test("auth confirm verifies email without leaving token hash in final redirect", () => {
+  assert.match(authConfirmSource, /verifyOtp\(\{[\s\S]*token_hash: tokenHash[\s\S]*type: type as EmailOtpType/);
+  assert.match(authConfirmSource, /confirmarSolicitacaoEmail\(session\)/);
+  assert.match(authConfirmSource, /status: "pendente_aprovacao"/);
+  assert.match(authConfirmSource, /calcular_expiracao_horas_uteis/);
+  assert.match(authConfirmSource, /redirectTo\(request, "\/chamados\/novo"\)/);
+  assert.doesNotMatch(authConfirmSource, /redirectTo\(request,\s*request\.url/);
+});
+
+test("public cadastro creates Supabase signup with password and pending email confirmation", () => {
+  assert.match(cadastroActionsSource, /supabase\.auth\.signUp/);
+  assert.match(cadastroActionsSource, /emailRedirectTo: `\$\{baseUrl\}\/auth\/confirm`/);
+  assert.match(cadastroActionsSource, /status: "pendente_confirmacao_email"/);
+  assert.match(cadastroActionsSource, /user_id: authData\.user\.id/);
+  assert.match(cadastroActionsSource, /senha\.length < 8/);
 });

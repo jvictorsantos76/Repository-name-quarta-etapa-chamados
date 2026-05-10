@@ -6,7 +6,7 @@ import {
   setSupabaseSessionCookies,
 } from "@/lib/supabase/server";
 
-const tiposOtpPermitidos = new Set(["email", "invite", "recovery"]);
+const tiposOtpPermitidos = new Set(["email", "invite", "recovery", "magiclink"]);
 
 function getSafeNextPath(value: string | null, fallback = "/") {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
@@ -59,11 +59,85 @@ async function hasPerfilAtivo(session: Session) {
   return !error && Boolean(data);
 }
 
+async function confirmarSolicitacaoEmail(session: Session) {
+  const supabase = createSupabaseAdminClient();
+  const agora = new Date().toISOString();
+  const email = session.user.email?.trim().toLowerCase();
+
+  if (!email) {
+    return { ok: false };
+  }
+
+  const { data: solicitacao, error } = await supabase
+    .from("solicitacoes_acesso")
+    .select("id, nome_completo, email, telefone, cargo, status, cliente_id, loja_id")
+    .or(`user_id.eq.${session.user.id},auth_user_id.eq.${session.user.id},email.eq.${email}`)
+    .in("status", ["pendente_confirmacao_email", "pendente_aprovacao"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !solicitacao) {
+    return { ok: false };
+  }
+
+  const { data: expiracao } = await supabase.rpc(
+    "calcular_expiracao_horas_uteis",
+    {
+      inicio: agora,
+      horas_uteis: 72,
+    }
+  );
+
+  const expiraEm =
+    typeof expiracao === "string"
+      ? expiracao
+      : new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+
+  await supabase
+    .from("solicitacoes_acesso")
+    .update({
+      status: "pendente_aprovacao",
+      user_id: session.user.id,
+      auth_user_id: session.user.id,
+      perfil_id: session.user.id,
+      email_confirmado_em: agora,
+      expira_em: expiraEm,
+      bloqueado_em: null,
+      erro_provisionamento: null,
+    })
+    .eq("id", solicitacao.id);
+
+  await supabase.from("perfis").upsert({
+    id: session.user.id,
+    nome_completo: solicitacao.nome_completo,
+    email,
+    telefone: solicitacao.telefone,
+    papel: "solicitante",
+    ativo: true,
+    cargo: solicitacao.cargo,
+    cliente_id: solicitacao.cliente_id,
+    loja_id: solicitacao.loja_id,
+  });
+
+  await supabase
+    .from("aceites_legais")
+    .update({
+      perfil_id: session.user.id,
+    })
+    .eq("solicitacao_acesso_id", solicitacao.id)
+    .is("perfil_id", null);
+
+  return { ok: true };
+}
+
 export async function GET(request: NextRequest) {
   const requestedType = request.nextUrl.searchParams.get("type");
   const fallbackPath =
     requestedType === "recovery" || requestedType === "invite"
       ? "/auth/alterar-senha"
+      : requestedType === "email"
+        ? "/chamados/novo"
       : "/";
   const nextPath = getSafeNextPath(
     request.nextUrl.searchParams.get("next"),
@@ -76,6 +150,11 @@ export async function GET(request: NextRequest) {
   }
 
   await setSupabaseSessionCookies(session);
+
+  if (type === "email") {
+    await confirmarSolicitacaoEmail(session);
+    return redirectTo(request, "/chamados/novo");
+  }
 
   if (type === "recovery" || type === "invite") {
     return redirectTo(request, nextPath);

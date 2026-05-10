@@ -25,4 +25,6 @@ export type PerfilAutenticado = {
   tema_preferido?: TemaPreferido | null;
   cor_preferida?: CorPreferida | null;
   fonte_escala?: FonteEscala | null;
+  acesso_status?: string | null;
+  acesso_expira_em?: string | null;
 };

@@ -61,7 +61,7 @@ export default function LoginPage() {
 
     const { data, error } = await supabase
       .from("perfis")
-      .select("id, ativo")
+      .select("id, ativo, papel")
       .eq("id", userId)
       .eq("ativo", true)
       .maybeSingle();
@@ -72,7 +72,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.replace("/");
+    router.replace(data.papel === "solicitante" ? "/chamados/novo" : "/");
     router.refresh();
   }, [router, supabase]);
 
