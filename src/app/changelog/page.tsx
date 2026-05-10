@@ -4,8 +4,10 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 const versoes = [
   {
     versao: APP_VERSION,
-    data: "09/05/2026",
+    data: "10/05/2026",
     alteracoes: [
+      "Solicitações de Acesso v0.2.1 ajusta o provisionamento para convite Supabase Auth em usuários novos e recuperação de senha em usuários Auth já existentes.",
+      "Aprovação administrativa deixa de gerar magic link como caminho operacional de provisionamento, preservando o fluxo de definição de senha e login por e-mail/senha.",
       "Navegação principal v0.9.1 passa a usar Sidebar fixa e recolhível no desktop/tablet, inspirada na lógica visual do GLPI e com identidade Quarta Etapa.",
       "Header global passa a atuar como barra superior com Home, breadcrumb, busca global, FAQ e menu do usuário, sem duplicar a navegação operacional.",
       "Menu mobile passa a abrir a mesma navegação principal em drawer vertical pelo botão hambúrguer.",

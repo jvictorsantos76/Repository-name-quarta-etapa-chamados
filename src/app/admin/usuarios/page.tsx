@@ -125,10 +125,10 @@ async function convidarOuLocalizarUsuario(
 }> {
   const supabaseAdmin = createSupabaseAdminClient();
   const emailNormalizado = email.trim().toLowerCase();
-  const gerarLinkAcessoManual = async (tipoLink: "invite" | "magiclink") => {
+  const gerarLinkConviteManual = async () => {
     const { data: dadosLink, error: erroLink } =
       await supabaseAdmin.auth.admin.generateLink({
-        type: tipoLink,
+        type: "invite",
         email: emailNormalizado,
         options: {
           redirectTo,
@@ -144,6 +144,66 @@ async function convidarOuLocalizarUsuario(
       linkAcessoManual: dadosLink.properties?.action_link ?? null,
     };
   };
+  const gerarLinkRecuperacaoManual = async () => {
+    const { data: dadosLink, error: erroLink } =
+      await supabaseAdmin.auth.admin.generateLink({
+        type: "recovery",
+        email: emailNormalizado,
+        options: {
+          redirectTo,
+        },
+      });
+
+    return {
+      user: dadosLink.user,
+      error: erroLink,
+      linkAcessoManual: dadosLink.properties?.action_link ?? null,
+    };
+  };
+
+  const usuarioExistente = await buscarUsuarioAuthPorEmail(emailNormalizado);
+
+  if (usuarioExistente.error) {
+    return {
+      user: null,
+      errorMessage: usuarioExistente.error.message,
+      linkAcessoManual: null,
+    };
+  }
+
+  if (usuarioExistente.user) {
+    const { error: erroRecuperacao } =
+      await supabaseAdmin.auth.resetPasswordForEmail(emailNormalizado, {
+        redirectTo,
+      });
+
+    if (!erroRecuperacao) {
+      return {
+        user: usuarioExistente.user,
+        errorMessage: null,
+        linkAcessoManual: null,
+      };
+    }
+
+    const linkManual = await gerarLinkRecuperacaoManual();
+
+    if (!linkManual.error && linkManual.linkAcessoManual) {
+      return {
+        user: usuarioExistente.user,
+        errorMessage: null,
+        linkAcessoManual: linkManual.linkAcessoManual,
+      };
+    }
+
+    return {
+      user: null,
+      errorMessage:
+        linkManual.error?.message ??
+        erroRecuperacao.message ??
+        "Não foi possível enviar a recuperação de acesso.",
+      linkAcessoManual: null,
+    };
+  }
 
   const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
     emailNormalizado,
@@ -156,27 +216,14 @@ async function convidarOuLocalizarUsuario(
   );
 
   if (!error && data.user) {
-    const linkManual = await gerarLinkAcessoManual("magiclink");
-
     return {
       user: data.user,
       errorMessage: null,
-      linkAcessoManual: linkManual.linkAcessoManual,
-    };
-  }
-
-  const usuarioExistente = await buscarUsuarioAuthPorEmail(email);
-
-  if (usuarioExistente.error) {
-    return {
-      user: null,
-      errorMessage: usuarioExistente.error.message,
       linkAcessoManual: null,
     };
   }
 
-  const tipoLink = usuarioExistente.user ? "magiclink" : "invite";
-  const linkManual = await gerarLinkAcessoManual(tipoLink);
+  const linkManual = await gerarLinkConviteManual();
 
   if (!linkManual.error && linkManual.user && linkManual.linkAcessoManual) {
     return {

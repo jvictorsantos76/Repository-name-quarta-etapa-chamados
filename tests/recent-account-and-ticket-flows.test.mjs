@@ -32,6 +32,10 @@ const novoChamadoFormSource = await readFile(
   new URL("../src/app/chamados/novo/NovoChamadoForm.tsx", import.meta.url),
   "utf8"
 );
+const adminUsuariosSource = await readFile(
+  new URL("../src/app/admin/usuarios/page.tsx", import.meta.url),
+  "utf8"
+);
 
 function extractArray(source, constantName) {
   const declarationStart = source.indexOf(`export const ${constantName}:`);
@@ -129,4 +133,14 @@ test("new ticket form requires manual title and keeps status and number read onl
   assert.match(novoChamadoFormSource, /value="Pendente de agendamento"/);
   assert.match(novoChamadoFormSource, /Base de conhecimento relacionada/);
   assert.match(novoChamadoFormSource, /criarChamadoIdentificacao/);
+});
+
+test("access request provisioning uses invite and recovery links instead of magic links", () => {
+  assert.match(adminUsuariosSource, /inviteUserByEmail/);
+  assert.match(adminUsuariosSource, /resetPasswordForEmail/);
+  assert.match(adminUsuariosSource, /gerarLinkConviteManual/);
+  assert.match(adminUsuariosSource, /type: "invite"/);
+  assert.match(adminUsuariosSource, /gerarLinkRecuperacaoManual/);
+  assert.match(adminUsuariosSource, /type: "recovery"/);
+  assert.doesNotMatch(adminUsuariosSource, /magiclink/);
 });
