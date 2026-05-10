@@ -16,6 +16,7 @@
   --ring: rgb(37 99 235 / 0.22);
   --inverse: #111827;
   --inverse-muted: #d1d5db;
+  --qe-sidebar-width: 18rem;
 }
 
 html[data-theme-effective="dark"] {
@@ -84,6 +85,53 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  scrollbar-color: rgb(100 116 139 / 0.45) transparent;
+  scrollbar-width: thin;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+* {
+  scrollbar-color: rgb(100 116 139 / 0.42) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  height: 0.5rem;
+  width: 0.5rem;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgb(100 116 139 / 0.36);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(100 116 139 / 0.55);
+  background-clip: content-box;
+}
+
+html[data-theme-effective="dark"] * {
+  scrollbar-color: rgb(148 163 184 / 0.38) transparent;
+}
+
+html[data-theme-effective="dark"] *::-webkit-scrollbar-thumb {
+  background: rgb(148 163 184 / 0.32);
+  background-clip: content-box;
+}
+
+html[data-theme-effective="dark"] *::-webkit-scrollbar-thumb:hover {
+  background: rgb(148 163 184 / 0.48);
+  background-clip: content-box;
 }
 
 body :where(.bg-gray-100) {
@@ -247,6 +295,102 @@ html[data-theme-effective="dark"] body :where(.text-gray-300) {
 
 .qe-app-header {
   backdrop-filter: blur(18px);
+}
+
+.qe-sidebar {
+  background: #eef4fb;
+  border-color: #d7e2ef;
+  color: #26364c;
+  scrollbar-color: rgb(37 99 235 / 0.28) transparent;
+}
+
+.qe-sidebar-top {
+  border-color: rgb(148 163 184 / 0.32);
+}
+
+.qe-menu-button {
+  color: #31415b;
+}
+
+.qe-menu-button:hover,
+.qe-sidebar-link:hover,
+.qe-sidebar-group-button:hover {
+  background: rgb(37 99 235 / 0.09);
+  color: #0f172a;
+}
+
+.qe-sidebar-link,
+.qe-sidebar-group-button {
+  color: #334155;
+}
+
+.qe-sidebar-group-icon {
+  color: var(--primary);
+}
+
+.qe-sidebar-link-active {
+  background: rgb(37 99 235 / 0.12);
+  color: #0f172a;
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.qe-sidebar-link-future {
+  color: #64748b;
+}
+
+html[data-theme-effective="dark"] .qe-sidebar {
+  background: #2f4268;
+  border-color: rgb(51 65 85 / 0.65);
+  color: #f8fafc;
+  scrollbar-color: rgb(203 213 225 / 0.3) transparent;
+}
+
+html[data-theme-effective="dark"] .qe-menu-button {
+  color: #e2e8f0;
+}
+
+html[data-theme-effective="dark"] .qe-menu-button:hover,
+html[data-theme-effective="dark"] .qe-sidebar-link:hover,
+html[data-theme-effective="dark"] .qe-sidebar-group-button:hover {
+  background: rgb(15 23 42 / 0.22);
+  color: #ffffff;
+}
+
+html[data-theme-effective="dark"] .qe-sidebar-link,
+html[data-theme-effective="dark"] .qe-sidebar-group-button {
+  color: #dbe7f7;
+}
+
+html[data-theme-effective="dark"] .qe-sidebar-group-icon {
+  color: #67e8f9;
+}
+
+html[data-theme-effective="dark"] .qe-sidebar-link-active {
+  background: rgb(15 23 42 / 0.3);
+  color: #ffffff;
+  box-shadow: inset 3px 0 0 #38bdf8;
+}
+
+html[data-theme-effective="dark"] .qe-sidebar-link-future {
+  color: #aab8cc;
+}
+
+@media (min-width: 768px) {
+  html[data-sidebar-state="collapsed"] {
+    --qe-sidebar-width: 5rem;
+  }
+
+  main:has(> .qe-app-header) {
+    max-width: 100vw;
+    overflow-x: hidden;
+    padding-left: var(--qe-sidebar-width);
+    transition: padding-left 180ms ease;
+  }
+
+  .qe-sidebar {
+    width: var(--qe-sidebar-width);
+    transition: width 180ms ease;
+  }
 }
 
 html[data-theme-effective="dark"] .qe-logo-light {

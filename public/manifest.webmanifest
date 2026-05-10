@@ -1,0 +1,19 @@
+{
+  "name": "Quarta Etapa Chamados",
+  "short_name": "Quarta Etapa",
+  "icons": [
+    {
+      "src": "/brand/genfavicon-package/genfavicon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/genfavicon-package/genfavicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#2f4268",
+  "background_color": "#f8fafc",
+  "display": "standalone"
+}

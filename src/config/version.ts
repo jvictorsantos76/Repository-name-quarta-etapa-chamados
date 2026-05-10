@@ -1,5 +1,5 @@
-export const APP_VERSION = "v0.9.0";
-export const APP_UPDATED_AT = "2026-05-08";
+export const APP_VERSION = "v0.9.1";
+export const APP_UPDATED_AT = "2026-05-09";
 
 export const LOGIN_PAGE_VERSION = "v0.2.0";
 export const CADASTRO_USUARIO_PAGE_VERSION = "v0.2.1";

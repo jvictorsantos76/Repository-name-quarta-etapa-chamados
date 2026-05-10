@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { VersionBadge } from "@/components/VersionBadge";
 import {
@@ -27,8 +28,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Quarta Etapa Chamados",
   description: "Abertura, acompanhamento e gestão de chamados técnicos.",
+  manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/brand/favicon_quarta_etapa.png",
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "32x32" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: { url: "/apple-icon.png", type: "image/png", sizes: "180x180" },
   },
 };
 
@@ -85,13 +92,12 @@ export default async function RootLayout({
       data-font-scale={preferenciasIniciais.fonte_escala}
       suppressHydrationWarning
     >
-      <head>
-        <script
-          suppressHydrationWarning
+      <body suppressHydrationWarning className="min-h-full flex flex-col">
+        <Script
+          id="theme-bootstrap"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }}
         />
-      </head>
-      <body suppressHydrationWarning className="min-h-full flex flex-col">
         <ThemeProvider initialPreferences={preferenciasIniciais}>
           {children}
           <VersionBadge />

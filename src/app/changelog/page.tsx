@@ -4,8 +4,13 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 const versoes = [
   {
     versao: APP_VERSION,
-    data: "08/05/2026",
+    data: "09/05/2026",
     alteracoes: [
+      "Navegação principal v0.9.1 passa a usar Sidebar fixa e recolhível no desktop/tablet, inspirada na lógica visual do GLPI e com identidade Quarta Etapa.",
+      "Header global passa a atuar como barra superior com Home, breadcrumb, busca global, FAQ e menu do usuário, sem duplicar a navegação operacional.",
+      "Menu mobile passa a abrir a mesma navegação principal em drawer vertical pelo botão hambúrguer.",
+      "Nova página Roadmap exibe recursos em breve e a sugestão de evolução em 12 meses sem gerar rotas 404.",
+      "Favicon passa a usar os arquivos reais do pacote Genfavicon nos caminhos do App Router e fallback /favicon.ico.",
       "Header global v0.9.0 passa a usar navegação responsiva com logo Quarta Etapa à esquerda, menu principal, dropdown Programas, busca global inicial, FAQ e menu completo do usuário.",
       "Logo do header passa a alternar automaticamente entre versão clara e escura conforme o tema ativo.",
       "Menu principal remove Unidades da navegação de primeiro nível e mantém cadastros secundários acessíveis por áreas existentes.",
