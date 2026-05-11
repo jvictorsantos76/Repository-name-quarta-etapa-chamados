@@ -253,6 +253,10 @@ test("public cadastro creates Supabase signup with password and pending email co
 });
 
 test("awaiting approval login button clears the active session first", () => {
+  assert.match(aguardandoAprovacaoSource, /getSupabaseAccessToken/);
+  assert.match(aguardandoAprovacaoSource, /auth\.getUser/);
+  assert.match(aguardandoAprovacaoSource, /redirect\("\/chamados\/novo"\)/);
+  assert.match(aguardandoAprovacaoSource, /redirect\("\/"\)/);
   assert.match(aguardandoAprovacaoSource, /href="\/auth\/logout"/);
   assert.doesNotMatch(aguardandoAprovacaoSource, /href="\/login"/);
 });

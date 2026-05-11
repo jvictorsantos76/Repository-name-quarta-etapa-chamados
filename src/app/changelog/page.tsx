@@ -6,6 +6,8 @@ const versoes = [
     versao: APP_VERSION,
     data: "11/05/2026",
     alteracoes: [
+      "Aguardando Aprovação passa a verificar a sessão ativa no servidor e redirecionar automaticamente usuários já autorizados para o destino correto.",
+      "Cadastro de Usuário v0.3.2 recupera usuários Auth órfãos de tentativas anteriores quando o e-mail já foi confirmado e ainda não existe perfil operacional.",
       "Cadastro de Usuário v0.3.1 passa a gravar a solicitação de acesso pelo cliente administrativo do servidor após criar o usuário Auth, evitando falha por RLS no envio público.",
       "Confirmação de e-mail só grava a sessão local depois de atualizar solicitacoes_acesso, perfis e aceites legais com sucesso.",
       "Aguardando Aprovação passa a voltar ao login via logout servidor, limpando a sessão antes de permitir entrar com outro usuário.",
@@ -44,6 +46,7 @@ const versoes = [
       "Perfil de Usuário v0.1.1 passa a incluir seção Segurança com alteração de senha e encerramento manual de sessão.",
     ],
     correcoes: [
+      "Corrige usuário com e-mail confirmado no Supabase Auth, mas sem public.solicitacoes_acesso/public.perfis, que ficava preso na tela de aguardando aprovação.",
       "Corrige o caso em que o usuário recebia e-mail de confirmação, mas ficava preso em Aguardando Aprovação porque a solicitação operacional não havia sido persistida no banco.",
       "Evita deixar usuário Auth órfão quando a gravação de solicitacoes_acesso falha durante o cadastro público.",
       "Remoção de textos decorativos como Editar, Adicionar e Admin quando não representam botões clicáveis.",
