@@ -72,6 +72,7 @@ export async function enviarSolicitacaoAcesso(
   const host = headersList.get("host");
   const proto = headersList.get("x-forwarded-proto") ?? "http";
   const baseUrl = origin ?? (host ? `${proto}://${host}` : "http://localhost:3000");
+  const supabaseAdmin = createSupabaseAdminClient();
 
   const { data: authData, error: erroAuth } = await supabase.auth.signUp({
     email,
@@ -84,7 +85,30 @@ export async function enviarSolicitacaoAcesso(
     },
   });
 
-  if (erroAuth || !authData.user) {
+  let authUserId = authData.user?.id ?? null;
+  let emailJaConfirmado = Boolean(authData.user?.email_confirmed_at);
+  const usuarioExistenteSemNovaIdentidade =
+    !erroAuth &&
+    Boolean(authData.user) &&
+    Array.isArray(authData.user?.identities) &&
+    authData.user.identities.length === 0;
+
+  if (erroAuth?.message === "User already registered" || usuarioExistenteSemNovaIdentidade) {
+    authUserId = null;
+    emailJaConfirmado = false;
+
+    const { data: loginData, error: erroLogin } = await supabase.auth.signInWithPassword({
+      email,
+      password: campos.senha,
+    });
+
+    if (!erroLogin && loginData.user) {
+      authUserId = loginData.user.id;
+      emailJaConfirmado = Boolean(loginData.user.email_confirmed_at || loginData.session);
+    }
+  }
+
+  if (!authUserId) {
     return {
       ok: false,
       mensagem:
@@ -94,7 +118,19 @@ export async function enviarSolicitacaoAcesso(
     };
   }
 
-  const supabaseAdmin = createSupabaseAdminClient();
+  const { data: perfilExistente } = await supabaseAdmin
+    .from("perfis")
+    .select("id, papel, ativo")
+    .eq("id", authUserId)
+    .maybeSingle();
+
+  if (perfilExistente?.ativo && perfilExistente.papel !== "solicitante") {
+    return {
+      ok: false,
+      mensagem: "Este e-mail já possui acesso operacional. Volte ao login para entrar.",
+    };
+  }
+
   const cnpj = campos.cnpj.trim();
   const empresa = campos.empresa.trim();
   const lojaUnidade = campos.loja_unidade.trim();
@@ -129,8 +165,21 @@ export async function enviarSolicitacaoAcesso(
           .limit(1)
           .maybeSingle()
       : { data: null };
+  const agora = new Date().toISOString();
+  const { data: expiracao } = emailJaConfirmado
+    ? await supabaseAdmin.rpc("calcular_expiracao_horas_uteis", {
+        inicio: agora,
+        horas_uteis: 72,
+      })
+    : { data: null };
+  const expiraEm =
+    emailJaConfirmado && typeof expiracao === "string"
+      ? expiracao
+      : emailJaConfirmado
+        ? new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
+        : null;
 
-  const { error: erroSolicitacao } = await supabase
+  const { error: erroSolicitacao } = await supabaseAdmin
     .from("solicitacoes_acesso")
     .insert({
       id: solicitacaoId,
@@ -144,15 +193,24 @@ export async function enviarSolicitacaoAcesso(
       loja_id: lojaVinculada?.id ?? null,
       cargo: campos.cargo.trim() || null,
       motivo_acesso: campos.motivo_acesso.trim() || null,
-      status: "pendente_confirmacao_email",
-      user_id: authData.user.id,
-      auth_user_id: authData.user.id,
+      status: emailJaConfirmado
+        ? "pendente_aprovacao"
+        : "pendente_confirmacao_email",
+      user_id: authUserId,
+      auth_user_id: authUserId,
+      perfil_id: emailJaConfirmado ? authUserId : null,
+      email_confirmado_em: emailJaConfirmado ? agora : null,
+      expira_em: expiraEm,
       aceite_termos: campos.aceite_termos,
       aceite_privacidade: campos.aceite_privacidade,
       user_agent: userAgent,
     });
 
   if (erroSolicitacao) {
+    if (!emailJaConfirmado) {
+      await supabaseAdmin.auth.admin.deleteUser(authUserId);
+    }
+
     return {
       ok: false,
       mensagem:
@@ -162,7 +220,21 @@ export async function enviarSolicitacaoAcesso(
     };
   }
 
-  const { error: erroAceites } = await supabase.from("aceites_legais").insert([
+  if (emailJaConfirmado) {
+    await supabaseAdmin.from("perfis").upsert({
+      id: authUserId,
+      nome_completo: campos.nome_completo.trim(),
+      email,
+      telefone: campos.telefone.trim() || null,
+      papel: "solicitante",
+      ativo: true,
+      cargo: campos.cargo.trim() || null,
+      cliente_id: clienteVinculado?.id ?? null,
+      loja_id: lojaVinculada?.id ?? null,
+    });
+  }
+
+  const { error: erroAceites } = await supabaseAdmin.from("aceites_legais").insert([
     {
       solicitacao_acesso_id: solicitacaoId,
       email,

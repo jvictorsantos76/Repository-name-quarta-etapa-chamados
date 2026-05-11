@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { EmailOtpType, Session } from "@supabase/supabase-js";
 import {
+  clearSupabaseSessionCookies,
   createSupabaseAdminClient,
   createSupabasePublicServerClient,
   setSupabaseSessionCookies,
@@ -94,7 +95,7 @@ async function confirmarSolicitacaoEmail(session: Session) {
       ? expiracao
       : new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
 
-  await supabase
+  const { error: erroAtualizacaoSolicitacao } = await supabase
     .from("solicitacoes_acesso")
     .update({
       status: "pendente_aprovacao",
@@ -108,7 +109,11 @@ async function confirmarSolicitacaoEmail(session: Session) {
     })
     .eq("id", solicitacao.id);
 
-  await supabase.from("perfis").upsert({
+  if (erroAtualizacaoSolicitacao) {
+    return { ok: false };
+  }
+
+  const { error: erroPerfil } = await supabase.from("perfis").upsert({
     id: session.user.id,
     nome_completo: solicitacao.nome_completo,
     email,
@@ -120,7 +125,11 @@ async function confirmarSolicitacaoEmail(session: Session) {
     loja_id: solicitacao.loja_id,
   });
 
-  await supabase
+  if (erroPerfil) {
+    return { ok: false };
+  }
+
+  const { error: erroAceites } = await supabase
     .from("aceites_legais")
     .update({
       perfil_id: session.user.id,
@@ -128,7 +137,7 @@ async function confirmarSolicitacaoEmail(session: Session) {
     .eq("solicitacao_acesso_id", solicitacao.id)
     .is("perfil_id", null);
 
-  return { ok: true };
+  return { ok: !erroAceites };
 }
 
 export async function GET(request: NextRequest) {
@@ -149,12 +158,19 @@ export async function GET(request: NextRequest) {
     return redirectTo(request, "/login");
   }
 
-  await setSupabaseSessionCookies(session);
-
   if (type === "email") {
-    await confirmarSolicitacaoEmail(session);
+    const confirmacaoOperacional = await confirmarSolicitacaoEmail(session);
+
+    if (!confirmacaoOperacional.ok) {
+      await clearSupabaseSessionCookies();
+      return redirectTo(request, "/login");
+    }
+
+    await setSupabaseSessionCookies(session);
     return redirectTo(request, "/chamados/novo");
   }
+
+  await setSupabaseSessionCookies(session);
 
   if (type === "recovery" || type === "invite") {
     return redirectTo(request, nextPath);

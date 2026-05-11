@@ -4,8 +4,12 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 const versoes = [
   {
     versao: APP_VERSION,
-    data: "10/05/2026",
+    data: "11/05/2026",
     alteracoes: [
+      "Cadastro de Usuário v0.3.1 passa a gravar a solicitação de acesso pelo cliente administrativo do servidor após criar o usuário Auth, evitando falha por RLS no envio público.",
+      "Confirmação de e-mail só grava a sessão local depois de atualizar solicitacoes_acesso, perfis e aceites legais com sucesso.",
+      "Aguardando Aprovação passa a voltar ao login via logout servidor, limpando a sessão antes de permitir entrar com outro usuário.",
+      "Migration corretiva v202605110001 reaplica a governança de acesso pendente quando o histórico remoto indica aplicação anterior sem o schema efetivo.",
       "Cadastro de Usuário v0.3.0 passa a criar conta Supabase com senha, exigir confirmação de e-mail e registrar a solicitação como pendente_confirmacao_email.",
       "Confirmação de e-mail ativa acesso temporário restrito como solicitante por até 72 horas úteis, com expiração calculada no banco.",
       "Novo Chamado v0.2.1 restringe usuários pendentes à abertura de chamados próprios na unidade vinculada ao cadastro.",
@@ -40,6 +44,8 @@ const versoes = [
       "Perfil de Usuário v0.1.1 passa a incluir seção Segurança com alteração de senha e encerramento manual de sessão.",
     ],
     correcoes: [
+      "Corrige o caso em que o usuário recebia e-mail de confirmação, mas ficava preso em Aguardando Aprovação porque a solicitação operacional não havia sido persistida no banco.",
+      "Evita deixar usuário Auth órfão quando a gravação de solicitacoes_acesso falha durante o cadastro público.",
       "Remoção de textos decorativos como Editar, Adicionar e Admin quando não representam botões clicáveis.",
       "Salvamento de telefone, biografia e foto do próprio perfil volta a respeitar RLS com update restrito aos campos básicos.",
       "Avatar salvo em public.perfis.avatar_url passa a aparecer no cabeçalho e no avatar grande do perfil após reload.",

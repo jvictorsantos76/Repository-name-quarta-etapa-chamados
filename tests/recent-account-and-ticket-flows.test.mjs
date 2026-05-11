@@ -55,6 +55,10 @@ const cadastroActionsSource = await readFile(
   new URL("../src/app/cadastro/actions.ts", import.meta.url),
   "utf8"
 );
+const aguardandoAprovacaoSource = await readFile(
+  new URL("../src/app/aguardando-aprovacao/page.tsx", import.meta.url),
+  "utf8"
+);
 
 function extractArray(source, constantName) {
   let declarationStart = source.indexOf(`export const ${constantName}:`);
@@ -229,14 +233,26 @@ test("auth confirm verifies email without leaving token hash in final redirect",
   assert.match(authConfirmSource, /confirmarSolicitacaoEmail\(session\)/);
   assert.match(authConfirmSource, /status: "pendente_aprovacao"/);
   assert.match(authConfirmSource, /calcular_expiracao_horas_uteis/);
+  assert.match(authConfirmSource, /clearSupabaseSessionCookies/);
+  assert.match(authConfirmSource, /if \(!confirmacaoOperacional\.ok\)/);
   assert.match(authConfirmSource, /redirectTo\(request, "\/chamados\/novo"\)/);
   assert.doesNotMatch(authConfirmSource, /redirectTo\(request,\s*request\.url/);
 });
 
 test("public cadastro creates Supabase signup with password and pending email confirmation", () => {
   assert.match(cadastroActionsSource, /supabase\.auth\.signUp/);
+  assert.match(cadastroActionsSource, /signInWithPassword/);
   assert.match(cadastroActionsSource, /emailRedirectTo: `\$\{baseUrl\}\/auth\/confirm`/);
-  assert.match(cadastroActionsSource, /status: "pendente_confirmacao_email"/);
-  assert.match(cadastroActionsSource, /user_id: authData\.user\.id/);
+  assert.match(cadastroActionsSource, /supabaseAdmin[\s\S]*\.from\("solicitacoes_acesso"\)/);
+  assert.match(cadastroActionsSource, /status: emailJaConfirmado[\s\S]*\? "pendente_aprovacao"/);
+  assert.match(cadastroActionsSource, /: "pendente_confirmacao_email"/);
+  assert.match(cadastroActionsSource, /user_id: authUserId/);
+  assert.match(cadastroActionsSource, /auth\.admin\.deleteUser\(authUserId\)/);
+  assert.match(cadastroActionsSource, /papel: "solicitante"/);
   assert.match(cadastroActionsSource, /senha\.length < 8/);
+});
+
+test("awaiting approval login button clears the active session first", () => {
+  assert.match(aguardandoAprovacaoSource, /href="\/auth\/logout"/);
+  assert.doesNotMatch(aguardandoAprovacaoSource, /href="\/login"/);
 });
