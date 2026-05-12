@@ -142,6 +142,7 @@ async function confirmarSolicitacaoEmail(session: Session) {
 
 export async function GET(request: NextRequest) {
   const requestedType = request.nextUrl.searchParams.get("type");
+  const hasCode = request.nextUrl.searchParams.has("code");
   const fallbackPath =
     requestedType === "recovery" || requestedType === "invite"
       ? "/auth/alterar-senha"
@@ -158,16 +159,33 @@ export async function GET(request: NextRequest) {
     return redirectTo(request, "/login");
   }
 
-  if (type === "email") {
+  const isEmailConfirmation = type === "email";
+  const isPkceSemTipo = !type && hasCode;
+
+  if (isEmailConfirmation || isPkceSemTipo) {
     const confirmacaoOperacional = await confirmarSolicitacaoEmail(session);
 
-    if (!confirmacaoOperacional.ok) {
+    if (confirmacaoOperacional.ok) {
+      await setSupabaseSessionCookies(session);
+      return redirectTo(request, "/chamados/novo");
+    }
+
+    if (isEmailConfirmation) {
       await clearSupabaseSessionCookies();
       return redirectTo(request, "/login");
     }
 
-    await setSupabaseSessionCookies(session);
-    return redirectTo(request, "/chamados/novo");
+    if (isPkceSemTipo) {
+      const autorizado = await hasPerfilAtivo(session);
+
+      if (!autorizado) {
+        await setSupabaseSessionCookies(session);
+        return redirectTo(request, "/aguardando-aprovacao");
+      }
+
+      await setSupabaseSessionCookies(session);
+      return redirectTo(request, nextPath);
+    }
   }
 
   await setSupabaseSessionCookies(session);
