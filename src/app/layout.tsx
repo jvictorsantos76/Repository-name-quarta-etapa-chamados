@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
-import { VersionBadge } from "@/components/VersionBadge";
 import {
   DEFAULT_THEME_PREFERENCES,
   normalizarPreferenciasTema,
@@ -100,7 +99,6 @@ export default async function RootLayout({
         />
         <ThemeProvider initialPreferences={preferenciasIniciais}>
           {children}
-          <VersionBadge />
         </ThemeProvider>
       </body>
     </html>

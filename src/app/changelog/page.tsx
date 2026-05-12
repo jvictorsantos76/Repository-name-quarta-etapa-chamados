@@ -6,6 +6,8 @@ const versoes = [
     versao: APP_VERSION,
     data: "12/05/2026",
     alteracoes: [
+      "Navegação principal v0.9.15 passa a abrir grupos da sidebar recolhida em painel lateral isolado, sem alterar a largura da barra.",
+      "Rodapé interno v0.9.15 substitui o badge solto de versão por links compactos para Dashboard, Novo chamado, Usuários, Permissões, FAQ, Roadmap, Changelog, Termos e Privacidade.",
       "Cadastro de Usuário v0.4.1 passa a registrar os aceites legais com a constraint única exigida pelo upsert, estabilizando o cadastro público no banco atual.",
       "Solicitações de Acesso v0.3.3 mantém aprovação manual e deixa o fluxo pronto para operar mesmo quando o envio automático do Supabase Auth estiver indisponível.",
       "Cadastro de Usuário v0.4.0 passa a registrar a solicitação mesmo quando o Supabase Auth não consegue enviar a confirmação automática, criando o usuário por fluxo administrativo e encaminhando a liberação para aprovação manual.",
@@ -60,6 +62,8 @@ const versoes = [
       "Perfil de Usuário v0.1.1 passa a incluir seção Segurança com alteração de senha e encerramento manual de sessão.",
     ],
     correcoes: [
+      "Menu do usuário fecha ao clicar fora, ao pressionar Escape ou ao navegar por um link interno.",
+      "Badge de versão deixa de ficar preso sob a sidebar recolhida e passa a se adaptar ao estado expandido, recolhido e mobile.",
       "Corrige o erro local em que a solicitação era criada, mas o registro de aceites legais falhava por ausência da constraint única usada no upsert de aceites_legais.",
       "Consolida o diagnóstico de produção: as telas públicas e administrativas ainda estão em build anterior e precisam de novo deploy para remover o bloqueio por confirmação automática de e-mail.",
       "Corrige o erro de cadastro público quando o Supabase retorna falha no envio do e-mail de confirmação, preservando o pedido para tratamento administrativo.",

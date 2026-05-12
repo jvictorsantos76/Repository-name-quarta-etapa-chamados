@@ -3,9 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useContext, useEffect, useMemo, useState, useTransition } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { atualizarPreferenciasPerfil } from "@/app/perfil/actions";
 import { ThemeContext } from "@/components/theme/ThemeProvider";
+import { VersionBadge } from "@/components/VersionBadge";
 import {
   createSupabaseBrowserClient,
   syncSupabaseSessionCookies,
@@ -344,12 +345,13 @@ function SidebarGroup({
   onNavigate?: () => void;
 }) {
   return (
-    <section>
+    <section className="relative">
       <button
         type="button"
         onClick={onToggle}
         className={`qe-sidebar-group-button flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm font-bold transition ${collapsed ? "justify-center" : ""}`}
         title={collapsed ? group.label : undefined}
+        aria-expanded={open}
       >
         <Icon name={group.icon} className="qe-sidebar-group-icon h-4 w-4 shrink-0" />
         {!collapsed ? (
@@ -375,6 +377,37 @@ function SidebarGroup({
   );
 }
 
+function SidebarFlyout({
+  group,
+  activeItemId,
+  onNavigate,
+}: {
+  group: NavigationGroup;
+  activeItemId?: string;
+  onNavigate: () => void;
+}) {
+  return (
+    <div className="qe-sidebar-flyout fixed left-[calc(var(--qe-sidebar-width)+0.5rem)] top-20 z-50 w-64 rounded-xl border p-2 shadow-lg">
+      <div className="mb-2 border-b border-current/15 px-3 py-2">
+        <p className="text-xs font-bold uppercase tracking-[0.12em] opacity-70">
+          Menu
+        </p>
+        <p className="text-sm font-bold">{group.label}</p>
+      </div>
+      <nav className="grid gap-1" aria-label={`Itens de ${group.label}`}>
+        {group.items.map((item) => (
+          <SidebarItem
+            key={item.id}
+            item={item}
+            active={activeItemId === item.id}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </nav>
+    </div>
+  );
+}
+
 function UserMenu({
   perfil,
   pendente,
@@ -382,6 +415,7 @@ function UserMenu({
   temaAtual,
   onTheme,
   onLogout,
+  onNavigate,
 }: {
   perfil: HeaderPerfil;
   pendente: boolean;
@@ -389,6 +423,7 @@ function UserMenu({
   temaAtual: TemaPreferido;
   onTheme: () => void;
   onLogout: () => void;
+  onNavigate: () => void;
 }) {
   return (
     <div className="absolute right-0 top-full mt-3 w-64 rounded-xl border border-gray-200 bg-white p-2 shadow-sm" role="menu">
@@ -396,10 +431,10 @@ function UserMenu({
         <p className="truncate text-sm font-bold text-gray-950">{perfil.nomeCompleto}</p>
         <p className="truncate text-xs font-medium text-gray-600">{perfil.papelLabel}</p>
       </div>
-      <Link href="/conta/perfil" className="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100">Meu perfil</Link>
-      <Link href="/conta/aparencia" className="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100">Preferências</Link>
-      <Link href="/faq/permissoes" className="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100">FAQ</Link>
-      <Link href="/changelog" className="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100">Changelog</Link>
+      <Link href="/conta/perfil" onClick={onNavigate} className="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100">Meu perfil</Link>
+      <Link href="/conta/aparencia" onClick={onNavigate} className="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100">Preferências</Link>
+      <Link href="/faq/permissoes" onClick={onNavigate} className="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100">FAQ</Link>
+      <Link href="/changelog" onClick={onNavigate} className="block rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100">Changelog</Link>
       <button type="button" onClick={onTheme} disabled={pendente} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60">
         <ThemeIcon tema={temaAtual} />
         {themeLabel}
@@ -419,10 +454,13 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
   const [mobileAberto, setMobileAberto] = useState(false);
   const [mobileBuscaAberta, setMobileBuscaAberta] = useState(false);
   const [usuarioAberto, setUsuarioAberto] = useState(false);
+  const [flyoutGroupId, setFlyoutGroupId] = useState<string | null>(null);
   const [menuTerm, setMenuTerm] = useState("");
   const [groupBulkAction, setGroupBulkAction] = useState<"expand" | "collapse">("collapse");
   const [mensagem, setMensagem] = useState("");
   const [pendente, startTransition] = useTransition();
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const sidebarRef = useRef<HTMLElement | null>(null);
   const active = findNavigationItem(pathname);
   const activeItemId = active?.item.id;
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
@@ -471,10 +509,52 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
       ? "expand"
       : groupBulkAction;
   const groupControlLabel = effectiveGroupAction === "collapse" ? "Recolher todos" : "Expandir todos";
+  const activeFlyoutGroup = sidebarCollapsed
+    ? filteredGroups.find((group) => group.id === flyoutGroupId)
+    : undefined;
 
   useEffect(() => {
     document.documentElement.dataset.sidebarState = sidebarCollapsed ? "collapsed" : "expanded";
   }, [sidebarCollapsed]);
+
+  useEffect(() => {
+    if (!usuarioAberto && !flyoutGroupId) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (usuarioAberto && !userMenuRef.current?.contains(target)) {
+        setUsuarioAberto(false);
+      }
+
+      if (flyoutGroupId && !sidebarRef.current?.contains(target)) {
+        setFlyoutGroupId(null);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      setUsuarioAberto(false);
+      setFlyoutGroupId(null);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [flyoutGroupId, usuarioAberto]);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -491,6 +571,9 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
       const next = !current;
       window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(next));
       document.documentElement.dataset.sidebarState = next ? "collapsed" : "expanded";
+      if (!next) {
+        setFlyoutGroupId(null);
+      }
       return next;
     });
   }
@@ -528,6 +611,11 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
   }
 
   function toggleGroup(groupId: string) {
+    if (sidebarCollapsed) {
+      setFlyoutGroupId((current) => (current === groupId ? null : groupId));
+      return;
+    }
+
     setOpenGroups((current) => ({ ...current, [groupId]: !current[groupId] }));
   }
 
@@ -552,7 +640,7 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
 
   return (
     <>
-      <aside className="qe-sidebar fixed inset-y-0 left-0 z-50 hidden w-72 overflow-y-auto overflow-x-hidden border-r px-2 py-3 shadow-sm md:block">
+      <aside ref={sidebarRef} className="qe-sidebar fixed inset-y-0 left-0 z-50 hidden w-72 overflow-y-auto overflow-x-hidden border-r px-2 py-3 shadow-sm md:block">
         <div
           className={
             sidebarCollapsed
@@ -593,11 +681,18 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
               group={group}
               activeItemId={activeItemId}
               collapsed={sidebarCollapsed}
-              open={openGroups[group.id] ?? true}
+              open={sidebarCollapsed ? flyoutGroupId === group.id : openGroups[group.id] ?? true}
               onToggle={() => toggleGroup(group.id)}
             />
           ))}
         </nav>
+        {activeFlyoutGroup ? (
+          <SidebarFlyout
+            group={activeFlyoutGroup}
+            activeItemId={activeItemId}
+            onNavigate={() => setFlyoutGroupId(null)}
+          />
+        ) : null}
       </aside>
 
       <header className="qe-app-header sticky top-0 z-40 mb-6 border-b border-gray-200 bg-white px-3 py-3 shadow-sm md:px-5">
@@ -675,7 +770,7 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
             >
               <ThemeIcon tema={temaAtual} />
             </button>
-            <div className="relative">
+            <div ref={userMenuRef} className="relative">
               <button
                 type="button"
                 onClick={() => setUsuarioAberto((current) => !current)}
@@ -695,6 +790,7 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
                   temaAtual={temaAtual}
                   onTheme={alternarTema}
                   onLogout={encerrarSessao}
+                  onNavigate={() => setUsuarioAberto(false)}
                 />
               ) : null}
             </div>
@@ -721,7 +817,12 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
                   group={group}
                   activeItemId={activeItemId}
                   open={openGroups[group.id] ?? true}
-                  onToggle={() => toggleGroup(group.id)}
+                  onToggle={() =>
+                    setOpenGroups((current) => ({
+                      ...current,
+                      [group.id]: !current[group.id],
+                    }))
+                  }
                   onNavigate={() => setMobileAberto(false)}
                 />
               ))}
@@ -740,6 +841,7 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
           </p>
         ) : null}
       </header>
+      <VersionBadge />
     </>
   );
 }

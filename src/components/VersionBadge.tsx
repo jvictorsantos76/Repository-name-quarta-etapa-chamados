@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   APP_UPDATED_AT,
   APP_VERSION,
@@ -10,6 +11,18 @@ import {
   PERFIL_USUARIO_PAGE_VERSION,
   SOLICITACOES_ACESSO_PAGE_VERSION,
 } from "@/config/version";
+
+const footerLinks = [
+  { label: "Dashboard", href: "/" },
+  { label: "Novo chamado", href: "/chamados/novo" },
+  { label: "Usuários e acessos", href: "/admin/usuarios" },
+  { label: "Permissões", href: "/conta/permissoes" },
+  { label: "FAQ", href: "/faq/permissoes" },
+  { label: "Roadmap", href: "/roadmap" },
+  { label: "Changelog", href: "/changelog" },
+  { label: "Termos", href: "/termos-uso" },
+  { label: "Privacidade", href: "/politica-privacidade" },
+];
 
 function formatarDataVersao(data: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -20,8 +33,29 @@ function formatarDataVersao(data: string) {
   }).format(new Date(`${data}T00:00:00Z`));
 }
 
+function FooterIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    >
+      <path d="M4 5h16" />
+      <path d="M4 12h16" />
+      <path d="M4 19h10" />
+    </svg>
+  );
+}
+
 export function VersionBadge() {
   const pathname = usePathname();
+  const [compactOpen, setCompactOpen] = useState(false);
+  const footerRef = useRef<HTMLDivElement | null>(null);
   const pageVersion =
     pathname === "/login"
       ? `Tela de Login ${LOGIN_PAGE_VERSION}`
@@ -33,17 +67,67 @@ export function VersionBadge() {
             ? `Tela | Perfil de Usuário ${PERFIL_USUARIO_PAGE_VERSION}`
             : null;
 
+  useEffect(() => {
+    if (!compactOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+
+      if (target instanceof Node && !footerRef.current?.contains(target)) {
+        setCompactOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setCompactOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [compactOpen]);
+
   return (
-    <div className="mx-4 mb-4 mt-4 flex w-fit max-w-[calc(100%-2rem)] flex-col gap-1 self-start rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 md:fixed md:bottom-3 md:left-3 md:z-40 md:m-0 md:bg-white/95 md:shadow-sm md:backdrop-blur">
-      <span className="font-semibold text-gray-900">
-        {APP_VERSION} — {formatarDataVersao(APP_UPDATED_AT)}
-      </span>
-      {pageVersion && (
-        <span className="font-medium text-gray-700">{pageVersion}</span>
-      )}
-      <Link href="/changelog" className="font-semibold text-blue-600">
-        Ver atualizações
-      </Link>
+    <div ref={footerRef} className="qe-app-footer" aria-label="Links principais">
+      <div className={`qe-app-footer-panel ${compactOpen ? "qe-app-footer-panel-open" : ""}`}>
+        <div className="qe-app-footer-version">
+          <span className="font-semibold">
+            {APP_VERSION} - {formatarDataVersao(APP_UPDATED_AT)}
+          </span>
+          {pageVersion ? <span>{pageVersion}</span> : null}
+        </div>
+        <nav className="qe-app-footer-links" aria-label="Links principais do sistema">
+          {footerLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={() => setCompactOpen(false)}
+              className={pathname === link.href ? "qe-app-footer-link-active" : undefined}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
+      <button
+        type="button"
+        className="qe-app-footer-toggle"
+        onClick={() => setCompactOpen((current) => !current)}
+        aria-expanded={compactOpen}
+        aria-label="Abrir links principais e versão do sistema"
+        title={`${APP_VERSION} - ${formatarDataVersao(APP_UPDATED_AT)}`}
+      >
+        <FooterIcon />
+        <span className="sr-only">Links principais</span>
+      </button>
     </div>
   );
 }
