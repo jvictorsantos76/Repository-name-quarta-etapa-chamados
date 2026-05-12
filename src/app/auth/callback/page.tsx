@@ -51,21 +51,25 @@ function AuthCallbackContent() {
         }
 
         syncSupabaseSessionCookies(session);
+        const resposta = await fetch("/auth/access-status", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        const acesso = (await resposta.json()) as {
+          kind: string;
+          redirectTo: string;
+          message?: string;
+        };
 
-        const { data: perfil, error: perfilError } = await supabase
-          .from("perfis")
-          .select("id, nome_completo, email, papel, ativo")
-          .eq("id", session.user.id)
-          .eq("ativo", true)
-          .maybeSingle();
-
-        if (perfilError || !perfil) {
-          router.replace("/aguardando-aprovacao");
-          router.refresh();
+        if (!resposta.ok) {
+          if (ativo) {
+            setMensagem("Não foi possível validar o acesso após a autenticação.");
+          }
           return;
         }
 
-        router.replace(perfil.papel === "solicitante" ? "/chamados/novo" : nextPath);
+        router.replace(acesso.kind === "operational" ? nextPath : acesso.redirectTo);
         router.refresh();
       } catch {
         if (ativo) {

@@ -19,10 +19,12 @@ import {
   type NavigationItem,
 } from "@/config/navigation";
 import type { TemaPreferido } from "@/lib/theme/types";
+import type { PapelUsuario } from "@/lib/auth/types";
 
 type HeaderPerfil = {
   nomeCompleto: string;
   avatarUrl?: string | null;
+  papel: PapelUsuario;
   papelLabel: string;
   iniciais: string;
 };
@@ -34,6 +36,30 @@ const statusLabel: Record<NavigationItem["status"], string> = {
   em_construcao: "Em construção",
   em_breve: "Em breve",
 };
+
+function filtrarNavegacaoPorPapel(
+  perfil: HeaderPerfil,
+  groups: NavigationGroup[]
+) {
+  if (perfil.papel !== "solicitante") {
+    return groups;
+  }
+
+  return groups
+    .filter((group) =>
+      ["assistencia", "ferramentas", "configurar"].includes(group.id)
+    )
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) =>
+          item.href !== "/admin/usuarios" &&
+          item.href !== ROADMAP_PATH &&
+          item.label !== "Chamados"
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 function Icon({ name, className = "h-5 w-5" }: { name: MenuIcon; className?: string }) {
   const common = {
@@ -444,13 +470,14 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
     ];
   }, [active, pathname]);
   const filteredGroups = useMemo(() => {
+    const visibleGroups = filtrarNavegacaoPorPapel(perfil, navigationGroups);
     const term = menuTerm.trim().toLowerCase();
 
     if (!term) {
-      return navigationGroups;
+      return visibleGroups;
     }
 
-    return navigationGroups
+    return visibleGroups
       .map((group) => ({
         ...group,
         items: group.items.filter(
@@ -460,9 +487,9 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
         ),
       }))
       .filter((group) => group.items.length > 0);
-  }, [menuTerm]);
-  const allGroupsOpen = navigationGroups.every((group) => openGroups[group.id] ?? true);
-  const allGroupsClosed = navigationGroups.every((group) => !(openGroups[group.id] ?? true));
+  }, [menuTerm, perfil]);
+  const allGroupsOpen = filteredGroups.every((group) => openGroups[group.id] ?? true);
+  const allGroupsClosed = filteredGroups.every((group) => !(openGroups[group.id] ?? true));
   const effectiveGroupAction = allGroupsOpen
     ? "collapse"
     : allGroupsClosed
@@ -530,12 +557,12 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
   }
 
   function expandAllGroups() {
-    setOpenGroups(Object.fromEntries(navigationGroups.map((group) => [group.id, true])));
+    setOpenGroups(Object.fromEntries(filteredGroups.map((group) => [group.id, true])));
     setGroupBulkAction("collapse");
   }
 
   function collapseAllGroups() {
-    setOpenGroups(Object.fromEntries(navigationGroups.map((group) => [group.id, false])));
+    setOpenGroups(Object.fromEntries(filteredGroups.map((group) => [group.id, false])));
     setGroupBulkAction("expand");
   }
 

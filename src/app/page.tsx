@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import {
   createSupabaseServerClient,
   requirePerfilAutenticado,
@@ -40,11 +39,6 @@ type Chamado = {
 
 export default async function Home() {
   const perfilAtual = await requirePerfilAutenticado();
-
-  if (perfilAtual.papel === "solicitante") {
-    redirect("/chamados/novo");
-  }
-
   const supabase = await createSupabaseServerClient();
 
   const chamadosResposta = await supabase
@@ -160,11 +154,17 @@ function ChamadosHome({
       <section className="mx-auto max-w-6xl px-6 pb-8 md:px-8">
         <div className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-            Quarta Etapa
+            {perfilAtual.papel === "solicitante" ? "Acesso temporário" : "Quarta Etapa"}
           </p>
-          <h1 className="text-3xl font-bold">Gestão de Chamados</h1>
+          <h1 className="text-3xl font-bold">
+            {perfilAtual.papel === "solicitante"
+              ? "Meus chamados"
+              : "Gestão de Chamados"}
+          </h1>
           <p className="mt-2 text-gray-600">
-            Primeira listagem integrada ao Supabase.
+            {perfilAtual.papel === "solicitante"
+              ? "Acompanhe apenas os chamados abertos com seu acesso temporário."
+              : "Primeira listagem integrada ao Supabase."}
           </p>
         </div>
 
@@ -234,12 +234,16 @@ function ChamadosHome({
           ))}
         </div>
 
-                <div className="hidden overflow-hidden rounded-xl bg-white shadow md:block">
+        <div className="hidden overflow-hidden rounded-xl bg-white shadow md:block">
                           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-bold">Chamados recentes</h2>
+            <h2 className="text-xl font-bold">
+              {perfilAtual.papel === "solicitante" ? "Chamados registrados" : "Chamados recentes"}
+            </h2>
             <p className="text-sm text-gray-600">
-              Acompanhamento inicial dos chamados técnicos cadastrados.
+              {perfilAtual.papel === "solicitante"
+                ? "Lista restrita aos chamados abertos com o seu usuário."
+                : "Acompanhamento inicial dos chamados técnicos cadastrados."}
             </p>
           </div>
 
@@ -250,6 +254,7 @@ function ChamadosHome({
             Novo chamado
           </Link>
         </div>
+        {perfilAtual.papel !== "solicitante" && (
                   <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {statusChamadoOpcoes.map((status) => (
               <div key={status.value} className="rounded-xl border border-gray-200 bg-gray-50 p-5 shadow">
@@ -260,6 +265,7 @@ function ChamadosHome({
               </div>
             ))}
           </div>
+        )}
 
           <table className="w-full border-collapse text-left text-sm">
             <thead className="bg-gray-900 text-white">

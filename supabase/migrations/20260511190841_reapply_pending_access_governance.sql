@@ -202,6 +202,8 @@ grant select on table public.solicitacoes_acesso to authenticated;
 grant update on table public.solicitacoes_acesso to authenticated;
 grant insert on table public.solicitacoes_acesso to anon;
 grant insert on table public.aceites_legais to anon;
+grant select, insert, update on table public.solicitacoes_acesso to service_role;
+grant select, insert, update on table public.aceites_legais to service_role;
 grant select on table public.clientes to authenticated;
 grant select on table public.lojas to authenticated;
 grant select, insert, update on table public.chamados to authenticated;

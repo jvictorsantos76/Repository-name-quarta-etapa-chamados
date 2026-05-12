@@ -51,28 +51,38 @@ export default function LoginPage() {
       void clearInvalidSupabaseBrowserSession(supabase);
       return { data: { session: null } };
     });
-    const userId = sessionData.session?.user.id;
+    const session = sessionData.session;
 
-    if (!userId) {
-      router.replace("/aguardando-aprovacao");
+    if (!session) {
+      router.replace("/login");
       router.refresh();
       return;
     }
 
-    const { data, error } = await supabase
-      .from("perfis")
-      .select("id, ativo, papel")
-      .eq("id", userId)
-      .eq("ativo", true)
-      .maybeSingle();
+    syncSupabaseSessionCookies(session);
 
-    if (error || !data) {
-      router.replace("/aguardando-aprovacao");
-      router.refresh();
+    const resposta = await fetch("/auth/access-status", {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+    const acesso = (await resposta.json()) as {
+      kind: string;
+      redirectTo: string;
+      message?: string;
+    };
+
+    if (!resposta.ok) {
+      setErro("Não foi possível validar o acesso após o login.");
       return;
     }
 
-    router.replace(data.papel === "solicitante" ? "/chamados/novo" : "/");
+    if (acesso.kind === "inconsistent" || acesso.kind === "blocked") {
+      setAviso("");
+      setErro(acesso.message ?? "");
+    }
+
+    router.replace(acesso.redirectTo);
     router.refresh();
   }, [router, supabase]);
 

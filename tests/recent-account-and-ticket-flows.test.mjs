@@ -59,6 +59,28 @@ const aguardandoAprovacaoSource = await readFile(
   new URL("../src/app/aguardando-aprovacao/page.tsx", import.meta.url),
   "utf8"
 );
+const aguardandoAprovacaoClientSource = await readFile(
+  new URL(
+    "../src/app/aguardando-aprovacao/AguardandoAprovacaoClient.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const accessStatusRouteSource = await readFile(
+  new URL("../src/app/auth/access-status/route.ts", import.meta.url),
+  "utf8"
+);
+const triagemReconciliationMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260511232000_temporary_access_triage_and_auth_reconciliation.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const homePageSource = await readFile(
+  new URL("../src/app/page.tsx", import.meta.url),
+  "utf8"
+);
 
 function extractArray(source, constantName) {
   let declarationStart = source.indexOf(`export const ${constantName}:`);
@@ -224,39 +246,66 @@ test("server guards expire or block pending rejected users before granting acces
   assert.match(serverSupabaseSource, /auth\.getUser\(\s*accessToken\s*\)/);
   assert.match(serverSupabaseSource, /bloquearSolicitacaoExpirada/);
   assert.match(serverSupabaseSource, /status: "expirado"/);
-  assert.match(serverSupabaseSource, /perfil\.papel === "solicitante"/);
-  assert.match(serverSupabaseSource, /redirect\("\/aguardando-aprovacao"\)/);
+  assert.match(serverSupabaseSource, /resolverAcessoAutenticadoComToken/);
+  assert.match(serverSupabaseSource, /reconciliarSolicitacaoTemporaria/);
+  assert.match(serverSupabaseSource, /papel: "solicitante"/);
+  assert.match(serverSupabaseSource, /Triagem de Acesso Temporario/);
+  assert.match(serverSupabaseSource, /Fila de Triagem/);
 });
 
 test("auth confirm verifies email without leaving token hash in final redirect", () => {
   assert.match(authConfirmSource, /verifyOtp\(\{[\s\S]*token_hash: tokenHash[\s\S]*type: type as EmailOtpType/);
   assert.match(authConfirmSource, /confirmarSolicitacaoEmail\(session\)/);
-  assert.match(authConfirmSource, /status: "pendente_aprovacao"/);
-  assert.match(authConfirmSource, /calcular_expiracao_horas_uteis/);
-  assert.match(authConfirmSource, /clearSupabaseSessionCookies/);
-  assert.match(authConfirmSource, /if \(!confirmacaoOperacional\.ok\)/);
-  assert.match(authConfirmSource, /redirectTo\(request, "\/chamados\/novo"\)/);
+  assert.match(authConfirmSource, /resolverAcessoAutenticadoComToken\(session\.access_token\)/);
+  assert.match(authConfirmSource, /redirectTo\(request, acesso\.redirectTo\)/);
   assert.doesNotMatch(authConfirmSource, /redirectTo\(request,\s*request\.url/);
 });
 
 test("public cadastro creates Supabase signup with password and pending email confirmation", () => {
   assert.match(cadastroActionsSource, /supabase\.auth\.signUp/);
   assert.match(cadastroActionsSource, /signInWithPassword/);
+  assert.match(cadastroActionsSource, /buscarAuthUserIdPorEmail/);
+  assert.match(cadastroActionsSource, /auth\.admin\.listUsers/);
   assert.match(cadastroActionsSource, /emailRedirectTo: `\$\{baseUrl\}\/auth\/confirm`/);
   assert.match(cadastroActionsSource, /supabaseAdmin[\s\S]*\.from\("solicitacoes_acesso"\)/);
+  assert.match(cadastroActionsSource, /supabase\.from\("solicitacoes_acesso"\)\.insert\(solicitacaoPayload\)/);
   assert.match(cadastroActionsSource, /status: emailJaConfirmado[\s\S]*\? "pendente_aprovacao"/);
   assert.match(cadastroActionsSource, /: "pendente_confirmacao_email"/);
   assert.match(cadastroActionsSource, /user_id: authUserId/);
-  assert.match(cadastroActionsSource, /auth\.admin\.deleteUser\(authUserId\)/);
+  assert.doesNotMatch(cadastroActionsSource, /auth\.admin\.deleteUser\(authUserId\)/);
+  assert.match(cadastroActionsSource, /erroSolicitacao\.code === "23505"[\s\S]*ok: true/);
+  assert.match(cadastroActionsSource, /Falha ao registrar solicitacao_acesso/);
   assert.match(cadastroActionsSource, /papel: "solicitante"/);
   assert.match(cadastroActionsSource, /senha\.length < 8/);
 });
 
 test("awaiting approval login button clears the active session first", () => {
-  assert.match(aguardandoAprovacaoSource, /getSupabaseAccessToken/);
-  assert.match(aguardandoAprovacaoSource, /auth\.getUser/);
-  assert.match(aguardandoAprovacaoSource, /redirect\("\/chamados\/novo"\)/);
-  assert.match(aguardandoAprovacaoSource, /redirect\("\/"\)/);
+  assert.match(aguardandoAprovacaoSource, /resolverAcessoAutenticado/);
+  assert.match(aguardandoAprovacaoSource, /acesso\.message/);
+  assert.match(aguardandoAprovacaoSource, /AguardandoAprovacaoClient/);
+  assert.match(aguardandoAprovacaoClientSource, /syncSupabaseSessionCookies\(session\)/);
+  assert.match(aguardandoAprovacaoClientSource, /fetch\("\/auth\/access-status"/);
+  assert.match(aguardandoAprovacaoClientSource, /router\.replace\(acesso\.redirectTo\)/);
   assert.match(aguardandoAprovacaoSource, /href="\/auth\/logout"/);
   assert.doesNotMatch(aguardandoAprovacaoSource, /href="\/login"/);
+});
+
+test("temporary access route exposes a single server-side access decision", () => {
+  assert.match(accessStatusRouteSource, /resolverAcessoAutenticado/);
+  assert.match(accessStatusRouteSource, /redirectTo/);
+  assert.match(accessStatusRouteSource, /kind/);
+});
+
+test("triage migration provisions fallback cliente loja and revokes anon execute on security definer helpers", () => {
+  assert.match(triagemReconciliationMigration, /Triagem de Acesso Temporario/);
+  assert.match(triagemReconciliationMigration, /Fila de Triagem/);
+  assert.match(triagemReconciliationMigration, /create index if not exists chamados_operador_id_idx/i);
+  assert.match(triagemReconciliationMigration, /revoke execute on function public\.usuario_solicitacao_pendente_ativa\(\) from public, anon;/i);
+  assert.match(triagemReconciliationMigration, /set search_path = public/i);
+});
+
+test("temporary users can reach their own chamados list without operational dashboard widgets", () => {
+  assert.doesNotMatch(homePageSource, /redirect\("\/chamados\/novo"\)/);
+  assert.match(homePageSource, /perfilAtual\.papel === "solicitante"/);
+  assert.match(homePageSource, /Meus chamados/);
 });

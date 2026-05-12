@@ -495,13 +495,15 @@ export default async function DetalheChamado({ params }: PageProps) {
             </p>
           </div>
 
-        <div className="mb-6">
-          <StatusUpdateForm
-            chamadoId={chamadoDetalhe.id}
-            statusAtual={chamadoDetalhe.status}
-            perfilAtual={perfilAtual}
-          />
-        </div>
+        {perfilAtual.papel !== "solicitante" && (
+          <div className="mb-6">
+            <StatusUpdateForm
+              chamadoId={chamadoDetalhe.id}
+              statusAtual={chamadoDetalhe.status}
+              perfilAtual={perfilAtual}
+            />
+          </div>
+        )}
 
           <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm font-medium text-gray-500">
@@ -561,7 +563,9 @@ export default async function DetalheChamado({ params }: PageProps) {
 
         <div className="mb-6 rounded-xl bg-white p-6 shadow">
           <h2 className="text-xl font-bold">Registro técnico</h2>
-                  <RegistroTecnicoForm chamadoId={chamadoDetalhe.id} perfilAtual={perfilAtual} />
+          {perfilAtual.papel !== "solicitante" && (
+            <RegistroTecnicoForm chamadoId={chamadoDetalhe.id} perfilAtual={perfilAtual} />
+          )}
 
           <div className="mt-4 space-y-4">
             {listaRegistros.map((registro) => (

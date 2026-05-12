@@ -17,6 +17,7 @@ export function AppHeader({ perfil }: { perfil: PerfilAutenticado }) {
       perfil={{
         nomeCompleto: perfil.nome_completo,
         avatarUrl: perfil.avatar_url,
+        papel: perfil.papel,
         papelLabel: perfil.cargo || LABEL_PAPEL_USUARIO[perfil.papel],
         iniciais: getIniciais(perfil.nome_completo),
       }}

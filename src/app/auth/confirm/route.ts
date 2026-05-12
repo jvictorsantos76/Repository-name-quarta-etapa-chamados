@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { EmailOtpType, Session } from "@supabase/supabase-js";
 import {
-  clearSupabaseSessionCookies,
   createSupabaseAdminClient,
   createSupabasePublicServerClient,
+  resolverAcessoAutenticadoComToken,
   setSupabaseSessionCookies,
 } from "@/lib/supabase/server";
 
@@ -46,18 +46,6 @@ async function getSessionFromRequest(request: NextRequest) {
   });
 
   return { session: data.session, error, type };
-}
-
-async function hasPerfilAtivo(session: Session) {
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("perfis")
-    .select("id")
-    .eq("id", session.user.id)
-    .eq("ativo", true)
-    .maybeSingle();
-
-  return !error && Boolean(data);
 }
 
 async function confirmarSolicitacaoEmail(session: Session) {
@@ -163,42 +151,20 @@ export async function GET(request: NextRequest) {
   const isPkceSemTipo = !type && hasCode;
 
   if (isEmailConfirmation || isPkceSemTipo) {
-    const confirmacaoOperacional = await confirmarSolicitacaoEmail(session);
-
-    if (confirmacaoOperacional.ok) {
-      await setSupabaseSessionCookies(session);
-      return redirectTo(request, "/chamados/novo");
-    }
-
-    if (isEmailConfirmation) {
-      await clearSupabaseSessionCookies();
-      return redirectTo(request, "/login");
-    }
-
-    if (isPkceSemTipo) {
-      const autorizado = await hasPerfilAtivo(session);
-
-      if (!autorizado) {
-        await setSupabaseSessionCookies(session);
-        return redirectTo(request, "/aguardando-aprovacao");
-      }
-
-      await setSupabaseSessionCookies(session);
-      return redirectTo(request, nextPath);
-    }
+    await confirmarSolicitacaoEmail(session);
   }
 
   await setSupabaseSessionCookies(session);
+
+  const acesso = await resolverAcessoAutenticadoComToken(session.access_token);
 
   if (type === "recovery" || type === "invite") {
     return redirectTo(request, nextPath);
   }
 
-  const autorizado = await hasPerfilAtivo(session);
-
-  if (!autorizado) {
-    return redirectTo(request, "/aguardando-aprovacao");
+  if (acesso.kind === "operational") {
+    return redirectTo(request, nextPath === "/" ? "/" : nextPath);
   }
 
-  return redirectTo(request, nextPath);
+  return redirectTo(request, acesso.redirectTo);
 }
