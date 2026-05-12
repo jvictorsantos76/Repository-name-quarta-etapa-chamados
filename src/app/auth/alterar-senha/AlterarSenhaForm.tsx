@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PASSWORD_POLICY_HINT } from "@/lib/auth/password-policy";
 import { alterarSenhaAutenticada } from "./actions";
 
 export function AlterarSenhaForm() {
@@ -55,6 +56,7 @@ export function AlterarSenhaForm() {
           autoComplete="new-password"
           required
         />
+        <p className="mt-2 text-xs text-gray-500">{PASSWORD_POLICY_HINT}</p>
       </div>
 
       <div>

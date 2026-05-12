@@ -37,30 +37,6 @@ const statusLabel: Record<NavigationItem["status"], string> = {
   em_breve: "Em breve",
 };
 
-function filtrarNavegacaoPorPapel(
-  perfil: HeaderPerfil,
-  groups: NavigationGroup[]
-) {
-  if (perfil.papel !== "solicitante") {
-    return groups;
-  }
-
-  return groups
-    .filter((group) =>
-      ["assistencia", "ferramentas", "configurar"].includes(group.id)
-    )
-    .map((group) => ({
-      ...group,
-      items: group.items.filter(
-        (item) =>
-          item.href !== "/admin/usuarios" &&
-          item.href !== ROADMAP_PATH &&
-          item.label !== "Chamados"
-      ),
-    }))
-    .filter((group) => group.items.length > 0);
-}
-
 function Icon({ name, className = "h-5 w-5" }: { name: MenuIcon; className?: string }) {
   const common = {
     "aria-hidden": true,
@@ -470,14 +446,13 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
     ];
   }, [active, pathname]);
   const filteredGroups = useMemo(() => {
-    const visibleGroups = filtrarNavegacaoPorPapel(perfil, navigationGroups);
     const term = menuTerm.trim().toLowerCase();
 
     if (!term) {
-      return visibleGroups;
+      return navigationGroups;
     }
 
-    return visibleGroups
+    return navigationGroups
       .map((group) => ({
         ...group,
         items: group.items.filter(
@@ -487,7 +462,7 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
         ),
       }))
       .filter((group) => group.items.length > 0);
-  }, [menuTerm, perfil]);
+  }, [menuTerm]);
   const allGroupsOpen = filteredGroups.every((group) => openGroups[group.id] ?? true);
   const allGroupsClosed = filteredGroups.every((group) => !(openGroups[group.id] ?? true));
   const effectiveGroupAction = allGroupsOpen

@@ -59,7 +59,7 @@ async function confirmarSolicitacaoEmail(session: Session) {
 
   const { data: solicitacao, error } = await supabase
     .from("solicitacoes_acesso")
-    .select("id, nome_completo, email, telefone, cargo, status, cliente_id, loja_id")
+    .select("id")
     .or(`user_id.eq.${session.user.id},auth_user_id.eq.${session.user.id},email.eq.${email}`)
     .in("status", ["pendente_confirmacao_email", "pendente_aprovacao"])
     .order("created_at", { ascending: false })
@@ -70,29 +70,13 @@ async function confirmarSolicitacaoEmail(session: Session) {
     return { ok: false };
   }
 
-  const { data: expiracao } = await supabase.rpc(
-    "calcular_expiracao_horas_uteis",
-    {
-      inicio: agora,
-      horas_uteis: 72,
-    }
-  );
-
-  const expiraEm =
-    typeof expiracao === "string"
-      ? expiracao
-      : new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
-
   const { error: erroAtualizacaoSolicitacao } = await supabase
     .from("solicitacoes_acesso")
     .update({
       status: "pendente_aprovacao",
       user_id: session.user.id,
       auth_user_id: session.user.id,
-      perfil_id: session.user.id,
       email_confirmado_em: agora,
-      expira_em: expiraEm,
-      bloqueado_em: null,
       erro_provisionamento: null,
     })
     .eq("id", solicitacao.id);
@@ -100,32 +84,7 @@ async function confirmarSolicitacaoEmail(session: Session) {
   if (erroAtualizacaoSolicitacao) {
     return { ok: false };
   }
-
-  const { error: erroPerfil } = await supabase.from("perfis").upsert({
-    id: session.user.id,
-    nome_completo: solicitacao.nome_completo,
-    email,
-    telefone: solicitacao.telefone,
-    papel: "solicitante",
-    ativo: true,
-    cargo: solicitacao.cargo,
-    cliente_id: solicitacao.cliente_id,
-    loja_id: solicitacao.loja_id,
-  });
-
-  if (erroPerfil) {
-    return { ok: false };
-  }
-
-  const { error: erroAceites } = await supabase
-    .from("aceites_legais")
-    .update({
-      perfil_id: session.user.id,
-    })
-    .eq("solicitacao_acesso_id", solicitacao.id)
-    .is("perfil_id", null);
-
-  return { ok: !erroAceites };
+  return { ok: true };
 }
 
 export async function GET(request: NextRequest) {
@@ -135,8 +94,8 @@ export async function GET(request: NextRequest) {
     requestedType === "recovery" || requestedType === "invite"
       ? "/auth/alterar-senha"
       : requestedType === "email"
-        ? "/chamados/novo"
-      : "/";
+        ? "/aguardando-aprovacao"
+        : "/";
   const nextPath = getSafeNextPath(
     request.nextUrl.searchParams.get("next"),
     fallbackPath
@@ -156,11 +115,11 @@ export async function GET(request: NextRequest) {
 
   await setSupabaseSessionCookies(session);
 
-  const acesso = await resolverAcessoAutenticadoComToken(session.access_token);
-
   if (type === "recovery" || type === "invite") {
     return redirectTo(request, nextPath);
   }
+
+  const acesso = await resolverAcessoAutenticadoComToken(session.access_token);
 
   if (acesso.kind === "operational") {
     return redirectTo(request, nextPath === "/" ? "/" : nextPath);

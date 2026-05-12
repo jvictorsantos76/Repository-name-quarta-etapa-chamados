@@ -33,7 +33,6 @@ export function StatusUpdateForm({
 
   const statusFaturadoBloqueado =
     statusAtual === "faturado" && !podeAlterarChamadoFaturado(perfilAtual.papel);
-  const statusBloqueadoPorPapel = perfilAtual.papel === "solicitante";
 
   async function salvarStatus(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,11 +44,6 @@ export function StatusUpdateForm({
 
     if (novoStatus === statusAtual) {
       setErro("O chamado já está com este status.");
-      return;
-    }
-
-    if (statusBloqueadoPorPapel) {
-      setErro("Usuário pendente não pode alterar status de chamados.");
       return;
     }
 
@@ -126,7 +120,7 @@ export function StatusUpdateForm({
         <select
           value={novoStatus}
           onChange={(event) => setNovoStatus(event.target.value as StatusChamado)}
-          disabled={statusFaturadoBloqueado || statusBloqueadoPorPapel || salvando}
+          disabled={statusFaturadoBloqueado || salvando}
           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
         >
           <option value="">Selecione o novo status</option>
@@ -139,7 +133,7 @@ export function StatusUpdateForm({
 
         <button
           type="submit"
-          disabled={statusFaturadoBloqueado || statusBloqueadoPorPapel || salvando}
+          disabled={statusFaturadoBloqueado || salvando}
           className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {salvando ? "Salvando..." : "Salvar status"}
@@ -149,11 +143,6 @@ export function StatusUpdateForm({
       {statusFaturadoBloqueado && (
         <p className="mt-3 text-sm text-gray-600">
           Chamado faturado bloqueado para alteração nesta etapa.
-        </p>
-      )}
-      {statusBloqueadoPorPapel && (
-        <p className="mt-3 text-sm text-gray-600">
-          Acesso temporário permite apenas abertura e acompanhamento dos próprios chamados.
         </p>
       )}
     </form>

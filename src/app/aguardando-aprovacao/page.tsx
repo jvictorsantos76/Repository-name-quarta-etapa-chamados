@@ -8,7 +8,7 @@ import { AguardandoAprovacaoClient } from "./AguardandoAprovacaoClient";
 export default async function AguardandoAprovacaoPage() {
   const acesso = await resolverAcessoAutenticado();
 
-  if (acesso.kind === "operational" || acesso.kind === "temporary") {
+  if (acesso.kind === "operational") {
     redirect(acesso.redirectTo);
   }
 
@@ -16,7 +16,7 @@ export default async function AguardandoAprovacaoPage() {
     acesso.kind === "awaiting_email"
       ? "Confirme seu e-mail"
       : acesso.kind === "blocked"
-        ? "Acesso temporário indisponível"
+        ? "Acesso bloqueado"
         : "Acesso ainda não autorizado";
 
   return (

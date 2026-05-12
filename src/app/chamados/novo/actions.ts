@@ -128,7 +128,7 @@ function validarUrlOpcional(url: string) {
 export async function carregarDadosNovoChamado(): Promise<
   MutationResult<NovoChamadoDados>
 > {
-  const perfilAtual = await requirePerfilAutenticado();
+  await requirePerfilAutenticado();
   const supabase = await createSupabaseServerClient();
 
   const [
@@ -202,23 +202,6 @@ export async function carregarDadosNovoChamado(): Promise<
     lojas: (lojasResposta.data as LojaItem[] | null) ?? [],
     perfis: (perfisResposta.data as PerfilItem[] | null) ?? [],
   };
-
-  if (perfilAtual.papel === "solicitante") {
-    dados.bases = [];
-    dados.perfis = [
-      {
-        id: perfilAtual.id,
-        nome_completo: perfilAtual.nome_completo,
-        papel: perfilAtual.papel,
-      },
-    ];
-    dados.clientes = perfilAtual.cliente_id
-      ? dados.clientes.filter((cliente) => cliente.id === perfilAtual.cliente_id)
-      : [];
-    dados.lojas = perfilAtual.loja_id
-      ? dados.lojas.filter((loja) => loja.id === perfilAtual.loja_id)
-      : [];
-  }
 
   return {
     status: "success",
@@ -438,30 +421,6 @@ export async function criarChamadoIdentificacao(
       status: "validation_error",
       message: "Um dos cadastros selecionados é inválido. Recarregue a tela.",
     };
-  }
-
-  if (perfilAtual.papel === "solicitante") {
-    if (!perfilAtual.cliente_id || !perfilAtual.loja_id) {
-      return {
-        status: "permission_error",
-        message:
-          "Seu acesso temporário ainda não possui cliente e unidade vinculados para abertura de chamado.",
-      };
-    }
-
-    if (
-      input.organizacao_id !== perfilAtual.cliente_id ||
-      input.loja_id !== perfilAtual.loja_id ||
-      input.base_conhecimento_ids.length > 0 ||
-      input.analista_responsavel_id ||
-      input.tecnico_responsavel_id
-    ) {
-      return {
-        status: "permission_error",
-        message:
-          "Usuário pendente só pode abrir chamados próprios na unidade vinculada ao cadastro.",
-      };
-    }
   }
 
   const supabase = await createSupabaseServerClient();

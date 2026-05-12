@@ -45,7 +45,7 @@ export function AguardandoAprovacaoClient() {
         return;
       }
 
-      if (acesso.kind !== "operational" && acesso.kind !== "temporary") {
+      if (acesso.kind !== "operational") {
         setMensagem(acesso.message ?? "Sessão encontrada, mas sem acesso ativo.");
         return;
       }

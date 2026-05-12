@@ -4,6 +4,7 @@ import {
   clearSupabaseSessionCookies,
   createSupabaseServerClient,
 } from "@/lib/supabase/server";
+import { validarPoliticaSenha } from "@/lib/auth/password-policy";
 
 export type AlterarSenhaResult = {
   ok: boolean;
@@ -14,10 +15,12 @@ export async function alterarSenhaAutenticada(
   senha: string,
   confirmacao: string
 ): Promise<AlterarSenhaResult> {
-  if (senha.length < 8) {
+  const erroSenha = validarPoliticaSenha(senha);
+
+  if (erroSenha) {
     return {
       ok: false,
-      mensagem: "Informe uma senha com pelo menos 8 caracteres.",
+      mensagem: erroSenha,
     };
   }
 
@@ -29,12 +32,24 @@ export async function alterarSenhaAutenticada(
   }
 
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      mensagem: "O link de alteração expirou. Solicite um novo link.",
+    };
+  }
+
   const { error } = await supabase.auth.updateUser({ password: senha });
 
   if (error) {
     return {
       ok: false,
-      mensagem: "Não foi possível alterar a senha. Solicite um novo link.",
+      mensagem:
+        "Não foi possível alterar a senha no momento. Solicite um novo link.",
     };
   }
 

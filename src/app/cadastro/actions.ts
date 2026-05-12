@@ -2,10 +2,10 @@
 
 import { headers } from "next/headers";
 import { LEGAL_DOCUMENTS_VERSION } from "@/config/version";
+import { validarPoliticaSenha } from "@/lib/auth/password-policy";
 import {
   createSupabaseAdminClient,
   createSupabasePublicServerClient,
-  resolverVinculoClienteLoja,
 } from "@/lib/supabase/server";
 
 export type CadastroSolicitacaoInput = {
@@ -28,35 +28,18 @@ export type CadastroSolicitacaoResult = {
   mensagem?: string;
 };
 
-async function buscarAuthUserIdPorEmail(email: string) {
+async function buscarSolicitacaoExistente(email: string) {
   const supabaseAdmin = createSupabaseAdminClient();
-  let page = 1;
+  const { data } = await supabaseAdmin
+    .from("solicitacoes_acesso")
+    .select("id, status")
+    .eq("email", email)
+    .in("status", ["pendente_confirmacao_email", "pendente_aprovacao"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  while (page <= 5) {
-    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-      page,
-      perPage: 200,
-    });
-
-    if (error || !data.users.length) {
-      return null;
-    }
-
-    const user = data.users.find(
-      (usuario) => usuario.email?.trim().toLowerCase() === email
-    );
-
-    if (user) {
-      return {
-        id: user.id,
-        emailConfirmado: Boolean(user.email_confirmed_at),
-      };
-    }
-
-    page += 1;
-  }
-
-  return null;
+  return data;
 }
 
 export async function enviarSolicitacaoAcesso(
@@ -81,10 +64,12 @@ export async function enviarSolicitacaoAcesso(
     };
   }
 
-  if (campos.senha.length < 8) {
+  const erroSenha = validarPoliticaSenha(campos.senha);
+
+  if (erroSenha) {
     return {
       ok: false,
-      mensagem: "Informe uma senha com pelo menos 8 caracteres.",
+      mensagem: erroSenha,
     };
   }
 
@@ -97,7 +82,6 @@ export async function enviarSolicitacaoAcesso(
 
   const supabase = createSupabasePublicServerClient();
   const headersList = await headers();
-  const solicitacaoId = crypto.randomUUID();
   const email = campos.email.trim().toLowerCase();
   const userAgent = headersList.get("user-agent");
   const origin = headersList.get("origin");
@@ -138,9 +122,11 @@ export async function enviarSolicitacaoAcesso(
       authUserId = loginData.user.id;
       emailJaConfirmado = Boolean(loginData.user.email_confirmed_at || loginData.session);
     } else {
-      const usuarioAuthExistente = await buscarAuthUserIdPorEmail(email);
-      authUserId = usuarioAuthExistente?.id ?? null;
-      emailJaConfirmado = usuarioAuthExistente?.emailConfirmado ?? false;
+      return {
+        ok: false,
+        mensagem:
+          "Este e-mail já possui cadastro. Use o login existente ou solicite recuperação de senha.",
+      };
     }
   }
 
@@ -160,42 +146,25 @@ export async function enviarSolicitacaoAcesso(
     .eq("id", authUserId)
     .maybeSingle();
 
-  if (perfilExistente?.ativo && perfilExistente.papel !== "solicitante") {
+  if (perfilExistente?.ativo) {
     return {
       ok: false,
       mensagem: "Este e-mail já possui acesso operacional. Volte ao login para entrar.",
     };
   }
-
-  const vinculo = await resolverVinculoClienteLoja({
-    cnpj: campos.cnpj,
-    empresa: campos.empresa,
-    lojaUnidade: campos.loja_unidade,
-  });
   const agora = new Date().toISOString();
-  const { data: expiracao } = emailJaConfirmado
-    ? await supabaseAdmin.rpc("calcular_expiracao_horas_uteis", {
-        inicio: agora,
-        horas_uteis: 72,
-      })
-    : { data: null };
-  const expiraEm =
-    emailJaConfirmado && typeof expiracao === "string"
-      ? expiracao
-      : emailJaConfirmado
-        ? new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString()
-        : null;
+  const solicitacaoExistente = await buscarSolicitacaoExistente(email);
+  const solicitacaoId = solicitacaoExistente?.id ?? crypto.randomUUID();
 
   const solicitacaoPayload = {
-    id: solicitacaoId,
     nome_completo: campos.nome_completo.trim(),
     email,
     telefone: campos.telefone.trim() || null,
     empresa: campos.empresa.trim(),
     cnpj: campos.cnpj.trim() || null,
     loja_unidade: campos.loja_unidade.trim() || null,
-    cliente_id: vinculo.clienteId,
-    loja_id: vinculo.lojaId,
+    cliente_id: null,
+    loja_id: null,
     cargo: campos.cargo.trim() || null,
     motivo_acesso: campos.motivo_acesso.trim() || null,
     status: emailJaConfirmado
@@ -203,19 +172,41 @@ export async function enviarSolicitacaoAcesso(
       : "pendente_confirmacao_email",
     user_id: authUserId,
     auth_user_id: authUserId,
-    perfil_id: emailJaConfirmado ? authUserId : null,
+    perfil_id: null,
     email_confirmado_em: emailJaConfirmado ? agora : null,
-    expira_em: expiraEm,
+    expira_em: null,
+    bloqueado_em: null,
+    aprovado_por: null,
+    aprovado_em: null,
+    rejeitado_por: null,
+    rejeitado_em: null,
+    motivo_rejeicao: null,
+    observacao_interna: null,
+    provisionado_em: null,
+    erro_provisionamento: null,
     aceite_termos: campos.aceite_termos,
     aceite_privacidade: campos.aceite_privacidade,
     user_agent: userAgent,
   };
 
-  const { error: erroSolicitacaoAdmin } = await supabaseAdmin
-    .from("solicitacoes_acesso")
-    .insert(solicitacaoPayload);
+  const operacaoSolicitacao = solicitacaoExistente
+    ? supabaseAdmin
+        .from("solicitacoes_acesso")
+        .update(solicitacaoPayload)
+        .eq("id", solicitacaoExistente.id)
+    : supabaseAdmin
+        .from("solicitacoes_acesso")
+        .insert({ id: solicitacaoId, ...solicitacaoPayload });
+  const { error: erroSolicitacaoAdmin } = await operacaoSolicitacao;
   const { error: erroSolicitacaoPublica } = erroSolicitacaoAdmin
-    ? await supabase.from("solicitacoes_acesso").insert(solicitacaoPayload)
+    ? solicitacaoExistente
+      ? await supabase
+          .from("solicitacoes_acesso")
+          .update(solicitacaoPayload)
+          .eq("id", solicitacaoExistente.id)
+      : await supabase
+          .from("solicitacoes_acesso")
+          .insert({ id: solicitacaoId, ...solicitacaoPayload })
     : { error: null };
   const erroSolicitacao = erroSolicitacaoPublica ?? erroSolicitacaoAdmin;
 
@@ -244,36 +235,29 @@ export async function enviarSolicitacaoAcesso(
     };
   }
 
-  if (emailJaConfirmado) {
-    await supabaseAdmin.from("perfis").upsert({
-      id: authUserId,
-      nome_completo: campos.nome_completo.trim(),
-      email,
-      telefone: campos.telefone.trim() || null,
-      papel: "solicitante",
-      ativo: true,
-      cargo: campos.cargo.trim() || null,
-      cliente_id: vinculo.clienteId,
-      loja_id: vinculo.lojaId,
-    });
-  }
-
-  const { error: erroAceites } = await supabaseAdmin.from("aceites_legais").insert([
+  const { error: erroAceites } = await supabaseAdmin.from("aceites_legais").upsert(
+    [
+      {
+        solicitacao_acesso_id: solicitacaoId,
+        email,
+        tipo_documento: "termos_uso",
+        versao_documento: LEGAL_DOCUMENTS_VERSION,
+        user_agent: userAgent,
+        perfil_id: null,
+      },
+      {
+        solicitacao_acesso_id: solicitacaoId,
+        email,
+        tipo_documento: "politica_privacidade",
+        versao_documento: LEGAL_DOCUMENTS_VERSION,
+        user_agent: userAgent,
+        perfil_id: null,
+      },
+    ],
     {
-      solicitacao_acesso_id: solicitacaoId,
-      email,
-      tipo_documento: "termos_uso",
-      versao_documento: LEGAL_DOCUMENTS_VERSION,
-      user_agent: userAgent,
-    },
-    {
-      solicitacao_acesso_id: solicitacaoId,
-      email,
-      tipo_documento: "politica_privacidade",
-      versao_documento: LEGAL_DOCUMENTS_VERSION,
-      user_agent: userAgent,
-    },
-  ]);
+      onConflict: "solicitacao_acesso_id,tipo_documento",
+    }
+  );
 
   if (erroAceites) {
     return {

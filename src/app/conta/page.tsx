@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { ContaAcoesRapidas } from "@/components/ContaAcoesRapidas";
 import { CONTA_PAGE_VERSION } from "@/config/version";
@@ -34,10 +33,6 @@ function getIniciais(nome: string) {
 
 export default async function ContaPage() {
   const perfilAtual = await requirePerfilAutenticado();
-
-  if (perfilAtual.papel === "solicitante") {
-    redirect("/conta/perfil");
-  }
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">

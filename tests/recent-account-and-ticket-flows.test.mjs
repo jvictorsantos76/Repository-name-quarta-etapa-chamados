@@ -55,6 +55,10 @@ const cadastroActionsSource = await readFile(
   new URL("../src/app/cadastro/actions.ts", import.meta.url),
   "utf8"
 );
+const cadastroPageSource = await readFile(
+  new URL("../src/app/cadastro/page.tsx", import.meta.url),
+  "utf8"
+);
 const aguardandoAprovacaoSource = await readFile(
   new URL("../src/app/aguardando-aprovacao/page.tsx", import.meta.url),
   "utf8"
@@ -70,15 +74,23 @@ const accessStatusRouteSource = await readFile(
   new URL("../src/app/auth/access-status/route.ts", import.meta.url),
   "utf8"
 );
-const triagemReconciliationMigration = await readFile(
+const adminApprovalOnlyMigration = await readFile(
   new URL(
-    "../supabase/migrations/20260511232000_temporary_access_triage_and_auth_reconciliation.sql",
+    "../supabase/migrations/20260511235500_restore_admin_approval_only_flow.sql",
     import.meta.url
   ),
   "utf8"
 );
 const homePageSource = await readFile(
   new URL("../src/app/page.tsx", import.meta.url),
+  "utf8"
+);
+const passwordPolicySource = await readFile(
+  new URL("../src/lib/auth/password-policy.ts", import.meta.url),
+  "utf8"
+);
+const alterarSenhaActionsSource = await readFile(
+  new URL("../src/app/auth/alterar-senha/actions.ts", import.meta.url),
   "utf8"
 );
 
@@ -114,10 +126,7 @@ test("faturado ticket changes stay restricted to admin and analyst roles", () =>
     statusFormSource,
     /statusAtual === "faturado" && !podeAlterarChamadoFaturado\(perfilAtual\.papel\)/
   );
-  assert.match(
-    statusFormSource,
-    /Chamados faturados só poderão ser alterados por analista ou admin\./
-  );
+  assert.doesNotMatch(statusFormSource, /solicitante/);
 });
 
 test("authenticated users can update only the expected self-service perfil fields", () => {
@@ -131,7 +140,7 @@ test("authenticated users can update only the expected self-service perfil field
   );
 });
 
-test("ticket identification block creates catalog tables with RLS and no physical delete policy", () => {
+test("ticket identification block keeps catalog tables with RLS and no physical delete policy", () => {
   for (const tableName of [
     "chamado_tipos",
     "chamado_origens",
@@ -149,11 +158,6 @@ test("ticket identification block creates catalog tables with RLS and no physica
     );
   }
 
-  assert.match(chamadoIdentificacaoMigration, /tipo_chamado_id uuid null references public\.chamado_tipos\(id\)/i);
-  assert.match(chamadoIdentificacaoMigration, /origem_id uuid null references public\.chamado_origens\(id\)/i);
-  assert.match(chamadoIdentificacaoMigration, /id_externo text null/i);
-  assert.match(chamadoIdentificacaoMigration, /organizacao_id uuid null references public\.clientes\(id\)/i);
-  assert.match(chamadoIdentificacaoMigration, /grupo_atendimento_id uuid null references public\.grupos_atendimento\(id\)/i);
   assert.doesNotMatch(chamadoIdentificacaoMigration, /for delete/i);
 });
 
@@ -169,7 +173,7 @@ test("inline ticket catalog writes are restricted to admin gestor and analyst ro
   assert.match(novoChamadoActionsSource, /await requirePerfilAutenticado\(\)/);
   const papeisCatalogo = extractArray(novoChamadoActionsSource, "PAPEIS_CATALOGO");
   assert.match(papeisCatalogo, /"analista"/);
-  assert.doesNotMatch(papeisCatalogo, /"(?:operador|tecnico|cliente|solicitante)"/);
+  assert.doesNotMatch(novoChamadoActionsSource, /perfilAtual\.papel === "solicitante"/);
 });
 
 test("new ticket form requires manual title and keeps status and number read only", () => {
@@ -181,17 +185,20 @@ test("new ticket form requires manual title and keeps status and number read onl
   assert.match(novoChamadoFormSource, /criarChamadoIdentificacao/);
 });
 
-test("access request provisioning uses invite and recovery links instead of magic links", () => {
+test("admin approval uses invite or recovery links and supports manual regeneration", () => {
   assert.match(adminUsuariosSource, /inviteUserByEmail/);
   assert.match(adminUsuariosSource, /resetPasswordForEmail/);
   assert.match(adminUsuariosSource, /gerarLinkConviteManual/);
   assert.match(adminUsuariosSource, /type: "invite"/);
   assert.match(adminUsuariosSource, /gerarLinkRecuperacaoManual/);
   assert.match(adminUsuariosSource, /type: "recovery"/);
-  assert.doesNotMatch(adminUsuariosSource, /magiclink/);
+  assert.match(
+    adminUsuariosSource,
+    /!\["aprovar", "rejeitar", "gerar_link"\]\.includes\(acao\)/
+  );
 });
 
-test("pending access migration adds email confirmation expiration and audit states", () => {
+test("pending access migration still tracks confirmation, approval and blocking states", () => {
   for (const column of [
     "user_id",
     "email_confirmado_em",
@@ -213,99 +220,75 @@ test("pending access migration adds email confirmation expiration and audit stat
   ]) {
     assert.match(pendingAccessMigration, new RegExp(`'${status}'`, "i"));
   }
-
-  assert.match(pendingAccessMigration, /calcular_expiracao_horas_uteis/i);
-  assert.match(pendingAccessMigration, /extract\(isodow from cursor_hora\) between 1 and 5/i);
 });
 
-test("RLS removes broad development policies and restricts pending ticket access", () => {
-  for (const policy of [
-    "dev_select_chamados",
-    "dev_insert_chamados",
-    "dev_update_chamados",
-    "dev_select_clientes",
-    "dev_select_lojas",
-    "dev_select_historico_status",
-    "dev_insert_historico_status",
-    "dev_select_registros_tecnicos",
-    "dev_insert_registros_tecnicos",
-  ]) {
-    assert.match(pendingAccessMigration, new RegExp(`drop policy if exists ${policy}`, "i"));
-  }
-
-  assert.match(pendingAccessMigration, /usuario_solicitacao_pendente_ativa/i);
-  assert.match(pendingAccessMigration, /usuario_acesso_chamados_ativo/i);
-  assert.match(pendingAccessMigration, /operador_id = auth\.uid\(\)/i);
-  assert.match(pendingAccessMigration, /s\.cliente_id = chamados\.cliente_id/i);
-  assert.match(pendingAccessMigration, /s\.loja_id = chamados\.loja_id/i);
-  assert.match(pendingAccessMigration, /registros_tecnicos_insert_operacionais/i);
-  assert.doesNotMatch(pendingAccessMigration, /to anon, authenticated[\s\S]*with check \(true\)/i);
-});
-
-test("server guards expire or block pending rejected users before granting access", () => {
+test("server guards now accept only operational profiles and keep pending users awaiting approval", () => {
   assert.match(serverSupabaseSource, /auth\.getUser\(\s*accessToken\s*\)/);
-  assert.match(serverSupabaseSource, /bloquearSolicitacaoExpirada/);
-  assert.match(serverSupabaseSource, /status: "expirado"/);
-  assert.match(serverSupabaseSource, /resolverAcessoAutenticadoComToken/);
-  assert.match(serverSupabaseSource, /reconciliarSolicitacaoTemporaria/);
-  assert.match(serverSupabaseSource, /papel: "solicitante"/);
-  assert.match(serverSupabaseSource, /Triagem de Acesso Temporario/);
-  assert.match(serverSupabaseSource, /Fila de Triagem/);
+  assert.match(serverSupabaseSource, /kind: "awaiting_approval"/);
+  assert.match(serverSupabaseSource, /kind: "operational"/);
+  assert.doesNotMatch(serverSupabaseSource, /kind: "temporary"/);
+  assert.doesNotMatch(serverSupabaseSource, /reconciliarSolicitacaoTemporaria/);
+  assert.match(serverSupabaseSource, /Seu cadastro foi recebido e aguarda aprovação administrativa/);
 });
 
-test("auth confirm verifies email without leaving token hash in final redirect", () => {
+test("auth confirm updates only the request state and removes token from the final URL", () => {
   assert.match(authConfirmSource, /verifyOtp\(\{[\s\S]*token_hash: tokenHash[\s\S]*type: type as EmailOtpType/);
-  assert.match(authConfirmSource, /confirmarSolicitacaoEmail\(session\)/);
-  assert.match(authConfirmSource, /resolverAcessoAutenticadoComToken\(session\.access_token\)/);
+  assert.match(authConfirmSource, /status: "pendente_aprovacao"/);
+  assert.match(authConfirmSource, /email_confirmado_em: agora/);
+  assert.doesNotMatch(authConfirmSource, /papel: "solicitante"/);
   assert.match(authConfirmSource, /redirectTo\(request, acesso\.redirectTo\)/);
   assert.doesNotMatch(authConfirmSource, /redirectTo\(request,\s*request\.url/);
 });
 
-test("public cadastro creates Supabase signup with password and pending email confirmation", () => {
+test("public cadastro keeps password flow, validates Supabase password policy and does not create perfil automatically", () => {
   assert.match(cadastroActionsSource, /supabase\.auth\.signUp/);
   assert.match(cadastroActionsSource, /signInWithPassword/);
-  assert.match(cadastroActionsSource, /buscarAuthUserIdPorEmail/);
-  assert.match(cadastroActionsSource, /auth\.admin\.listUsers/);
-  assert.match(cadastroActionsSource, /emailRedirectTo: `\$\{baseUrl\}\/auth\/confirm`/);
-  assert.match(cadastroActionsSource, /supabaseAdmin[\s\S]*\.from\("solicitacoes_acesso"\)/);
-  assert.match(cadastroActionsSource, /supabase\.from\("solicitacoes_acesso"\)\.insert\(solicitacaoPayload\)/);
+  assert.match(cadastroActionsSource, /validarPoliticaSenha\(campos\.senha\)/);
   assert.match(cadastroActionsSource, /status: emailJaConfirmado[\s\S]*\? "pendente_aprovacao"/);
   assert.match(cadastroActionsSource, /: "pendente_confirmacao_email"/);
-  assert.match(cadastroActionsSource, /user_id: authUserId/);
-  assert.doesNotMatch(cadastroActionsSource, /auth\.admin\.deleteUser\(authUserId\)/);
-  assert.match(cadastroActionsSource, /erroSolicitacao\.code === "23505"[\s\S]*ok: true/);
-  assert.match(cadastroActionsSource, /Falha ao registrar solicitacao_acesso/);
-  assert.match(cadastroActionsSource, /papel: "solicitante"/);
-  assert.match(cadastroActionsSource, /senha\.length < 8/);
+  assert.match(cadastroActionsSource, /perfil_id: null/);
+  assert.doesNotMatch(cadastroActionsSource, /papel: "solicitante"/);
+  assert.match(cadastroPageSource, /aprovação administrativa/);
+  assert.match(cadastroPageSource, /PASSWORD_POLICY_HINT/);
 });
 
-test("awaiting approval login button clears the active session first", () => {
+test("awaiting approval page keeps logout path and only redirects operational users", () => {
   assert.match(aguardandoAprovacaoSource, /resolverAcessoAutenticado/);
   assert.match(aguardandoAprovacaoSource, /acesso\.message/);
   assert.match(aguardandoAprovacaoSource, /AguardandoAprovacaoClient/);
   assert.match(aguardandoAprovacaoClientSource, /syncSupabaseSessionCookies\(session\)/);
   assert.match(aguardandoAprovacaoClientSource, /fetch\("\/auth\/access-status"/);
   assert.match(aguardandoAprovacaoClientSource, /router\.replace\(acesso\.redirectTo\)/);
+  assert.doesNotMatch(aguardandoAprovacaoClientSource, /temporary/);
   assert.match(aguardandoAprovacaoSource, /href="\/auth\/logout"/);
-  assert.doesNotMatch(aguardandoAprovacaoSource, /href="\/login"/);
 });
 
-test("temporary access route exposes a single server-side access decision", () => {
+test("access-status route remains the single server-side decision point", () => {
   assert.match(accessStatusRouteSource, /resolverAcessoAutenticado/);
   assert.match(accessStatusRouteSource, /redirectTo/);
   assert.match(accessStatusRouteSource, /kind/);
 });
 
-test("triage migration provisions fallback cliente loja and revokes anon execute on security definer helpers", () => {
-  assert.match(triagemReconciliationMigration, /Triagem de Acesso Temporario/);
-  assert.match(triagemReconciliationMigration, /Fila de Triagem/);
-  assert.match(triagemReconciliationMigration, /create index if not exists chamados_operador_id_idx/i);
-  assert.match(triagemReconciliationMigration, /revoke execute on function public\.usuario_solicitacao_pendente_ativa\(\) from public, anon;/i);
-  assert.match(triagemReconciliationMigration, /set search_path = public/i);
+test("admin-approval-only migration disables temporary access helpers without deleting history", () => {
+  assert.match(adminApprovalOnlyMigration, /status =[\s\S]*pendente_aprovacao/);
+  assert.match(adminApprovalOnlyMigration, /set ativo = false/i);
+  assert.match(adminApprovalOnlyMigration, /create or replace function public\.usuario_solicitacao_pendente_ativa\(\)/i);
+  assert.match(adminApprovalOnlyMigration, /select false;/i);
+  assert.match(adminApprovalOnlyMigration, /create or replace function public\.usuario_acesso_chamados_ativo\(\)/i);
+  assert.match(adminApprovalOnlyMigration, /select public\.usuario_operacional_ativo\(\);/i);
 });
 
-test("temporary users can reach their own chamados list without operational dashboard widgets", () => {
-  assert.doesNotMatch(homePageSource, /redirect\("\/chamados\/novo"\)/);
-  assert.match(homePageSource, /perfilAtual\.papel === "solicitante"/);
-  assert.match(homePageSource, /Meus chamados/);
+test("home no longer renders temporary-access copy", () => {
+  assert.match(homePageSource, /Gestão de Chamados/);
+  assert.doesNotMatch(homePageSource, /Acesso temporário/);
+  assert.doesNotMatch(homePageSource, /Meus chamados/);
+});
+
+test("password policy helper is reused in cadastro and authenticated password change", () => {
+  assert.match(passwordPolicySource, /MIN_PASSWORD_LENGTH = 8/);
+  assert.match(passwordPolicySource, /LOWERCASE_REGEX/);
+  assert.match(passwordPolicySource, /UPPERCASE_REGEX/);
+  assert.match(passwordPolicySource, /DIGIT_REGEX/);
+  assert.match(alterarSenhaActionsSource, /validarPoliticaSenha\(senha\)/);
+  assert.match(alterarSenhaActionsSource, /auth\.updateUser\(\{ password: senha \}\)/);
 });

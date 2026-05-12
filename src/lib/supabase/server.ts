@@ -4,7 +4,6 @@ import {
   createClient,
   type Session,
   type SupabaseClient,
-  type User,
 } from "@supabase/supabase-js";
 import type { PerfilAutenticado } from "@/lib/auth/types";
 import { isPapelUsuario, podeAdministrarUsuarios } from "@/lib/auth/permissions";
@@ -15,8 +14,6 @@ import {
 
 const PERFIL_SELECT =
   "id, nome_completo, email, papel, ativo, telefone, avatar_url, biografia, cargo, cliente_id, loja_id, tema_preferido, cor_preferida, fonte_escala";
-const TRIAGEM_CLIENTE_NOME = "Triagem de Acesso Temporario";
-const TRIAGEM_LOJA_NOME = "Fila de Triagem";
 
 type SolicitacaoAcessoResumo = {
   id: string;
@@ -40,12 +37,6 @@ type SolicitacaoAcessoResumo = {
   erro_provisionamento: string | null;
 };
 
-type VinculoClienteLoja = {
-  clienteId: string | null;
-  lojaId: string | null;
-  origem: "real" | "triagem";
-};
-
 type AccessResolution =
   | {
       kind: "unauthenticated";
@@ -62,14 +53,7 @@ type AccessResolution =
       solicitacao: SolicitacaoAcessoResumo | null;
     }
   | {
-      kind: "temporary";
-      redirectTo: "/chamados/novo";
-      message: string;
-      perfil: PerfilAutenticado;
-      solicitacao: SolicitacaoAcessoResumo;
-    }
-  | {
-      kind: "awaiting_email" | "blocked" | "inconsistent";
+      kind: "awaiting_email" | "awaiting_approval" | "blocked" | "inconsistent";
       redirectTo: "/aguardando-aprovacao";
       message: string;
       perfil: PerfilAutenticado | null;
@@ -231,250 +215,6 @@ async function buscarSolicitacaoPorUsuario(
   return (data as SolicitacaoAcessoResumo | null) ?? null;
 }
 
-async function calcularExpiracaoAcesso(agora: string) {
-  const supabaseAdmin = createSupabaseAdminClient();
-  const { data } = await supabaseAdmin.rpc("calcular_expiracao_horas_uteis", {
-    inicio: agora,
-    horas_uteis: 72,
-  });
-
-  return typeof data === "string"
-    ? data
-    : new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
-}
-
-async function garantirVinculoTriagem() {
-  const supabaseAdmin = createSupabaseAdminClient();
-  let clienteId =
-    (
-      await supabaseAdmin
-        .from("clientes")
-        .select("id")
-        .eq("nome_fantasia", TRIAGEM_CLIENTE_NOME)
-        .eq("ativo", true)
-        .limit(1)
-        .maybeSingle()
-    ).data?.id ?? null;
-
-  if (!clienteId) {
-    const { data } = await supabaseAdmin
-      .from("clientes")
-      .insert({
-        nome_fantasia: TRIAGEM_CLIENTE_NOME,
-        razao_social: TRIAGEM_CLIENTE_NOME,
-        ativo: true,
-      })
-      .select("id")
-      .single();
-    clienteId = data?.id ?? null;
-  }
-
-  if (!clienteId) {
-    return null;
-  }
-
-  let lojaId =
-    (
-      await supabaseAdmin
-        .from("lojas")
-        .select("id")
-        .eq("cliente_id", clienteId)
-        .eq("nome_loja", TRIAGEM_LOJA_NOME)
-        .eq("ativo", true)
-        .limit(1)
-        .maybeSingle()
-    ).data?.id ?? null;
-
-  if (!lojaId) {
-    const { data } = await supabaseAdmin
-      .from("lojas")
-      .insert({
-        cliente_id: clienteId,
-        nome_loja: TRIAGEM_LOJA_NOME,
-        cidade: "Fortaleza",
-        estado: "CE",
-        ativo: true,
-      })
-      .select("id")
-      .single();
-    lojaId = data?.id ?? null;
-  }
-
-  if (!lojaId) {
-    return null;
-  }
-
-  return {
-    clienteId,
-    lojaId,
-    origem: "triagem" as const,
-  };
-}
-
-export async function resolverVinculoClienteLoja(input: {
-  cnpj?: string | null;
-  empresa?: string | null;
-  lojaUnidade?: string | null;
-}) {
-  const supabaseAdmin = createSupabaseAdminClient();
-  const cnpj = input.cnpj?.trim() || null;
-  const empresa = input.empresa?.trim() || null;
-  const lojaUnidade = input.lojaUnidade?.trim() || null;
-
-  const clientePorCnpj = cnpj
-    ? await supabaseAdmin
-        .from("clientes")
-        .select("id")
-        .eq("cnpj", cnpj)
-        .eq("ativo", true)
-        .limit(1)
-        .maybeSingle()
-    : { data: null };
-  const clientePorNome =
-    !clientePorCnpj.data && empresa
-      ? await supabaseAdmin
-          .from("clientes")
-          .select("id")
-          .ilike("nome_fantasia", empresa)
-          .eq("ativo", true)
-          .limit(1)
-          .maybeSingle()
-      : { data: null };
-  const clienteId = clientePorCnpj.data?.id ?? clientePorNome.data?.id ?? null;
-
-  if (clienteId && lojaUnidade) {
-    const { data: loja } = await supabaseAdmin
-      .from("lojas")
-      .select("id")
-      .eq("cliente_id", clienteId)
-      .ilike("nome_loja", lojaUnidade)
-      .eq("ativo", true)
-      .limit(1)
-      .maybeSingle();
-
-    if (loja?.id) {
-      return {
-        clienteId,
-        lojaId: loja.id,
-        origem: "real" as const,
-      } satisfies VinculoClienteLoja;
-    }
-  }
-
-  const vinculoTriagem = await garantirVinculoTriagem();
-
-  return (
-    vinculoTriagem ?? {
-      clienteId,
-      lojaId: null,
-      origem: "triagem" as const,
-    }
-  );
-}
-
-async function bloquearSolicitacaoExpirada(userId: string) {
-  const supabaseAdmin = createSupabaseAdminClient();
-  const agora = new Date().toISOString();
-
-  await supabaseAdmin
-    .from("solicitacoes_acesso")
-    .update({
-      status: "expirado",
-      bloqueado_em: agora,
-      erro_provisionamento:
-        "Acesso temporário expirado automaticamente após 72 horas úteis.",
-    })
-    .or(`user_id.eq.${userId},auth_user_id.eq.${userId},perfil_id.eq.${userId}`)
-    .eq("status", "pendente_aprovacao")
-    .not("expira_em", "is", null)
-    .lt("expira_em", agora);
-}
-
-async function reconciliarSolicitacaoTemporaria(user: User) {
-  const email = user.email?.trim().toLowerCase() ?? null;
-
-  if (!email || !user.email_confirmed_at) {
-    return null;
-  }
-
-  const supabaseAdmin = createSupabaseAdminClient();
-  const solicitacao = await buscarSolicitacaoPorUsuario(user.id, email);
-
-  if (
-    !solicitacao ||
-    ["rejeitado", "expirado", "cancelado", "aprovado"].includes(
-      solicitacao.status
-    )
-  ) {
-    return solicitacao;
-  }
-
-  const vinculo = await resolverVinculoClienteLoja({
-    cnpj: solicitacao.cnpj,
-    empresa: solicitacao.empresa,
-    lojaUnidade: solicitacao.loja_unidade,
-  });
-  const agora = new Date().toISOString();
-  const expiraEm = await calcularExpiracaoAcesso(agora);
-
-  await supabaseAdmin
-    .from("solicitacoes_acesso")
-    .update({
-      status: "pendente_aprovacao",
-      user_id: user.id,
-      auth_user_id: user.id,
-      perfil_id: user.id,
-      email_confirmado_em: solicitacao.email_confirmado_em ?? agora,
-      expira_em: expiraEm,
-      cliente_id: vinculo.clienteId,
-      loja_id: vinculo.lojaId,
-      bloqueado_em: null,
-      erro_provisionamento: null,
-    })
-    .eq("id", solicitacao.id);
-
-  await supabaseAdmin.from("perfis").upsert({
-    id: user.id,
-    nome_completo:
-      solicitacao.nome_completo ||
-      String(user.user_metadata?.nome_completo ?? email),
-    email,
-    telefone: solicitacao.telefone,
-    papel: "solicitante",
-    ativo: true,
-    cargo: solicitacao.cargo,
-    cliente_id: vinculo.clienteId,
-    loja_id: vinculo.lojaId,
-  });
-
-  await supabaseAdmin
-    .from("aceites_legais")
-    .update({
-      perfil_id: user.id,
-    })
-    .eq("solicitacao_acesso_id", solicitacao.id)
-    .is("perfil_id", null);
-
-  return await buscarSolicitacaoPorUsuario(user.id, email);
-}
-
-function acessoTemporarioAtivo(
-  perfil: PerfilAutenticado | null,
-  solicitacao: SolicitacaoAcessoResumo | null
-) {
-  return Boolean(
-    perfil &&
-      perfil.papel === "solicitante" &&
-      solicitacao?.status === "pendente_aprovacao" &&
-      solicitacao.email_confirmado_em &&
-      solicitacao.expira_em &&
-      solicitacao.cliente_id &&
-      solicitacao.loja_id &&
-      !solicitacao.bloqueado_em &&
-      new Date(solicitacao.expira_em).getTime() > Date.now()
-  );
-}
-
 export async function resolverAcessoAutenticadoComToken(
   accessToken: string | null
 ): Promise<AccessResolution> {
@@ -504,33 +244,13 @@ export async function resolverAcessoAutenticadoComToken(
   }
 
   const user = userData.user;
-  await bloquearSolicitacaoExpirada(user.id);
-
-  let solicitacao = await buscarSolicitacaoPorUsuario(
+  const solicitacao = await buscarSolicitacaoPorUsuario(
     user.id,
     user.email?.trim().toLowerCase() ?? null
   );
-  let perfil = await buscarPerfilAtivoPorId(user.id);
+  const perfil = await buscarPerfilAtivoPorId(user.id);
 
-  const precisaReconciliar =
-    Boolean(user.email_confirmed_at) &&
-    solicitacao &&
-    ["pendente_confirmacao_email", "pendente_aprovacao"].includes(
-      solicitacao.status
-    ) &&
-    (!perfil ||
-      perfil.papel === "solicitante" ||
-      !solicitacao.email_confirmado_em ||
-      !solicitacao.expira_em ||
-      !solicitacao.cliente_id ||
-      !solicitacao.loja_id);
-
-  if (precisaReconciliar) {
-    solicitacao = await reconciliarSolicitacaoTemporaria(user);
-    perfil = await buscarPerfilAtivoPorId(user.id);
-  }
-
-  if (perfil && perfil.papel !== "solicitante") {
+  if (perfil) {
     return {
       kind: "operational",
       redirectTo: "/",
@@ -540,22 +260,12 @@ export async function resolverAcessoAutenticadoComToken(
     };
   }
 
-  if (acessoTemporarioAtivo(perfil, solicitacao)) {
-    return {
-      kind: "temporary",
-      redirectTo: "/chamados/novo",
-      message: "Acesso temporário ativo para abertura de chamados.",
-      perfil: perfil as PerfilAutenticado,
-      solicitacao: solicitacao as SolicitacaoAcessoResumo,
-    };
-  }
-
   if (!user.email_confirmed_at) {
     return {
       kind: "awaiting_email",
       redirectTo: "/aguardando-aprovacao",
       message:
-        "Confirme seu e-mail para liberar o acesso temporário de 72 horas úteis.",
+        "Confirme seu e-mail para concluir a solicitação e seguir para a aprovação administrativa.",
       perfil,
       solicitacao,
     };
@@ -578,7 +288,7 @@ export async function resolverAcessoAutenticadoComToken(
       kind: "blocked",
       redirectTo: "/aguardando-aprovacao",
       message:
-        "Seu acesso temporário expirou após 72 horas úteis sem aprovação definitiva.",
+        "Seu acesso está bloqueado. Solicite uma nova análise ao responsável administrativo.",
       perfil,
       solicitacao,
     };
@@ -594,11 +304,29 @@ export async function resolverAcessoAutenticadoComToken(
     };
   }
 
+  if (
+    solicitacao &&
+    ["pendente_confirmacao_email", "pendente_aprovacao", "aprovado"].includes(
+      solicitacao.status
+    )
+  ) {
+    return {
+      kind: "awaiting_approval",
+      redirectTo: "/aguardando-aprovacao",
+      message:
+        solicitacao.status === "pendente_confirmacao_email"
+          ? "Confirme o e-mail enviado para que a solicitação siga para aprovação administrativa."
+          : "Seu cadastro foi recebido e aguarda aprovação administrativa para liberar o acesso operacional.",
+      perfil,
+      solicitacao,
+    };
+  }
+
   return {
     kind: "inconsistent",
     redirectTo: "/aguardando-aprovacao",
     message:
-      "Seu usuário foi autenticado, mas o acesso temporário ainda não pôde ser conciliado. Entre novamente ou contate o suporte.",
+      "Seu usuário foi autenticado, mas ainda não há perfil operacional ativo vinculado. Entre em contato com a equipe responsável.",
     perfil,
     solicitacao,
   };
@@ -615,7 +343,7 @@ export async function requirePerfilAutenticado() {
     redirect("/login");
   }
 
-  if (acesso.kind === "operational" || acesso.kind === "temporary") {
+  if (acesso.kind === "operational") {
     return {
       ...acesso.perfil,
       acesso_status: acesso.solicitacao?.status ?? null,

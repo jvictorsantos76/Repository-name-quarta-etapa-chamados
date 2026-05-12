@@ -26,15 +26,9 @@ export function RegistroTecnicoForm({
   const [sucesso, setSucesso] = useState("");
 
   const supabase = useSupabaseBrowserClient();
-  const registroBloqueadoPorPapel = perfilAtual.papel === "solicitante";
 
   async function salvarRegistro(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    if (registroBloqueadoPorPapel) {
-      setErro("Usuário pendente não pode registrar atendimento técnico.");
-      return;
-    }
 
     if (
       !problemaIdentificado.trim() ||
@@ -149,18 +143,13 @@ export function RegistroTecnicoForm({
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={salvando || registroBloqueadoPorPapel}
+            disabled={salvando}
             className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {salvando ? "Salvando..." : "Salvar registro técnico"}
           </button>
         </div>
       </form>
-      {registroBloqueadoPorPapel && (
-        <p className="mt-3 text-sm text-gray-600">
-          Acesso temporário não permite registros técnicos ou observações internas.
-        </p>
-      )}
     </div>
   );
 }

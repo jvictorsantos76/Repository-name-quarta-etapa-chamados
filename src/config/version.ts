@@ -1,9 +1,9 @@
-export const APP_VERSION = "v0.9.11";
+export const APP_VERSION = "v0.9.12";
 export const APP_UPDATED_AT = "2026-05-11";
 
 export const LOGIN_PAGE_VERSION = "v0.2.1";
-export const CADASTRO_USUARIO_PAGE_VERSION = "v0.3.8";
-export const SOLICITACOES_ACESSO_PAGE_VERSION = "v0.3.0";
+export const CADASTRO_USUARIO_PAGE_VERSION = "v0.3.9";
+export const SOLICITACOES_ACESSO_PAGE_VERSION = "v0.3.1";
 export const PERFIL_USUARIO_PAGE_VERSION = "v0.1.4";
 export const CONTA_PAGE_VERSION = "v0.1.1";
 export const CONTA_PERFIL_PAGE_VERSION = "v0.2.0";

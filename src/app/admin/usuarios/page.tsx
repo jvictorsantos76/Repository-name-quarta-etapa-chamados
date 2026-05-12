@@ -261,7 +261,7 @@ async function atualizarSolicitacao(formData: FormData) {
   const acao = String(formData.get("acao") ?? "");
   const agora = new Date().toISOString();
 
-  if (!id || (acao !== "aprovar" && acao !== "rejeitar")) {
+  if (!id || !["aprovar", "rejeitar", "gerar_link"].includes(acao)) {
     return;
   }
 
@@ -305,8 +305,9 @@ async function atualizarSolicitacao(formData: FormData) {
   const cargoAprovado = String(formData.get("cargo") ?? "").trim();
 
   if (
-    !isPapelUsuario(nivelAcesso) ||
-    !PAPEIS_PROVISIONAMENTO_DISPONIVEIS.includes(nivelAcesso)
+    acao === "aprovar" &&
+    (!isPapelUsuario(nivelAcesso) ||
+      !PAPEIS_PROVISIONAMENTO_DISPONIVEIS.includes(nivelAcesso))
   ) {
     await supabase
       .from("solicitacoes_acesso")
@@ -323,7 +324,7 @@ async function atualizarSolicitacao(formData: FormData) {
   const { data: solicitacao, error: erroSolicitacao } = await supabase
     .from("solicitacoes_acesso")
     .select(
-      "id, nome_completo, email, telefone, cargo, status, user_id, auth_user_id, perfil_id, provisionado_em, erro_provisionamento"
+      "id, nome_completo, email, telefone, cargo, status, user_id, auth_user_id, perfil_id, provisionado_em, erro_provisionamento, email_confirmado_em"
     )
     .eq("id", id)
     .maybeSingle();
@@ -334,10 +335,24 @@ async function atualizarSolicitacao(formData: FormData) {
   }
 
   const podeProvisionar =
-    solicitacao.status === "pendente_aprovacao" ||
-    solicitacao.status === "aprovado";
+    acao === "gerar_link"
+      ? solicitacao.status === "aprovado"
+      : solicitacao.status === "pendente_aprovacao";
 
   if (!podeProvisionar) {
+    revalidatePath("/admin/usuarios");
+    return;
+  }
+
+  if (!solicitacao.email_confirmado_em) {
+    await supabase
+      .from("solicitacoes_acesso")
+      .update({
+        erro_provisionamento:
+          "Aguarde a confirmação de e-mail antes de aprovar ou reenviar o link.",
+      })
+      .eq("id", id);
+
     revalidatePath("/admin/usuarios");
     return;
   }
@@ -352,11 +367,17 @@ async function atualizarSolicitacao(formData: FormData) {
 
   await supabase
     .from("solicitacoes_acesso")
-    .update({
-      aprovado_por: perfil.id,
-      aprovado_em: agora,
-      erro_provisionamento: null,
-    })
+    .update(
+      acao === "aprovar"
+        ? {
+            aprovado_por: perfil.id,
+            aprovado_em: agora,
+            erro_provisionamento: null,
+          }
+        : {
+            erro_provisionamento: null,
+          }
+    )
     .eq("id", id);
 
   if (!resultadoConvite.user) {
@@ -373,58 +394,75 @@ async function atualizarSolicitacao(formData: FormData) {
     return;
   }
 
-  const { error: erroPerfil } = await supabaseAdmin.from("perfis").upsert({
-    id: resultadoConvite.user.id,
-    nome_completo: solicitacao.nome_completo,
-    email: solicitacao.email.trim().toLowerCase(),
-    telefone: solicitacao.telefone,
-    papel: nivelAcesso,
-    ativo: true,
-    cargo: cargoAprovado || solicitacao.cargo,
-    cliente_id: clienteId,
-    loja_id: lojaId,
-  });
+  if (acao === "aprovar") {
+    const { error: erroPerfil } = await supabaseAdmin.from("perfis").upsert({
+      id: resultadoConvite.user.id,
+      nome_completo: solicitacao.nome_completo,
+      email: solicitacao.email.trim().toLowerCase(),
+      telefone: solicitacao.telefone,
+      papel: nivelAcesso,
+      ativo: true,
+      cargo: cargoAprovado || solicitacao.cargo,
+      cliente_id: clienteId,
+      loja_id: lojaId,
+    });
 
-  if (erroPerfil) {
-    await supabase
-      .from("solicitacoes_acesso")
-      .update({
-        auth_user_id: resultadoConvite.user.id,
-        erro_provisionamento: erroPerfil.message,
-        link_acesso_manual: null,
-        link_acesso_manual_gerado_em: null,
-      })
-      .eq("id", id);
+    if (erroPerfil) {
+      await supabase
+        .from("solicitacoes_acesso")
+        .update({
+          auth_user_id: resultadoConvite.user.id,
+          erro_provisionamento: erroPerfil.message,
+          link_acesso_manual: null,
+          link_acesso_manual_gerado_em: null,
+        })
+        .eq("id", id);
 
-    revalidatePath("/admin/usuarios");
-    return;
+      revalidatePath("/admin/usuarios");
+      return;
+    }
   }
 
+  const atualizacaoSolicitacao =
+    acao === "aprovar"
+      ? {
+          status: "aprovado",
+          aprovado_por: perfil.id,
+          aprovado_em: agora,
+          user_id: resultadoConvite.user.id,
+          auth_user_id: resultadoConvite.user.id,
+          perfil_id: resultadoConvite.user.id,
+          provisionado_em: agora,
+          erro_provisionamento: null,
+          link_acesso_manual: resultadoConvite.linkAcessoManual,
+          link_acesso_manual_gerado_em: resultadoConvite.linkAcessoManual
+            ? agora
+            : null,
+        }
+      : {
+          user_id: resultadoConvite.user.id,
+          auth_user_id: resultadoConvite.user.id,
+          erro_provisionamento: null,
+          link_acesso_manual: resultadoConvite.linkAcessoManual,
+          link_acesso_manual_gerado_em: resultadoConvite.linkAcessoManual
+            ? agora
+            : null,
+        };
+
   await supabase
-      .from("solicitacoes_acesso")
-      .update({
-      status: "aprovado",
-      aprovado_por: perfil.id,
-      aprovado_em: agora,
-      user_id: resultadoConvite.user.id,
-      auth_user_id: resultadoConvite.user.id,
-      perfil_id: resultadoConvite.user.id,
-      provisionado_em: agora,
-      erro_provisionamento: null,
-      link_acesso_manual: resultadoConvite.linkAcessoManual,
-      link_acesso_manual_gerado_em: resultadoConvite.linkAcessoManual
-        ? agora
-        : null,
-    })
+    .from("solicitacoes_acesso")
+    .update(atualizacaoSolicitacao)
     .eq("id", id);
 
-  await supabaseAdmin
-    .from("aceites_legais")
-    .update({
-      perfil_id: resultadoConvite.user.id,
-    })
-    .eq("solicitacao_acesso_id", id)
-    .is("perfil_id", null);
+  if (acao === "aprovar") {
+    await supabaseAdmin
+      .from("aceites_legais")
+      .update({
+        perfil_id: resultadoConvite.user.id,
+      })
+      .eq("solicitacao_acesso_id", id)
+      .is("perfil_id", null);
+  }
 
   revalidatePath("/admin/usuarios");
 }
@@ -448,9 +486,30 @@ function getNomeResponsavel(
 }
 
 function podeAprovar(solicitacao: SolicitacaoAcesso) {
-  return ["pendente_aprovacao", "aprovado"].includes(
-    solicitacao.status
+  return (
+    solicitacao.status === "pendente_aprovacao" &&
+    Boolean(solicitacao.email_confirmado_em)
   );
+}
+
+function podeGerarNovoLink(solicitacao: SolicitacaoAcesso) {
+  return solicitacao.status === "aprovado" && Boolean(solicitacao.email_confirmado_em);
+}
+
+function podeRejeitar(solicitacao: SolicitacaoAcesso) {
+  return solicitacao.status === "pendente_aprovacao";
+}
+
+function mensagemAprovacao(solicitacao: SolicitacaoAcesso) {
+  if (!solicitacao.email_confirmado_em) {
+    return "Aguardando confirmação de e-mail para liberar a aprovação.";
+  }
+
+  if (solicitacao.status === "aprovado") {
+    return "Usuário já aprovado. Use a ação de gerar novo link quando necessário.";
+  }
+
+  return null;
 }
 
 export default async function AdminUsuariosPage() {
@@ -515,8 +574,8 @@ export default async function AdminUsuariosPage() {
           </p>
           <h1 className="mt-2 text-2xl font-bold">Solicitações de acesso</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Aprovação exige nível de acesso, registra responsáveis, bloqueia
-            solicitações expiradas e mantém o provisionamento rastreável.
+            Aprovação exige confirmação de e-mail, nível de acesso e mantém
+            envio de link, contingência manual e auditoria rastreável.
           </p>
 
           {error && (
@@ -553,6 +612,10 @@ export default async function AdminUsuariosPage() {
                       <Info
                         label="Criado em"
                         value={formatarData(solicitacao.created_at)}
+                      />
+                      <Info
+                        label="E-mail confirmado em"
+                        value={formatarData(solicitacao.email_confirmado_em)}
                       />
                       <Info
                         label="Aprovado por"
@@ -597,18 +660,29 @@ export default async function AdminUsuariosPage() {
                     )}
 
                     {solicitacao.link_acesso_manual && (
-                      <a
-                        href={solicitacao.link_acesso_manual}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-4 inline-flex rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
-                      >
-                        Abrir link manual
-                      </a>
+                      <div className="mt-4 space-y-2">
+                        <a
+                          href={solicitacao.link_acesso_manual}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex rounded-lg bg-blue-700 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-800"
+                        >
+                          Abrir link manual
+                        </a>
+                        <p className="text-xs text-gray-500">
+                          Link manual gerado em{" "}
+                          {formatarData(solicitacao.link_acesso_manual_gerado_em)}.
+                        </p>
+                      </div>
                     )}
                   </div>
 
                   <div className="space-y-4 rounded-lg bg-gray-50 p-4">
+                    {mensagemAprovacao(solicitacao) && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                        {mensagemAprovacao(solicitacao)}
+                      </div>
+                    )}
                     <form action={atualizarSolicitacao} className="space-y-3">
                       <input type="hidden" name="id" value={solicitacao.id} />
                       <input type="hidden" name="acao" value="aprovar" />
@@ -674,6 +748,18 @@ export default async function AdminUsuariosPage() {
                       </button>
                     </form>
 
+                    <form action={atualizarSolicitacao}>
+                      <input type="hidden" name="id" value={solicitacao.id} />
+                      <input type="hidden" name="acao" value="gerar_link" />
+                      <button
+                        type="submit"
+                        disabled={!podeGerarNovoLink(solicitacao)}
+                        className="min-h-10 w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Gerar novo link
+                      </button>
+                    </form>
+
                     <form action={atualizarSolicitacao} className="space-y-3">
                       <input type="hidden" name="id" value={solicitacao.id} />
                       <input type="hidden" name="acao" value="rejeitar" />
@@ -685,13 +771,13 @@ export default async function AdminUsuariosPage() {
                           name="motivo_rejeicao"
                           rows={3}
                           required
-                          disabled={solicitacao.status !== "pendente_aprovacao"}
+                          disabled={!podeRejeitar(solicitacao)}
                           className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
                         />
                       </div>
                       <button
                         type="submit"
-                        disabled={solicitacao.status !== "pendente_aprovacao"}
+                        disabled={!podeRejeitar(solicitacao)}
                         className="min-h-10 w-full rounded-lg bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         Rejeitar

@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useState } from "react";
 import { CADASTRO_USUARIO_PAGE_VERSION } from "@/config/version";
 import {
+  PASSWORD_POLICY_HINT,
+  validarPoliticaSenha,
+} from "@/lib/auth/password-policy";
+import {
   enviarSolicitacaoAcesso,
   type CadastroSolicitacaoInput,
 } from "./actions";
@@ -26,7 +30,7 @@ const camposIniciais = {
 const termosUsoResumo = [
   "O Portal de Atendimento Quarta Etapa é destinado à abertura, acompanhamento e gestão de chamados técnicos.",
   "O acesso é pessoal, intransferível e pode ser limitado, suspenso ou encerrado quando houver risco operacional, uso indevido ou ausência de aprovação administrativa.",
-  "Durante o período temporário de análise, o usuário pode registrar chamados próprios e acompanhar apenas informações vinculadas ao seu atendimento.",
+  "O envio da solicitação não libera acesso automático. O uso operacional depende de aprovação administrativa e provisionamento formal do perfil.",
   "Solicitações aprovadas recebem um perfil operacional com papel, cliente e unidade definidos por responsável autorizado.",
   "A Quarta Etapa mantém registros de autenticação, solicitações, chamados, evidências e alterações para segurança, auditoria e melhoria contínua do serviço.",
 ];
@@ -69,8 +73,10 @@ export default function CadastroPage() {
       return;
     }
 
-    if (campos.senha.length < 8) {
-      setErro("Informe uma senha com pelo menos 8 caracteres.");
+    const erroSenha = validarPoliticaSenha(campos.senha);
+
+    if (erroSenha) {
+      setErro(erroSenha);
       return;
     }
 
@@ -118,15 +124,15 @@ export default function CadastroPage() {
         <p className="mt-2 text-sm text-gray-600">
           O envio deste formulário não libera acesso automático. A solicitação
           será validada pela Quarta Etapa ou por responsável autorizado. Ao ser
-          enviado, confirme seu e-mail para iniciar o acesso temporário restrito
-          por até 72 horas úteis.
+          enviado, confirme seu e-mail para encaminhar o cadastro para
+          aprovação administrativa.
         </p>
 
         {sucesso ? (
           <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
             Solicitação recebida com sucesso. A liberação depende de validação
-            operacional. Confirme o e-mail enviado para iniciar o acesso
-            temporário restrito.
+            operacional. Confirme o e-mail enviado para concluir o fluxo de
+            aprovação.
           </div>
         ) : (
           <form onSubmit={enviarSolicitacao} className="mt-6 space-y-5">
@@ -147,6 +153,7 @@ export default function CadastroPage() {
               <CampoTexto label="Senha" type="password" value={campos.senha} onChange={(valor) => atualizarCampo("senha", valor)} required />
               <CampoTexto label="Confirmar senha" type="password" value={campos.confirmacao_senha} onChange={(valor) => atualizarCampo("confirmacao_senha", valor)} required />
             </div>
+            <p className="text-xs text-gray-500">{PASSWORD_POLICY_HINT}</p>
 
             <div>
               <label className="mb-2 block text-sm font-semibold">
