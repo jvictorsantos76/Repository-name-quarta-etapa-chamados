@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { useContext, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { atualizarPreferenciasPerfil } from "@/app/perfil/actions";
 import { ThemeContext } from "@/components/theme/ThemeProvider";
-import { VersionBadge } from "@/components/VersionBadge";
 import {
   createSupabaseBrowserClient,
   syncSupabaseSessionCookies,
@@ -841,7 +840,6 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
           </p>
         ) : null}
       </header>
-      <VersionBadge />
     </>
   );
 }

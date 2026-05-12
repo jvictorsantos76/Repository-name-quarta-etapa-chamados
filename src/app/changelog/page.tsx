@@ -6,6 +6,11 @@ const versoes = [
     versao: APP_VERSION,
     data: "12/05/2026",
     alteracoes: [
+      "Rodapé interno v0.9.18 aproxima a hierarquia visual da referência Uber, com topo institucional, colunas discretas e linha inferior de governança.",
+      "Versionamento v0.9.17 passa a usar botão fixo sobre a sidebar, com painel compacto apenas na sidebar recolhida e no mobile.",
+      "Rodapé interno v0.9.17 fica exclusivamente no fluxo normal da página, sem sobrepor tabelas, cards ou ações mobile.",
+      "Rodapé interno v0.9.16 passa a ficar no fim da página com links principais agrupados por Operação, Administração e Suporte e governança.",
+      "Versionamento visível v0.9.16 passa a ficar fixo no canto inferior esquerdo, acompanhando a largura da sidebar e exibindo apenas versão global e versão da tela aberta.",
       "Navegação principal v0.9.15 passa a abrir grupos da sidebar recolhida em painel lateral isolado, sem alterar a largura da barra.",
       "Rodapé interno v0.9.15 substitui o badge solto de versão por links compactos para Dashboard, Novo chamado, Usuários, Permissões, FAQ, Roadmap, Changelog, Termos e Privacidade.",
       "Cadastro de Usuário v0.4.1 passa a registrar os aceites legais com a constraint única exigida pelo upsert, estabilizando o cadastro público no banco atual.",
