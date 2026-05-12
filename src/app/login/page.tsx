@@ -12,6 +12,8 @@ import {
 
 const mensagemCredenciais =
   "E-mail ou senha inválidos. Confira seus dados e tente novamente.";
+const mensagemAcessoPendente =
+  "Acesso ainda não liberado. Se o cadastro acabou de ser criado, aguarde a aprovação administrativa ou use o link enviado pela equipe responsável.";
 const mensagemLinkMagico =
   "Se o e-mail estiver autorizado, enviaremos o link de acesso.";
 
@@ -127,7 +129,11 @@ export default function LoginPage() {
     });
 
     if (error || !data.session) {
-      setErro(mensagemCredenciais);
+      setErro(
+        email.trim()
+          ? `${mensagemCredenciais} ${mensagemAcessoPendente}`
+          : mensagemCredenciais
+      );
       setEntrando(false);
       return;
     }

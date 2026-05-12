@@ -59,6 +59,10 @@ const cadastroPageSource = await readFile(
   new URL("../src/app/cadastro/page.tsx", import.meta.url),
   "utf8"
 );
+const loginPageSource = await readFile(
+  new URL("../src/app/login/page.tsx", import.meta.url),
+  "utf8"
+);
 const aguardandoAprovacaoSource = await readFile(
   new URL("../src/app/aguardando-aprovacao/page.tsx", import.meta.url),
   "utf8"
@@ -76,7 +80,14 @@ const accessStatusRouteSource = await readFile(
 );
 const adminApprovalOnlyMigration = await readFile(
   new URL(
-    "../supabase/migrations/20260511235500_restore_admin_approval_only_flow.sql",
+    "../supabase/migrations/20260512021648_restore_admin_approval_only_flow.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const aceitesLegaisUpsertMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260512190000_fix_aceites_legais_upsert_constraint.sql",
     import.meta.url
   ),
   "utf8"
@@ -192,6 +203,7 @@ test("admin approval uses invite or recovery links and supports manual regenerat
   assert.match(adminUsuariosSource, /type: "invite"/);
   assert.match(adminUsuariosSource, /gerarLinkRecuperacaoManual/);
   assert.match(adminUsuariosSource, /type: "recovery"/);
+  assert.match(adminUsuariosSource, /linkAcessoManual: linkManual\.linkAcessoManual/);
   assert.match(
     adminUsuariosSource,
     /!\["aprovar", "rejeitar", "gerar_link"\]\.includes\(acao\)/
@@ -222,6 +234,19 @@ test("pending access migration still tracks confirmation, approval and blocking 
   }
 });
 
+test("aceites_legais upsert migration creates the unique constraint expected by onConflict", () => {
+  assert.match(
+    aceitesLegaisUpsertMigration,
+    /add constraint aceites_legais_solicitacao_documento_key[\s\S]*unique \(solicitacao_acesso_id, tipo_documento\)/i
+  );
+  assert.match(
+    cadastroActionsSource,
+    /onConflict: "solicitacao_acesso_id,tipo_documento"/
+  );
+  assert.match(cadastroActionsSource, /erroAceites\?\.code === "42P10"/);
+  assert.match(cadastroActionsSource, /\.from\("aceites_legais"\)\s*\.insert\(aceitesPendentes\)/);
+});
+
 test("server guards now accept only operational profiles and keep pending users awaiting approval", () => {
   assert.match(serverSupabaseSource, /auth\.getUser\(\s*accessToken\s*\)/);
   assert.match(serverSupabaseSource, /kind: "awaiting_approval"/);
@@ -243,13 +268,23 @@ test("auth confirm updates only the request state and removes token from the fin
 test("public cadastro keeps password flow, validates Supabase password policy and does not create perfil automatically", () => {
   assert.match(cadastroActionsSource, /supabase\.auth\.signUp/);
   assert.match(cadastroActionsSource, /signInWithPassword/);
+  assert.match(cadastroActionsSource, /auth\.admin\.createUser/);
+  assert.match(cadastroActionsSource, /falhaEnvioConfirmacaoEmail/);
   assert.match(cadastroActionsSource, /validarPoliticaSenha\(campos\.senha\)/);
-  assert.match(cadastroActionsSource, /status: emailJaConfirmado[\s\S]*\? "pendente_aprovacao"/);
+  assert.match(cadastroActionsSource, /status: usaFluxoManualAdmin[\s\S]*\? "pendente_aprovacao"/);
   assert.match(cadastroActionsSource, /: "pendente_confirmacao_email"/);
   assert.match(cadastroActionsSource, /perfil_id: null/);
   assert.doesNotMatch(cadastroActionsSource, /papel: "solicitante"/);
   assert.match(cadastroPageSource, /aprovação administrativa/);
   assert.match(cadastroPageSource, /PASSWORD_POLICY_HINT/);
+});
+
+test("login keeps invalid credential protection but warns pending users about admin approval or manual link", () => {
+  assert.match(loginPageSource, /Acesso ainda não liberado\./);
+  assert.match(
+    loginPageSource,
+    /aguarde a aprovação administrativa ou use o link enviado pela equipe responsável/
+  );
 });
 
 test("awaiting approval page keeps logout path and only redirects operational users", () => {

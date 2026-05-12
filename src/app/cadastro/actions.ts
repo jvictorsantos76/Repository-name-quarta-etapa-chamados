@@ -28,6 +28,17 @@ export type CadastroSolicitacaoResult = {
   mensagem?: string;
 };
 
+function falhaEnvioConfirmacaoEmail(
+  erro: { message?: string | null; code?: string | null } | null | undefined
+) {
+  const mensagem = erro?.message?.toLowerCase() ?? "";
+
+  return (
+    erro?.code === "unexpected_failure" &&
+    mensagem.includes("confirmation email")
+  );
+}
+
 async function buscarSolicitacaoExistente(email: string) {
   const supabaseAdmin = createSupabaseAdminClient();
   const { data } = await supabaseAdmin
@@ -40,6 +51,36 @@ async function buscarSolicitacaoExistente(email: string) {
     .maybeSingle();
 
   return data;
+}
+
+async function buscarUsuarioAuthExistente(email: string) {
+  const supabaseAdmin = createSupabaseAdminClient();
+  const emailNormalizado = email.trim().toLowerCase();
+
+  for (let page = 1; page <= 10; page += 1) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+      page,
+      perPage: 100,
+    });
+
+    if (error) {
+      return { user: null, error };
+    }
+
+    const user = data.users.find(
+      (usuario) => usuario.email?.toLowerCase() === emailNormalizado
+    );
+
+    if (user) {
+      return { user, error: null };
+    }
+
+    if (data.users.length < 100) {
+      break;
+    }
+  }
+
+  return { user: null, error: null };
 }
 
 export async function enviarSolicitacaoAcesso(
@@ -103,13 +144,58 @@ export async function enviarSolicitacaoAcesso(
 
   let authUserId = authData.user?.id ?? null;
   let emailJaConfirmado = Boolean(authData.user?.email_confirmed_at);
+  let usaFluxoManualAdmin = false;
   const usuarioExistenteSemNovaIdentidade =
     !erroAuth &&
     Boolean(authData.user) &&
     Array.isArray(authData.user?.identities) &&
     authData.user.identities.length === 0;
 
-  if (erroAuth?.message === "User already registered" || usuarioExistenteSemNovaIdentidade) {
+  if (falhaEnvioConfirmacaoEmail(erroAuth)) {
+    const { data: adminAuthData, error: erroAdminCreateUser } =
+      await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: campos.senha,
+        email_confirm: false,
+        user_metadata: {
+          nome_completo: campos.nome_completo.trim(),
+        },
+      });
+
+    if (erroAdminCreateUser) {
+      const usuarioExistente = await buscarUsuarioAuthExistente(email);
+
+      if (usuarioExistente.error) {
+        return {
+          ok: false,
+          mensagem:
+            "Não foi possível registrar o usuário no momento. Revise a configuração de envio do Supabase Auth ou tente novamente.",
+        };
+      }
+
+      if (!usuarioExistente.user) {
+        return {
+          ok: false,
+          mensagem:
+            "Não foi possível registrar o usuário no momento. Revise a configuração de envio do Supabase Auth ou tente novamente.",
+        };
+      }
+
+      authUserId = usuarioExistente.user.id;
+      emailJaConfirmado = Boolean(usuarioExistente.user.email_confirmed_at);
+      usaFluxoManualAdmin = true;
+    } else {
+      authUserId = adminAuthData.user?.id ?? null;
+      emailJaConfirmado = false;
+      usaFluxoManualAdmin = true;
+    }
+  }
+
+  if (
+    !usaFluxoManualAdmin &&
+    (erroAuth?.message === "User already registered" ||
+      usuarioExistenteSemNovaIdentidade)
+  ) {
     authUserId = null;
     emailJaConfirmado = false;
 
@@ -167,7 +253,9 @@ export async function enviarSolicitacaoAcesso(
     loja_id: null,
     cargo: campos.cargo.trim() || null,
     motivo_acesso: campos.motivo_acesso.trim() || null,
-    status: emailJaConfirmado
+    status: usaFluxoManualAdmin
+      ? "pendente_aprovacao"
+      : emailJaConfirmado
       ? "pendente_aprovacao"
       : "pendente_confirmacao_email",
     user_id: authUserId,
@@ -215,7 +303,7 @@ export async function enviarSolicitacaoAcesso(
       return {
         ok: true,
         mensagem:
-          "Já existe uma solicitação em andamento para este e-mail. Use o link de confirmação recebido ou solicite recuperação de senha no login.",
+          "Já existe uma solicitação em andamento para este e-mail. Aguarde a validação administrativa ou use o link enviado pela equipe responsável.",
       };
     }
 
@@ -235,29 +323,68 @@ export async function enviarSolicitacaoAcesso(
     };
   }
 
-  const { error: erroAceites } = await supabaseAdmin.from("aceites_legais").upsert(
-    [
-      {
-        solicitacao_acesso_id: solicitacaoId,
-        email,
-        tipo_documento: "termos_uso",
-        versao_documento: LEGAL_DOCUMENTS_VERSION,
-        user_agent: userAgent,
-        perfil_id: null,
-      },
-      {
-        solicitacao_acesso_id: solicitacaoId,
-        email,
-        tipo_documento: "politica_privacidade",
-        versao_documento: LEGAL_DOCUMENTS_VERSION,
-        user_agent: userAgent,
-        perfil_id: null,
-      },
-    ],
+  const aceitesPayload = [
+    {
+      solicitacao_acesso_id: solicitacaoId,
+      email,
+      tipo_documento: "termos_uso",
+      versao_documento: LEGAL_DOCUMENTS_VERSION,
+      user_agent: userAgent,
+      perfil_id: null,
+    },
+    {
+      solicitacao_acesso_id: solicitacaoId,
+      email,
+      tipo_documento: "politica_privacidade",
+      versao_documento: LEGAL_DOCUMENTS_VERSION,
+      user_agent: userAgent,
+      perfil_id: null,
+    },
+  ];
+
+  let erroAceites: {
+    message?: string;
+    code?: string;
+  } | null = null;
+
+  const resultadoAceites = await supabaseAdmin.from("aceites_legais").upsert(
+    aceitesPayload,
     {
       onConflict: "solicitacao_acesso_id,tipo_documento",
     }
   );
+
+  erroAceites = resultadoAceites.error;
+
+  if (erroAceites?.code === "42P10") {
+    const { data: aceitesExistentes, error: erroBuscaAceites } =
+      await supabaseAdmin
+        .from("aceites_legais")
+        .select("tipo_documento")
+        .eq("solicitacao_acesso_id", solicitacaoId)
+        .in("tipo_documento", ["termos_uso", "politica_privacidade"]);
+
+    if (erroBuscaAceites) {
+      erroAceites = erroBuscaAceites;
+    } else {
+      const tiposExistentes = new Set(
+        (aceitesExistentes ?? []).map((aceite) => aceite.tipo_documento)
+      );
+      const aceitesPendentes = aceitesPayload.filter(
+        (aceite) => !tiposExistentes.has(aceite.tipo_documento)
+      );
+
+      if (aceitesPendentes.length > 0) {
+        const { error: erroInsertAceites } = await supabaseAdmin
+          .from("aceites_legais")
+          .insert(aceitesPendentes);
+
+        erroAceites = erroInsertAceites;
+      } else {
+        erroAceites = null;
+      }
+    }
+  }
 
   if (erroAceites) {
     return {
@@ -267,5 +394,10 @@ export async function enviarSolicitacaoAcesso(
     };
   }
 
-  return { ok: true };
+  return {
+    ok: true,
+    mensagem: usaFluxoManualAdmin
+      ? "Solicitação recebida. A confirmação automática de e-mail está indisponível no momento; a aprovação seguirá por validação administrativa e envio manual do link."
+      : "Solicitação recebida com sucesso. O cadastro seguirá para validação administrativa. Se a confirmação automática estiver disponível, siga o link recebido por e-mail.",
+  };
 }

@@ -47,7 +47,7 @@ export default function CadastroPage() {
   const [campos, setCampos] = useState(camposIniciais);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
-  const [sucesso, setSucesso] = useState(false);
+  const [sucesso, setSucesso] = useState("");
 
   function atualizarCampo(
     campo: keyof typeof campos,
@@ -101,7 +101,10 @@ export default function CadastroPage() {
     }
 
     setCampos(camposIniciais);
-    setSucesso(true);
+    setSucesso(
+      resultado.mensagem ??
+        "Solicitação recebida com sucesso. A liberação depende de validação operacional e envio do link pela equipe responsável."
+    );
     setEnviando(false);
   }
 
@@ -124,15 +127,14 @@ export default function CadastroPage() {
         <p className="mt-2 text-sm text-gray-600">
           O envio deste formulário não libera acesso automático. A solicitação
           será validada pela Quarta Etapa ou por responsável autorizado. Ao ser
-          enviado, confirme seu e-mail para encaminhar o cadastro para
-          aprovação administrativa.
+          enviado, o cadastro seguirá para aprovação administrativa. Quando a
+          confirmação automática estiver disponível, siga o link recebido por
+          e-mail.
         </p>
 
         {sucesso ? (
           <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-            Solicitação recebida com sucesso. A liberação depende de validação
-            operacional. Confirme o e-mail enviado para concluir o fluxo de
-            aprovação.
+            {sucesso}
           </div>
         ) : (
           <form onSubmit={enviarSolicitacao} className="mt-6 space-y-5">

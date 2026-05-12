@@ -4,8 +4,12 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 const versoes = [
   {
     versao: APP_VERSION,
-    data: "11/05/2026",
+    data: "12/05/2026",
     alteracoes: [
+      "Cadastro de Usuário v0.4.1 passa a registrar os aceites legais com a constraint única exigida pelo upsert, estabilizando o cadastro público no banco atual.",
+      "Solicitações de Acesso v0.3.3 mantém aprovação manual e deixa o fluxo pronto para operar mesmo quando o envio automático do Supabase Auth estiver indisponível.",
+      "Cadastro de Usuário v0.4.0 passa a registrar a solicitação mesmo quando o Supabase Auth não consegue enviar a confirmação automática, criando o usuário por fluxo administrativo e encaminhando a liberação para aprovação manual.",
+      "Solicitações de Acesso v0.3.2 passa a sempre gerar link manual de recuperação ou convite durante a aprovação administrativa, reduzindo dependência operacional do SMTP para o primeiro acesso.",
       "Cadastro de Usuário v0.3.9 mantém senha no pedido público, exige confirmação de e-mail e retorna o fluxo para aprovação administrativa obrigatória antes do acesso operacional.",
       "Confirmação de e-mail passa a apenas mover a solicitação para pendente_aprovacao, sem criar perfil operacional automático nem liberar uso temporário do sistema.",
       "Solicitações de Acesso v0.3.1 exige confirmação de e-mail antes da aprovação, reaproveita reset de senha ou convite Supabase e registra link manual de contingência.",
@@ -56,6 +60,11 @@ const versoes = [
       "Perfil de Usuário v0.1.1 passa a incluir seção Segurança com alteração de senha e encerramento manual de sessão.",
     ],
     correcoes: [
+      "Corrige o erro local em que a solicitação era criada, mas o registro de aceites legais falhava por ausência da constraint única usada no upsert de aceites_legais.",
+      "Consolida o diagnóstico de produção: as telas públicas e administrativas ainda estão em build anterior e precisam de novo deploy para remover o bloqueio por confirmação automática de e-mail.",
+      "Corrige o erro de cadastro público quando o Supabase retorna falha no envio do e-mail de confirmação, preservando o pedido para tratamento administrativo.",
+      "Corrige a ausência de link manual em aprovações administrativas quando o Supabase aceita a operação de recuperação ou convite, mas a entrega por e-mail continua instável.",
+      "Login passa a orientar que o acesso recém-solicitado depende de aprovação administrativa ou do link enviado pela equipe responsável, evitando leitura equivocada de credencial inválida.",
       "Corrige o cenário em que usuário confirmado recebia autenticação válida, mas seguia sem perfil operacional ativo e acabava liberado por lógica temporária divergente do processo administrativo.",
       "Corrige aprovações administrativas sem confirmação de e-mail, bloqueando o provisionamento até o cadastro cumprir a etapa obrigatória do Auth.",
       "Corrige reenvio de acesso aprovado com ação explícita para gerar novo link sem reprovisionar o perfil já aprovado.",

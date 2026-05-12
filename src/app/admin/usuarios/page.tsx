@@ -184,20 +184,12 @@ async function convidarOuLocalizarUsuario(
         redirectTo,
       });
 
-    if (!erroRecuperacao) {
-      return {
-        user: usuarioExistente.user,
-        errorMessage: null,
-        linkAcessoManual: null,
-      };
-    }
-
     const linkManual = await gerarLinkRecuperacaoManual();
 
     if (!linkManual.error && linkManual.linkAcessoManual) {
       return {
         user: usuarioExistente.user,
-        errorMessage: null,
+        errorMessage: erroRecuperacao?.message ?? null,
         linkAcessoManual: linkManual.linkAcessoManual,
       };
     }
@@ -206,7 +198,7 @@ async function convidarOuLocalizarUsuario(
       user: null,
       errorMessage:
         linkManual.error?.message ??
-        erroRecuperacao.message ??
+        erroRecuperacao?.message ??
         "Não foi possível enviar a recuperação de acesso.",
       linkAcessoManual: null,
     };
@@ -222,20 +214,12 @@ async function convidarOuLocalizarUsuario(
     }
   );
 
-  if (!error && data.user) {
-    return {
-      user: data.user,
-      errorMessage: null,
-      linkAcessoManual: null,
-    };
-  }
-
   const linkManual = await gerarLinkConviteManual();
 
   if (!linkManual.error && linkManual.user && linkManual.linkAcessoManual) {
     return {
-      user: linkManual.user,
-      errorMessage: null,
+      user: linkManual.user ?? data.user,
+      errorMessage: error?.message ?? null,
       linkAcessoManual: linkManual.linkAcessoManual,
     };
   }
@@ -340,19 +324,6 @@ async function atualizarSolicitacao(formData: FormData) {
       : solicitacao.status === "pendente_aprovacao";
 
   if (!podeProvisionar) {
-    revalidatePath("/admin/usuarios");
-    return;
-  }
-
-  if (!solicitacao.email_confirmado_em) {
-    await supabase
-      .from("solicitacoes_acesso")
-      .update({
-        erro_provisionamento:
-          "Aguarde a confirmação de e-mail antes de aprovar ou reenviar o link.",
-      })
-      .eq("id", id);
-
     revalidatePath("/admin/usuarios");
     return;
   }
@@ -486,14 +457,11 @@ function getNomeResponsavel(
 }
 
 function podeAprovar(solicitacao: SolicitacaoAcesso) {
-  return (
-    solicitacao.status === "pendente_aprovacao" &&
-    Boolean(solicitacao.email_confirmado_em)
-  );
+  return solicitacao.status === "pendente_aprovacao";
 }
 
 function podeGerarNovoLink(solicitacao: SolicitacaoAcesso) {
-  return solicitacao.status === "aprovado" && Boolean(solicitacao.email_confirmado_em);
+  return solicitacao.status === "aprovado";
 }
 
 function podeRejeitar(solicitacao: SolicitacaoAcesso) {
@@ -502,7 +470,7 @@ function podeRejeitar(solicitacao: SolicitacaoAcesso) {
 
 function mensagemAprovacao(solicitacao: SolicitacaoAcesso) {
   if (!solicitacao.email_confirmado_em) {
-    return "Aguardando confirmação de e-mail para liberar a aprovação.";
+    return "Cadastro sem confirmação automática de e-mail. A aprovação pode seguir com envio manual do link pelo administrador.";
   }
 
   if (solicitacao.status === "aprovado") {
@@ -574,8 +542,9 @@ export default async function AdminUsuariosPage() {
           </p>
           <h1 className="mt-2 text-2xl font-bold">Solicitações de acesso</h1>
           <p className="mt-2 text-sm text-gray-600">
-            Aprovação exige confirmação de e-mail, nível de acesso e mantém
-            envio de link, contingência manual e auditoria rastreável.
+            Aprovação define nível de acesso, mantém envio de link, contingência
+            manual e auditoria rastreável mesmo quando a confirmação automática
+            de e-mail estiver indisponível.
           </p>
 
           {error && (
