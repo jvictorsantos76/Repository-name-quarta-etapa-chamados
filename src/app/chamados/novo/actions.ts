@@ -318,6 +318,83 @@ export async function criarOrganizacao(nome: string): Promise<MutationResult<Cli
   };
 }
 
+export async function criarFilialOrganizacao(
+  organizacaoId: string,
+  nome: string
+): Promise<MutationResult<LojaItem>> {
+  const perfilAtual = await requirePerfilAutenticado();
+
+  if (!podeGerenciarCatalogo(perfilAtual.papel)) {
+    return {
+      status: "permission_error",
+      message: "Seu perfil não pode cadastrar filiais na abertura.",
+    };
+  }
+
+  if (!validarUuidLista([organizacaoId])) {
+    return {
+      status: "validation_error",
+      message: "Selecione uma organização válida antes de criar a filial.",
+    };
+  }
+
+  const nomeNormalizado = normalizarTexto(nome);
+
+  if (!nomeNormalizado) {
+    return {
+      status: "validation_error",
+      message: "Informe o nome da filial.",
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: organizacao, error: erroOrganizacao } = await supabase
+    .from("clientes")
+    .select("id")
+    .eq("id", organizacaoId)
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (erroOrganizacao) {
+    return {
+      status: erroOrganizacao.code === "42501" ? "permission_error" : "error",
+      message: mensagemErroBanco(erroOrganizacao),
+    };
+  }
+
+  if (!organizacao) {
+    return {
+      status: "validation_error",
+      message: "Organização selecionada não está ativa ou não foi encontrada.",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("lojas")
+    .insert({
+      cliente_id: organizacaoId,
+      nome_loja: nomeNormalizado,
+      ativo: true,
+    })
+    .select("id, cliente_id, nome_loja")
+    .single();
+
+  if (error) {
+    return {
+      status: error.code === "42501" ? "permission_error" : "error",
+      message: mensagemErroBanco(error),
+    };
+  }
+
+  revalidatePath("/chamados/novo");
+
+  return {
+    status: "success",
+    message: "Filial criada.",
+    data: data as LojaItem,
+  };
+}
+
 export async function criarBaseConhecimento(campos: {
   titulo: string;
   url: string;

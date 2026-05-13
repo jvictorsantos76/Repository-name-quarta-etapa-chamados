@@ -16,6 +16,7 @@ import {
   carregarDadosNovoChamado,
   criarBaseConhecimento,
   criarChamadoIdentificacao,
+  criarFilialOrganizacao,
   criarGrupoAtendimento,
   criarOrigemChamado,
   criarOrganizacao,
@@ -23,6 +24,8 @@ import {
   type BaseConhecimentoItem,
   type CatalogoItem,
   type ClienteItem,
+  type LojaItem,
+  type MutationResult,
   type NovoChamadoDados,
   type PerfilItem,
 } from "./actions";
@@ -30,7 +33,13 @@ import {
 type Impacto = "baixo" | "medio" | "alto";
 type Urgencia = "baixa" | "media" | "alta";
 type Prioridade = "baixa" | "media" | "alta" | "critica";
-type InlineTipo = "tipo" | "origem" | "organizacao" | "grupo" | "base";
+type InlineTipo =
+  | "tipo"
+  | "origem"
+  | "organizacao"
+  | "filial"
+  | "grupo"
+  | "base";
 
 type UsuarioOperacional = {
   id: string;
@@ -393,6 +402,7 @@ function InlineModal({
     tipo: { titulo: "Novo tipo de chamado", label: "Nome do tipo" },
     origem: { titulo: "Nova origem", label: "Nome da origem" },
     organizacao: { titulo: "Nova organização", label: "Nome da organização" },
+    filial: { titulo: "Nova filial", label: "Nome da filial" },
     grupo: { titulo: "Novo grupo de atendimento", label: "Nome do grupo" },
     base: { titulo: "Nova base de conhecimento", label: "Título" },
   };
@@ -443,7 +453,7 @@ function InlineModal({
             </div>
           )}
 
-          {tipo !== "organizacao" && (
+          {tipo !== "organizacao" && tipo !== "filial" && (
             <div>
               <label className="mb-2 block text-sm font-semibold">
                 Descrição ou resumo
@@ -651,21 +661,36 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
 
     setErroInline("");
 
+    if (modalAberto === "filial" && !clienteId) {
+      setErroInline("Selecione uma organização antes de criar a filial.");
+      return;
+    }
+
     startInlineTransition(async () => {
-      const resultado =
-        modalAberto === "tipo"
-          ? await criarTipoChamado(campos.nome, campos.descricao)
-          : modalAberto === "origem"
-            ? await criarOrigemChamado(campos.nome, campos.descricao)
-            : modalAberto === "grupo"
-              ? await criarGrupoAtendimento(campos.nome, campos.descricao)
-              : modalAberto === "organizacao"
-                ? await criarOrganizacao(campos.nome)
-                : await criarBaseConhecimento({
-                    titulo: campos.nome,
-                    url: campos.url,
-                    resumo: campos.descricao,
-                  });
+      let resultado: MutationResult<
+        | CatalogoItem
+        | ClienteItem
+        | LojaItem
+        | BaseConhecimentoItem
+      >;
+
+      if (modalAberto === "tipo") {
+        resultado = await criarTipoChamado(campos.nome, campos.descricao);
+      } else if (modalAberto === "origem") {
+        resultado = await criarOrigemChamado(campos.nome, campos.descricao);
+      } else if (modalAberto === "grupo") {
+        resultado = await criarGrupoAtendimento(campos.nome, campos.descricao);
+      } else if (modalAberto === "organizacao") {
+        resultado = await criarOrganizacao(campos.nome);
+      } else if (modalAberto === "filial") {
+        resultado = await criarFilialOrganizacao(clienteId, campos.nome);
+      } else {
+        resultado = await criarBaseConhecimento({
+          titulo: campos.nome,
+          url: campos.url,
+          resumo: campos.descricao,
+        });
+      }
 
       if (resultado.status !== "success" || !resultado.data) {
         setErroInline(resultado.message);
@@ -689,6 +714,11 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         setDados((atual) => ({ ...atual, clientes: [...atual.clientes, item] }));
         setClienteId(item.id);
         setLojaId("");
+      } else if (modalAberto === "filial") {
+        const item = resultado.data as LojaItem;
+        setDados((atual) => ({ ...atual, lojas: [...atual.lojas, item] }));
+        setClienteId(item.cliente_id);
+        setLojaId(item.id);
       } else {
         const item = resultado.data as BaseConhecimentoItem;
         setDados((atual) => ({ ...atual, bases: [...atual.bases, item] }));
@@ -1015,9 +1045,28 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-semibold">
-                Filial <span className="text-red-600">*</span>
-              </label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-semibold">
+                  Filial <span className="text-red-600">*</span>
+                </label>
+                {podeCriarInline && (
+                  <BotaoNovo
+                    onClick={() => {
+                      if (!clienteId) {
+                        setErro(
+                          "Selecione uma organização antes de criar a filial."
+                        );
+                        return;
+                      }
+
+                      setErro("");
+                      setModalAberto("filial");
+                    }}
+                  >
+                    + Nova filial
+                  </BotaoNovo>
+                )}
+              </div>
               <select
                 value={lojaId}
                 onChange={(event) => setLojaId(event.target.value)}

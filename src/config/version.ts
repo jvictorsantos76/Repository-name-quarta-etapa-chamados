@@ -10,5 +10,5 @@ export const CONTA_PAGE_VERSION = "v0.1.1";
 export const CONTA_PERFIL_PAGE_VERSION = "v0.2.0";
 export const CONTA_APARENCIA_PAGE_VERSION = "v0.1.0";
 export const CONTA_PERMISSOES_PAGE_VERSION = "v0.1.1";
-export const NOVO_CHAMADO_PAGE_VERSION = "v0.2.3";
+export const NOVO_CHAMADO_PAGE_VERSION = "v0.2.4";
 export const LEGAL_DOCUMENTS_VERSION = "v0.7.0";
