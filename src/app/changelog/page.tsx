@@ -6,6 +6,7 @@ const versoes = [
     versao: APP_VERSION,
     data: "12/05/2026",
     alteracoes: [
+      "Novo Chamado v0.2.3 reorganiza Assunto, Problema Relatado, Organização e Filial nos blocos operacionais da abertura de chamado.",
       "Rodapé interno v0.9.18 aproxima a hierarquia visual da referência Uber, com topo institucional, colunas discretas e linha inferior de governança.",
       "Versionamento v0.9.17 passa a usar botão fixo sobre a sidebar, com painel compacto apenas na sidebar recolhida e no mobile.",
       "Rodapé interno v0.9.17 fica exclusivamente no fluxo normal da página, sem sobrepor tabelas, cards ou ações mobile.",

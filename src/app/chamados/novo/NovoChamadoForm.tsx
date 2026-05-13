@@ -704,7 +704,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     event.preventDefault();
 
     if (!titulo.trim()) {
-      setErro("Informe o Título / Assunto do chamado.");
+      setErro("Informe o Assunto do chamado.");
       return;
     }
 
@@ -716,14 +716,14 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
       !lojaId
     ) {
       setErro(
-        "Selecione tipo, origem, organização, loja/unidade e grupo de atendimento."
+        "Selecione tipo, origem, organização, filial e grupo de atendimento."
       );
       return;
     }
 
     if (!solicitante.trim() || !categoria || !ativoTipo || !descricao.trim()) {
       setErro(
-        "Preencha solicitante, categoria, ativo e descrição antes de abrir o chamado."
+        "Preencha solicitante, categoria, ativo e problema relatado antes de abrir o chamado."
       );
       return;
     }
@@ -823,13 +823,26 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
 
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-semibold">
-                Título / Assunto <span className="text-red-600">*</span>
+                Assunto <span className="text-red-600">*</span>
               </label>
               <input
                 type="text"
                 value={titulo}
                 onChange={(event) => setTitulo(event.target.value)}
                 placeholder="Resumo objetivo do chamado"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm font-semibold">
+                Problema Relatado <span className="text-red-600">*</span>
+              </label>
+              <textarea
+                value={descricao}
+                onChange={(event) => setDescricao(event.target.value)}
+                rows={4}
+                placeholder="Descreva a necessidade, impacto e contexto informado pela filial."
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
@@ -895,34 +908,6 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
                 placeholder="Ex.: Jira, Freshservice, GLPI"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
-            </div>
-
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <label className="block text-sm font-semibold">
-                  Organização <span className="text-red-600">*</span>
-                </label>
-                {podeCriarInline && (
-                  <BotaoNovo onClick={() => setModalAberto("organizacao")}>
-                    + Nova organização
-                  </BotaoNovo>
-                )}
-              </div>
-              <select
-                value={clienteId}
-                onChange={(event) => {
-                  setClienteId(event.target.value);
-                  setLojaId("");
-                }}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
-              >
-                <option value="">Selecione uma organização</option>
-                {dados.clientes.map((cliente) => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {cliente.nome_fantasia}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div>
@@ -997,25 +982,57 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         </BlocoChamado>
 
         <BlocoChamado
-          title="2. Loja e unidade"
-          description="Unidade onde o atendimento será tratado."
+          title="2. Organização e filial"
+          description="Organização e filial onde o atendimento será tratado."
         >
-          <label className="mb-2 block text-sm font-semibold">
-            Loja/Unidade <span className="text-red-600">*</span>
-          </label>
-          <select
-            value={lojaId}
-            onChange={(event) => setLojaId(event.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
-            disabled={!clienteId}
-          >
-            <option value="">Selecione uma loja</option>
-            {lojasFiltradas.map((loja) => (
-              <option key={loja.id} value={loja.id}>
-                {loja.nome_loja}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-5">
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-semibold">
+                  Organização <span className="text-red-600">*</span>
+                </label>
+                {podeCriarInline && (
+                  <BotaoNovo onClick={() => setModalAberto("organizacao")}>
+                    + Nova organização
+                  </BotaoNovo>
+                )}
+              </div>
+              <select
+                value={clienteId}
+                onChange={(event) => {
+                  setClienteId(event.target.value);
+                  setLojaId("");
+                }}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+              >
+                <option value="">Selecione uma organização</option>
+                {dados.clientes.map((cliente) => (
+                  <option key={cliente.id} value={cliente.id}>
+                    {cliente.nome_fantasia}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold">
+                Filial <span className="text-red-600">*</span>
+              </label>
+              <select
+                value={lojaId}
+                onChange={(event) => setLojaId(event.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                disabled={!clienteId}
+              >
+                <option value="">Selecione uma filial</option>
+                {lojasFiltradas.map((loja) => (
+                  <option key={loja.id} value={loja.id}>
+                    {loja.nome_loja}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </BlocoChamado>
 
         <BlocoChamado
@@ -1171,24 +1188,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         </BlocoChamado>
 
         <BlocoChamado
-          title="6. Descrição, diagnóstico e solução"
-          description="Registro inicial do problema, contexto e impacto relatado."
-          className="lg:col-span-2"
-        >
-          <label className="mb-2 block text-sm font-semibold">
-            Descrição <span className="text-red-600">*</span>
-          </label>
-          <textarea
-            value={descricao}
-            onChange={(event) => setDescricao(event.target.value)}
-            rows={5}
-            placeholder="Descreva a necessidade, impacto e contexto informado pela loja."
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-          />
-        </BlocoChamado>
-
-        <BlocoChamado
-          title="7. Responsáveis e operadores"
+          title="6. Responsáveis e operadores"
           description="Atribuição operacional conforme permissões do perfil autenticado."
         >
           <div className="grid gap-5 md:grid-cols-2">
@@ -1237,7 +1237,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         </BlocoChamado>
 
         <BlocoChamado
-          title="8. Evidências e anexos"
+          title="7. Evidências e anexos"
           description="Arquivos iniciais para apoiar a triagem do atendimento."
           className="lg:col-span-2"
         >
@@ -1306,23 +1306,23 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         </BlocoChamado>
 
         <BlocoFuturo
-          title="9. Datas, agendamento e SLA"
+          title="8. Datas, agendamento e SLA"
           description="Reserva para prazos, janelas de atendimento e indicadores de SLA."
         />
         <BlocoFuturo
-          title="10. Peças, equipamentos e substituições"
+          title="9. Peças, equipamentos e substituições"
           description="Reserva para itens aplicados, trocas e substituições técnicas."
         />
         <BlocoFuturo
-          title="11. Custos e financeiro"
+          title="10. Custos e financeiro"
           description="Reserva para custos, valores e impactos financeiros."
         />
         <BlocoFuturo
-          title="12. Controle, validação e encerramento"
+          title="11. Controle, validação e encerramento"
           description="Reserva para aprovação, validação final e encerramento operacional."
         />
         <BlocoFuturo
-          title="13. Integrações e dados externos"
+          title="12. Integrações e dados externos"
           description="Reserva para vínculos com sistemas externos e referências integradas."
         />
       </div>

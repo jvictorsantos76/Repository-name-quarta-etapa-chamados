@@ -396,7 +396,7 @@ export async function criarChamadoIdentificacao(
   if (!titulo) {
     return {
       status: "validation_error",
-      message: "Informe o Título / Assunto do chamado.",
+      message: "Informe o Assunto do chamado.",
     };
   }
 
@@ -404,7 +404,7 @@ export async function criarChamadoIdentificacao(
     return {
       status: "validation_error",
       message:
-        "Selecione tipo, origem, organização, loja/unidade e grupo de atendimento.",
+        "Selecione tipo, origem, organização, filial e grupo de atendimento.",
     };
   }
 
@@ -412,7 +412,7 @@ export async function criarChamadoIdentificacao(
     return {
       status: "validation_error",
       message:
-        "Preencha solicitante, categoria, ativo e descrição antes de abrir o chamado.",
+        "Preencha solicitante, categoria, ativo e problema relatado antes de abrir o chamado.",
     };
   }
 
