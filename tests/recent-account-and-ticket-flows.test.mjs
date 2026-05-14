@@ -288,12 +288,12 @@ test("public cadastro keeps password flow, validates Supabase password policy an
   assert.match(cadastroPageSource, /PASSWORD_POLICY_HINT/);
 });
 
-test("login keeps invalid credential protection but warns pending users about admin approval or manual link", () => {
-  assert.match(loginPageSource, /Acesso ainda não liberado\./);
+test("login keeps invalid credential protection without mixing it with pending-access guidance", () => {
   assert.match(
     loginPageSource,
-    /aguarde a aprovação administrativa ou use o link enviado pela equipe responsável/
+    /E-mail ou senha inválidos\. Confira seus dados e tente novamente\./
   );
+  assert.doesNotMatch(loginPageSource, /Acesso ainda não liberado\./);
 });
 
 test("awaiting approval page keeps logout path and only redirects operational users", () => {

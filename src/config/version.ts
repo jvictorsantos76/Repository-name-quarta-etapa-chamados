@@ -1,4 +1,4 @@
-export const APP_VERSION = "v0.9.19";
+export const APP_VERSION = "v0.9.20";
 export const APP_UPDATED_AT = "2026-05-13";
 
 export const DASHBOARD_PAGE_VERSION = "v0.1.0";
@@ -11,4 +11,5 @@ export const CONTA_PERFIL_PAGE_VERSION = "v0.2.0";
 export const CONTA_APARENCIA_PAGE_VERSION = "v0.1.0";
 export const CONTA_PERMISSOES_PAGE_VERSION = "v0.1.2";
 export const NOVO_CHAMADO_PAGE_VERSION = "v0.2.5";
+export const STATUS_CHAMADOS_PAGE_VERSION = "v0.1.0";
 export const LEGAL_DOCUMENTS_VERSION = "v0.7.0";

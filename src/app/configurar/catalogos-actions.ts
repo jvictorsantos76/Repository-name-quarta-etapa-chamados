@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { podeGerenciarCatalogosChamado } from "@/lib/auth/permissions";
 import {
+  createSupabaseAdminClient,
   createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
@@ -52,6 +53,36 @@ function getCatalogoKind(formData: FormData): CatalogoChamadoKind | null {
     : null;
 }
 
+export type StatusChamadoInput = {
+  id?: string;
+  nome: string;
+  descricao?: string;
+  cor?: string;
+  ordem?: number;
+  ativo?: boolean;
+  eh_padrao?: boolean;
+};
+
+export type StatusChamadoActionResult =
+  | {
+      ok: true;
+      codigo: string;
+      message?: string;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+export type ExcluirStatusChamadoActionResult =
+  | {
+      ok: true;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
 async function requireGestorCatalogo() {
   const perfil = await requirePerfilAutenticado();
 
@@ -60,6 +91,162 @@ async function requireGestorCatalogo() {
   }
 
   return perfil;
+}
+
+function normalizarCorHex(valor: string) {
+  const cor = valor.trim().toLowerCase();
+
+  if (!cor) {
+    return null;
+  }
+
+  return /^#[0-9a-f]{6}$/i.test(cor) ? cor : null;
+}
+
+async function gerarCodigoUnicoStatus(
+  codigoBase: string,
+  idAtual?: string
+) {
+  const supabase = createSupabaseAdminClient();
+  const base = normalizarCodigo(codigoBase) || "status";
+  let tentativa = base;
+  let indice = 2;
+
+  while (true) {
+    const query = supabase
+      .from("chamado_status")
+      .select("id")
+      .eq("codigo", tentativa)
+      .limit(1);
+
+    const { data, error } = idAtual
+      ? await query.neq("id", idAtual)
+      : await query;
+
+    if (error) {
+      throw new Error("Não foi possível validar o código do status.");
+    }
+
+    if (!data || data.length === 0) {
+      return tentativa;
+    }
+
+    tentativa = `${base}_${indice}`;
+    indice += 1;
+  }
+}
+
+async function contarReferenciasStatus(codigo: string) {
+  const supabase = createSupabaseAdminClient();
+  const [chamados, historico] = await Promise.all([
+    supabase
+      .from("chamados")
+      .select("id", { head: true, count: "exact" })
+      .eq("status", codigo),
+    supabase
+      .from("historico_status")
+      .select("id", { head: true, count: "exact" })
+      .or(`status_anterior.eq.${codigo},status_novo.eq.${codigo}`),
+  ]);
+
+  if (chamados.error || historico.error) {
+    throw new Error("Não foi possível verificar o uso desse status.");
+  }
+
+  return (chamados.count ?? 0) + (historico.count ?? 0);
+}
+
+function revalidarCatalogoStatus() {
+  revalidatePath("/configurar/status-chamados");
+  revalidatePath("/chamados/novo");
+}
+
+export async function salvarStatusChamado(
+  input: StatusChamadoInput
+): Promise<StatusChamadoActionResult> {
+  const perfil = await requireGestorCatalogo();
+  const nome = input.nome.trim().replace(/\s+/g, " ");
+
+  if (!nome) {
+    return { ok: false, error: "Informe o nome do status." };
+  }
+
+  const codigo = await gerarCodigoUnicoStatus(nome, input.id);
+  const supabase = await createSupabaseServerClient();
+  const payload = {
+    codigo,
+    nome,
+    descricao: input.descricao?.trim().replace(/\s+/g, " ") || null,
+    cor: normalizarCorHex(input.cor ?? "") ?? "#2563eb",
+    ordem: Number.isFinite(input.ordem) ? Math.max(0, Math.trunc(input.ordem ?? 0)) : 0,
+    ativo: Boolean(input.ativo),
+    eh_padrao: Boolean(input.eh_padrao),
+    atualizado_por: perfil.id,
+  };
+
+  const query = input.id
+    ? supabase.from("chamado_status").update(payload).eq("id", input.id)
+    : supabase.from("chamado_status").insert({
+        ...payload,
+        criado_por: perfil.id,
+      });
+
+  const { error } = await query;
+
+  if (error) {
+    return { ok: false, error: "Não foi possível salvar o status." };
+  }
+
+  revalidarCatalogoStatus();
+
+  return {
+    ok: true,
+    codigo,
+    message:
+      codigo !== normalizarCodigo(nome)
+        ? `Código ajustado automaticamente para ${codigo}.`
+        : "Status salvo automaticamente.",
+  };
+}
+
+export async function excluirStatusChamado(
+  id: string
+): Promise<ExcluirStatusChamadoActionResult> {
+  await requireGestorCatalogo();
+
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { data: status, error: statusError } = await supabaseAdmin
+    .from("chamado_status")
+    .select("id, codigo, eh_padrao")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (statusError || !status) {
+    return { ok: true };
+  }
+
+  if (status.eh_padrao) {
+    return { ok: false, error: "O status padrão não pode ser excluído." };
+  }
+
+  const referencias = await contarReferenciasStatus(status.codigo);
+
+  if (referencias > 0) {
+    return {
+      ok: false,
+      error: "Esse status já está relacionado a chamados ou histórico e não pode ser excluído.",
+    };
+  }
+
+  const { error } = await supabaseAdmin.from("chamado_status").delete().eq("id", id);
+
+  if (error) {
+    return { ok: false, error: "Não foi possível excluir o status." };
+  }
+
+  revalidarCatalogoStatus();
+
+  return { ok: true };
 }
 
 export async function salvarCatalogoChamado(formData: FormData) {

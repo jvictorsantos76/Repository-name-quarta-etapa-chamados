@@ -6,6 +6,7 @@ const versoes = [
     versao: APP_VERSION,
     data: "13/05/2026",
     alteracoes: [
+      "Status de chamados v0.1.0 troca botões de salvar/atualizar por autosave, gera código automaticamente a partir do nome, usa seletor de cor, compacta o campo de ordem e adiciona exclusão segura sem vínculos.",
       "Consolida a matriz de papéis para Super-Admin, Admin, Comercial, Analista, Técnico-Quarta, Técnico-Terceirizado, Cliente e Parceiro.",
       "Cria o cadastro de Status de chamados e adiciona telas administrativas individuais para status, tipos, origens e grupos de atendimento em Configurar.",
       "Base de Conhecimento passa a ser ferramenta operacional em Ferramentas, com edição para Super-Admin/Admin/Analista e consulta para técnicos.",
@@ -73,6 +74,7 @@ const versoes = [
       "Perfil de Usuário v0.1.1 passa a incluir seção Segurança com alteração de senha e encerramento manual de sessão.",
     ],
     correcoes: [
+      "Versionamento volta a aparecer na tela de Status de chamados com o mesmo padrão visível usado nas telas operacionais.",
       "Menu do usuário fecha ao clicar fora, ao pressionar Escape ou ao navegar por um link interno.",
       "Badge de versão deixa de ficar preso sob a sidebar recolhida e passa a se adaptar ao estado expandido, recolhido e mobile.",
       "Corrige o erro local em que a solicitação era criada, mas o registro de aceites legais falhava por ausência da constraint única usada no upsert de aceites_legais.",

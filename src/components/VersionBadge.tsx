@@ -15,6 +15,7 @@ import {
   LOGIN_PAGE_VERSION,
   NOVO_CHAMADO_PAGE_VERSION,
   PERFIL_USUARIO_PAGE_VERSION,
+  STATUS_CHAMADOS_PAGE_VERSION,
   SOLICITACOES_ACESSO_PAGE_VERSION,
 } from "@/config/version";
 
@@ -48,7 +49,7 @@ const footerGroups = [
   },
 ];
 
-const appChromePrefixes = ["/chamados", "/admin", "/conta", "/roadmap"];
+const appChromePrefixes = ["/chamados", "/admin", "/conta", "/roadmap", "/configurar"];
 
 function formatarDataVersao(data: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -98,6 +99,10 @@ function getPageVersion(pathname: string) {
 
   if (pathname === "/chamados/novo") {
     return `Tela | Novo Chamado ${NOVO_CHAMADO_PAGE_VERSION}`;
+  }
+
+  if (pathname === "/configurar/status-chamados") {
+    return `Tela | Status de Chamados ${STATUS_CHAMADOS_PAGE_VERSION}`;
   }
 
   return null;
