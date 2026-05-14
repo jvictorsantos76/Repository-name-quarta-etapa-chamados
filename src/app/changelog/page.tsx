@@ -4,8 +4,12 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 const versoes = [
   {
     versao: APP_VERSION,
-    data: "12/05/2026",
+    data: "13/05/2026",
     alteracoes: [
+      "Consolida a matriz de papéis para Super-Admin, Admin, Comercial, Analista, Técnico-Quarta, Técnico-Terceirizado, Cliente e Parceiro.",
+      "Cria o cadastro de Status de chamados e adiciona telas administrativas individuais para status, tipos, origens e grupos de atendimento em Configurar.",
+      "Base de Conhecimento passa a ser ferramenta operacional em Ferramentas, com edição para Super-Admin/Admin/Analista e consulta para técnicos.",
+      "Novo Chamado v0.2.5 passa a usar status padrão cadastrado e restringe cliente/parceiro à loja vinculada ao perfil.",
       "Novo Chamado v0.2.4 adiciona criação inline de filial vinculada à organização selecionada no bloco Organização e Filial.",
       "Novo Chamado v0.2.3 reorganiza Assunto, Problema Relatado, Organização e Filial nos blocos operacionais da abertura de chamado.",
       "Rodapé interno v0.9.18 aproxima a hierarquia visual da referência Uber, com topo institucional, colunas discretas e linha inferior de governança.",

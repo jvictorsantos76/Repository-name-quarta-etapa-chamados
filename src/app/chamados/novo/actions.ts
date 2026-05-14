@@ -2,10 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  isClienteOuParceiro,
+  podeConsultarBaseConhecimento,
+  podeGerenciarCatalogosChamado,
+} from "@/lib/auth/permissions";
+import {
   createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
-import type { PapelUsuario } from "@/lib/auth/types";
 
 type ActionStatus = "success" | "validation_error" | "permission_error" | "error";
 
@@ -13,6 +17,11 @@ export type CatalogoItem = {
   id: string;
   nome: string;
   descricao: string | null;
+};
+
+export type ChamadoStatusItem = CatalogoItem & {
+  codigo: string;
+  cor: string | null;
 };
 
 export type BaseConhecimentoItem = {
@@ -40,6 +49,7 @@ export type PerfilItem = {
 };
 
 export type NovoChamadoDados = {
+  statusPadrao: ChamadoStatusItem | null;
   tipos: CatalogoItem[];
   origens: CatalogoItem[];
   grupos: CatalogoItem[];
@@ -78,19 +88,14 @@ export type CriarChamadoInput = {
   tecnico_responsavel_id: string;
 };
 
-const PAPEIS_CATALOGO: PapelUsuario[] = [
-  "super_admin",
-  "admin",
-  "gestor",
-  "analista",
-];
+function isSchemaCacheError(message: string | undefined) {
+  return Boolean(
+    message?.includes("schema cache") || message?.includes("Could not find the table")
+  );
+}
 
 function normalizarTexto(valor: string) {
   return valor.trim().replace(/\s+/g, " ");
-}
-
-function podeGerenciarCatalogo(papel: PapelUsuario) {
-  return PAPEIS_CATALOGO.includes(papel);
 }
 
 function mensagemErroBanco(error: { code?: string; message: string }) {
@@ -128,10 +133,13 @@ function validarUrlOpcional(url: string) {
 export async function carregarDadosNovoChamado(): Promise<
   MutationResult<NovoChamadoDados>
 > {
-  await requirePerfilAutenticado();
+  const perfilAtual = await requirePerfilAutenticado();
   const supabase = await createSupabaseServerClient();
+  const usuarioClienteOuParceiro = isClienteOuParceiro(perfilAtual.papel);
+  const podeVerBase = podeConsultarBaseConhecimento(perfilAtual.papel);
 
   const [
+    statusResposta,
     tiposResposta,
     origensResposta,
     gruposResposta,
@@ -141,35 +149,64 @@ export async function carregarDadosNovoChamado(): Promise<
     perfisResposta,
   ] = await Promise.all([
     supabase
+      .from("chamado_status")
+      .select("id, codigo, nome, descricao, cor")
+      .eq("ativo", true)
+      .or("eh_padrao.eq.true,codigo.eq.pendente_agendamento")
+      .order("eh_padrao", { ascending: false })
+      .order("ordem")
+      .limit(1)
+      .maybeSingle(),
+    supabase
       .from("chamado_tipos")
       .select("id, nome, descricao")
       .eq("ativo", true)
+      .order("ordem")
       .order("nome"),
     supabase
       .from("chamado_origens")
       .select("id, nome, descricao")
       .eq("ativo", true)
+      .order("ordem")
       .order("nome"),
     supabase
       .from("grupos_atendimento")
       .select("id, nome, descricao")
       .eq("ativo", true)
+      .order("ordem")
       .order("nome"),
-    supabase
-      .from("bases_conhecimento")
-      .select("id, titulo, url, resumo")
-      .eq("ativo", true)
-      .order("titulo"),
-    supabase
-      .from("clientes")
-      .select("id, nome_fantasia")
-      .eq("ativo", true)
-      .order("nome_fantasia"),
-    supabase
-      .from("lojas")
-      .select("id, cliente_id, nome_loja")
-      .eq("ativo", true)
-      .order("nome_loja"),
+    podeVerBase
+      ? supabase
+          .from("bases_conhecimento")
+          .select("id, titulo, url, resumo")
+          .eq("ativo", true)
+          .order("ordem")
+          .order("titulo")
+      : Promise.resolve({ data: [], error: null }),
+    usuarioClienteOuParceiro && perfilAtual.cliente_id
+      ? supabase
+          .from("clientes")
+          .select("id, nome_fantasia")
+          .eq("id", perfilAtual.cliente_id)
+          .eq("ativo", true)
+          .order("nome_fantasia")
+      : supabase
+          .from("clientes")
+          .select("id, nome_fantasia")
+          .eq("ativo", true)
+          .order("nome_fantasia"),
+    usuarioClienteOuParceiro && perfilAtual.loja_id
+      ? supabase
+          .from("lojas")
+          .select("id, cliente_id, nome_loja")
+          .eq("id", perfilAtual.loja_id)
+          .eq("ativo", true)
+          .order("nome_loja")
+      : supabase
+          .from("lojas")
+          .select("id, cliente_id, nome_loja")
+          .eq("ativo", true)
+          .order("nome_loja"),
     supabase
       .from("perfis")
       .select("id, nome_completo, papel")
@@ -177,14 +214,17 @@ export async function carregarDadosNovoChamado(): Promise<
       .order("nome_completo"),
   ]);
 
-  const erro =
-    tiposResposta.error ??
-    origensResposta.error ??
-    gruposResposta.error ??
-    basesResposta.error ??
-    clientesResposta.error ??
-    lojasResposta.error ??
-    perfisResposta.error;
+  const erros = [
+    statusResposta.error,
+    tiposResposta.error,
+    origensResposta.error,
+    gruposResposta.error,
+    basesResposta.error,
+    clientesResposta.error,
+    lojasResposta.error,
+    perfisResposta.error,
+  ].filter(Boolean);
+  const erro = erros.find((item) => !isSchemaCacheError(item?.message)) ?? null;
 
   if (erro) {
     return {
@@ -194,10 +234,33 @@ export async function carregarDadosNovoChamado(): Promise<
   }
 
   const dados = {
-    tipos: (tiposResposta.data as CatalogoItem[] | null) ?? [],
-    origens: (origensResposta.data as CatalogoItem[] | null) ?? [],
-    grupos: (gruposResposta.data as CatalogoItem[] | null) ?? [],
-    bases: (basesResposta.data as BaseConhecimentoItem[] | null) ?? [],
+    statusPadrao: isSchemaCacheError(statusResposta.error?.message)
+      ? {
+          id: "fallback-status-pendente-agendamento",
+          codigo: "pendente_agendamento",
+          nome: "Pendente de agendamento",
+          descricao: null,
+          cor: null,
+        }
+      : (statusResposta.data as ChamadoStatusItem | null) ?? {
+          id: "fallback-status-pendente-agendamento",
+          codigo: "pendente_agendamento",
+          nome: "Pendente de agendamento",
+          descricao: null,
+          cor: null,
+        },
+    tipos: isSchemaCacheError(tiposResposta.error?.message)
+      ? []
+      : (tiposResposta.data as CatalogoItem[] | null) ?? [],
+    origens: isSchemaCacheError(origensResposta.error?.message)
+      ? []
+      : (origensResposta.data as CatalogoItem[] | null) ?? [],
+    grupos: isSchemaCacheError(gruposResposta.error?.message)
+      ? []
+      : (gruposResposta.data as CatalogoItem[] | null) ?? [],
+    bases: isSchemaCacheError(basesResposta.error?.message)
+      ? []
+      : (basesResposta.data as BaseConhecimentoItem[] | null) ?? [],
     clientes: (clientesResposta.data as ClienteItem[] | null) ?? [],
     lojas: (lojasResposta.data as LojaItem[] | null) ?? [],
     perfis: (perfisResposta.data as PerfilItem[] | null) ?? [],
@@ -217,7 +280,7 @@ async function criarCatalogoSimples(
 ): Promise<MutationResult<CatalogoItem>> {
   const perfilAtual = await requirePerfilAutenticado();
 
-  if (!podeGerenciarCatalogo(perfilAtual.papel)) {
+  if (!podeGerenciarCatalogosChamado(perfilAtual.papel)) {
     return {
       status: "permission_error",
       message: "Seu perfil não pode cadastrar itens auxiliares do chamado.",
@@ -264,6 +327,66 @@ export async function criarTipoChamado(nome: string, descricao: string) {
   return criarCatalogoSimples("chamado_tipos", nome, descricao);
 }
 
+export async function criarStatusChamado(campos: {
+  nome: string;
+  descricao: string;
+  cor: string;
+}): Promise<MutationResult<CatalogoItem>> {
+  const perfilAtual = await requirePerfilAutenticado();
+
+  if (!podeGerenciarCatalogosChamado(perfilAtual.papel)) {
+    return {
+      status: "permission_error",
+      message: "Seu perfil não pode cadastrar status de chamados.",
+    };
+  }
+
+  const nome = normalizarTexto(campos.nome);
+
+  if (!nome) {
+    return {
+      status: "validation_error",
+      message: "Informe o nome do status.",
+    };
+  }
+
+  const codigo = nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("chamado_status")
+    .insert({
+      codigo,
+      nome,
+      descricao: normalizarTexto(campos.descricao) || null,
+      cor: normalizarTexto(campos.cor) || null,
+      criado_por: perfilAtual.id,
+      atualizado_por: perfilAtual.id,
+    })
+    .select("id, nome, descricao")
+    .single();
+
+  if (error) {
+    return {
+      status: error.code === "42501" ? "permission_error" : "error",
+      message: mensagemErroBanco(error),
+    };
+  }
+
+  revalidatePath("/chamados/novo");
+  revalidatePath("/configurar/status-chamados");
+
+  return {
+    status: "success",
+    message: "Status criado.",
+    data: data as CatalogoItem,
+  };
+}
+
 export async function criarOrigemChamado(nome: string, descricao: string) {
   return criarCatalogoSimples("chamado_origens", nome, descricao);
 }
@@ -275,7 +398,7 @@ export async function criarGrupoAtendimento(nome: string, descricao: string) {
 export async function criarOrganizacao(nome: string): Promise<MutationResult<ClienteItem>> {
   const perfilAtual = await requirePerfilAutenticado();
 
-  if (!podeGerenciarCatalogo(perfilAtual.papel)) {
+  if (!podeGerenciarCatalogosChamado(perfilAtual.papel)) {
     return {
       status: "permission_error",
       message: "Seu perfil não pode cadastrar organizações na abertura.",
@@ -324,7 +447,7 @@ export async function criarFilialOrganizacao(
 ): Promise<MutationResult<LojaItem>> {
   const perfilAtual = await requirePerfilAutenticado();
 
-  if (!podeGerenciarCatalogo(perfilAtual.papel)) {
+  if (!podeGerenciarCatalogosChamado(perfilAtual.papel)) {
     return {
       status: "permission_error",
       message: "Seu perfil não pode cadastrar filiais na abertura.",
@@ -402,10 +525,10 @@ export async function criarBaseConhecimento(campos: {
 }): Promise<MutationResult<BaseConhecimentoItem>> {
   const perfilAtual = await requirePerfilAutenticado();
 
-  if (!podeGerenciarCatalogo(perfilAtual.papel)) {
+  if (!podeGerenciarCatalogosChamado(perfilAtual.papel)) {
     return {
       status: "permission_error",
-      message: "Seu perfil não pode cadastrar bases de conhecimento.",
+      message: "Seu perfil não pode cadastrar artigos da base de conhecimento.",
     };
   }
 
@@ -415,7 +538,7 @@ export async function criarBaseConhecimento(campos: {
   if (!titulo) {
     return {
       status: "validation_error",
-      message: "Informe o título da base de conhecimento.",
+      message: "Informe o título do artigo.",
     };
   }
 
@@ -449,7 +572,7 @@ export async function criarBaseConhecimento(campos: {
 
   return {
     status: "success",
-    message: "Base de conhecimento criada.",
+    message: "Artigo criado.",
     data: data as BaseConhecimentoItem,
   };
 }
@@ -458,17 +581,35 @@ export async function criarChamadoIdentificacao(
   input: CriarChamadoInput
 ): Promise<MutationResult<{ id: string; numero: number }>> {
   const perfilAtual = await requirePerfilAutenticado();
+  const usuarioClienteOuParceiro = isClienteOuParceiro(perfilAtual.papel);
 
   const titulo = normalizarTexto(input.titulo);
   const solicitante = normalizarTexto(input.solicitante);
   const descricao = input.descricao.trim();
+  const organizacaoIdEfetiva = usuarioClienteOuParceiro
+    ? perfilAtual.cliente_id ?? input.organizacao_id
+    : input.organizacao_id;
+  const lojaIdEfetiva = usuarioClienteOuParceiro
+    ? perfilAtual.loja_id ?? ""
+    : input.loja_id;
+  const basesSelecionadas = podeConsultarBaseConhecimento(perfilAtual.papel)
+    ? input.base_conhecimento_ids
+    : [];
   const idsObrigatorios = [
     input.tipo_chamado_id,
     input.origem_id,
-    input.organizacao_id,
+    organizacaoIdEfetiva,
     input.grupo_atendimento_id,
-    input.loja_id,
+    lojaIdEfetiva,
   ];
+
+  if (usuarioClienteOuParceiro && !perfilAtual.loja_id) {
+    return {
+      status: "permission_error",
+      message:
+        "Seu perfil não possui loja vinculada. Solicite a correção do cadastro antes de abrir chamados.",
+    };
+  }
 
   if (!titulo) {
     return {
@@ -493,7 +634,7 @@ export async function criarChamadoIdentificacao(
     };
   }
 
-  if (!validarUuidLista([...idsObrigatorios, ...input.base_conhecimento_ids])) {
+  if (!validarUuidLista([...idsObrigatorios, ...basesSelecionadas])) {
     return {
       status: "validation_error",
       message: "Um dos cadastros selecionados é inválido. Recarregue a tela.",
@@ -501,7 +642,8 @@ export async function criarChamadoIdentificacao(
   }
 
   const supabase = await createSupabaseServerClient();
-  const [tipoResposta, origemResposta] = await Promise.all([
+  const [tipoResposta, origemResposta, grupoResposta, lojaResposta, statusResposta] =
+    await Promise.all([
     supabase
       .from("chamado_tipos")
       .select("nome")
@@ -514,21 +656,86 @@ export async function criarChamadoIdentificacao(
       .eq("id", input.origem_id)
       .eq("ativo", true)
       .maybeSingle(),
+    supabase
+      .from("grupos_atendimento")
+      .select("nome")
+      .eq("id", input.grupo_atendimento_id)
+      .eq("ativo", true)
+      .maybeSingle(),
+    supabase
+      .from("lojas")
+      .select("id, cliente_id")
+      .eq("id", lojaIdEfetiva)
+      .eq("ativo", true)
+      .maybeSingle(),
+    supabase
+      .from("chamado_status")
+      .select("codigo, nome")
+      .eq("ativo", true)
+      .or("eh_padrao.eq.true,codigo.eq.pendente_agendamento")
+      .order("eh_padrao", { ascending: false })
+      .order("ordem")
+      .limit(1)
+      .maybeSingle(),
   ]);
 
-  if (tipoResposta.error || origemResposta.error) {
+  const erroValidacao = [
+    tipoResposta.error,
+    origemResposta.error,
+    grupoResposta.error,
+    lojaResposta.error,
+    statusResposta.error,
+  ].find((item) => item && !isSchemaCacheError(item.message));
+
+  if (erroValidacao) {
     return {
       status: "error",
-      message: "Não foi possível validar tipo e origem do chamado.",
+      message: "Não foi possível validar os cadastros do chamado.",
     };
   }
 
-  if (!tipoResposta.data || !origemResposta.data) {
+  if (!tipoResposta.data || !origemResposta.data || !grupoResposta.data) {
     return {
       status: "validation_error",
-      message: "Tipo ou origem selecionados não estão mais ativos.",
+      message:
+        "Tipo, origem ou grupo selecionado não está mais ativo. Recarregue a tela.",
     };
   }
+
+  if (!lojaResposta.data || lojaResposta.data.cliente_id !== organizacaoIdEfetiva) {
+    return {
+      status: "validation_error",
+      message: "A filial selecionada não pertence à organização vinculada.",
+    };
+  }
+
+  if (basesSelecionadas.length > 0) {
+    const { data: basesAtivas, error: erroBasesAtivas } = await supabase
+      .from("bases_conhecimento")
+      .select("id")
+      .in("id", basesSelecionadas)
+      .eq("ativo", true);
+
+    if (erroBasesAtivas) {
+      return {
+        status:
+          erroBasesAtivas.code === "42501" ? "permission_error" : "error",
+        message: "Não foi possível validar os artigos selecionados.",
+      };
+    }
+
+    if ((basesAtivas ?? []).length !== basesSelecionadas.length) {
+      return {
+        status: "validation_error",
+        message:
+          "Um dos artigos selecionados não está mais ativo. Recarregue a tela.",
+      };
+    }
+  }
+
+  const statusInicial = isSchemaCacheError(statusResposta.error?.message)
+    ? "pendente_agendamento"
+    : statusResposta.data?.codigo ?? "pendente_agendamento";
 
   const descricaoProblema = [
     `Solicitante: ${solicitante}`,
@@ -551,9 +758,9 @@ export async function criarChamadoIdentificacao(
   const { data: chamadoCriado, error: erroChamado } = await supabase
     .from("chamados")
     .insert({
-      cliente_id: input.organizacao_id,
-      organizacao_id: input.organizacao_id,
-      loja_id: input.loja_id,
+      cliente_id: organizacaoIdEfetiva,
+      organizacao_id: organizacaoIdEfetiva,
+      loja_id: lojaIdEfetiva,
       operador_id: perfilAtual.id,
       tecnico_id: input.tecnico_responsavel_id || null,
       analista_responsavel_id: input.analista_responsavel_id || null,
@@ -574,7 +781,7 @@ export async function criarChamadoIdentificacao(
       modelo: normalizarTexto(input.modelo) || null,
       titulo,
       descricao_problema: descricaoProblema,
-      status: "pendente_agendamento",
+      status: statusInicial,
       prioridade: input.prioridade,
     })
     .select("id, numero")
@@ -589,8 +796,8 @@ export async function criarChamadoIdentificacao(
     };
   }
 
-  if (input.base_conhecimento_ids.length > 0) {
-    const basesRelacionadas = input.base_conhecimento_ids.map((baseId) => ({
+  if (basesSelecionadas.length > 0) {
+    const basesRelacionadas = basesSelecionadas.map((baseId) => ({
       chamado_id: chamadoCriado.id,
       base_conhecimento_id: baseId,
     }));
@@ -615,7 +822,7 @@ export async function criarChamadoIdentificacao(
       chamado_id: chamadoCriado.id,
       usuario_id: perfilAtual.id,
       status_anterior: null,
-      status_novo: "pendente_agendamento",
+      status_novo: statusInicial,
       observacao: "Chamado aberto pelo sistema.",
     });
 

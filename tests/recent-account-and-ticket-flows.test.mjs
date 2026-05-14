@@ -19,7 +19,14 @@ const perfilGrantMigration = await readFile(
 );
 const chamadoIdentificacaoMigration = await readFile(
   new URL(
-    "../supabase/migrations/202605080001_chamado_identificacao_bloco1.sql",
+    "../supabase/migrations/202605130003_consolidate_ticket_catalogs_roles_rls.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const roleValuesMigration = await readFile(
+  new URL(
+    "../supabase/migrations/202605130002_add_consolidated_role_values.sql",
     import.meta.url
   ),
   "utf8"
@@ -131,7 +138,7 @@ test("faturado ticket changes stay restricted to admin and analyst roles", () =>
   assert.match(papeisFaturado, /"analista"/);
   assert.doesNotMatch(
     papeisFaturado,
-    /"(?:gestor|operador|tecnico|cliente|solicitante)"/
+    /"(?:comercial|tecnico_quarta|tecnico_terceirizado|cliente|parceiro)"/
   );
   assert.match(
     statusFormSource,
@@ -161,38 +168,40 @@ test("ticket identification block keeps catalog tables with RLS and no physical 
   ]) {
     assert.match(
       chamadoIdentificacaoMigration,
-      new RegExp(`create table if not exists public\\.${tableName}`, "i")
-    );
-    assert.match(
-      chamadoIdentificacaoMigration,
       new RegExp(`alter table public\\.${tableName} enable row level security`, "i")
     );
   }
 
+  assert.match(
+    chamadoIdentificacaoMigration,
+    /create table if not exists public\.chamado_status/i
+  );
   assert.doesNotMatch(chamadoIdentificacaoMigration, /for delete/i);
 });
 
-test("inline ticket catalog writes are restricted to admin gestor and analyst roles", () => {
+test("inline ticket catalog writes are restricted to admin and analyst roles", () => {
+  assert.match(roleValuesMigration, /add value if not exists 'tecnico_quarta'/i);
+  assert.match(roleValuesMigration, /add value if not exists 'parceiro'/i);
   assert.match(
     chamadoIdentificacaoMigration,
-    /papel(?:::text)?\s+in\s+\('super_admin', 'admin', 'gestor', 'analista'\)/i
+    /papel(?:::text)?\s+in\s+\('super_admin', 'admin', 'analista'\)/i
   );
   assert.match(
     chamadoIdentificacaoMigration,
     /with check \(public\.usuario_catalogo_chamados_ativo\(\) and criado_por = auth\.uid\(\)\)/i
   );
   assert.match(novoChamadoActionsSource, /await requirePerfilAutenticado\(\)/);
-  const papeisCatalogo = extractArray(novoChamadoActionsSource, "PAPEIS_CATALOGO");
-  assert.match(papeisCatalogo, /"analista"/);
+  assert.match(novoChamadoActionsSource, /podeGerenciarCatalogosChamado/);
   assert.doesNotMatch(novoChamadoActionsSource, /perfilAtual\.papel === "solicitante"/);
 });
 
 test("new ticket form requires manual title and keeps status and number read only", () => {
-  assert.match(novoChamadoFormSource, /Título \/ Assunto/);
-  assert.match(novoChamadoFormSource, /Informe o Título \/ Assunto do chamado\./);
+  assert.match(novoChamadoFormSource, /Assunto/);
+  assert.match(novoChamadoActionsSource, /Informe o Assunto do chamado\./);
   assert.match(novoChamadoFormSource, /value="Gerado após salvar"/);
-  assert.match(novoChamadoFormSource, /value="Pendente de agendamento"/);
+  assert.match(novoChamadoFormSource, /dados\.statusPadrao\?\.nome/);
   assert.match(novoChamadoFormSource, /Base de conhecimento relacionada/);
+  assert.match(novoChamadoFormSource, /\+ Novo artigo/);
   assert.match(novoChamadoFormSource, /criarChamadoIdentificacao/);
 });
 

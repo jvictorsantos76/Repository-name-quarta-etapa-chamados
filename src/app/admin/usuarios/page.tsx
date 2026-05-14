@@ -71,7 +71,15 @@ const STATUS_LABEL: Record<string, string> = {
 
 const PAPEIS_PROVISIONAMENTO_DISPONIVEIS: PapelUsuario[] =
   PAPEIS_PROVISIONAMENTO.filter((papel) =>
-    ["admin", "gestor", "analista", "tecnico"].includes(papel)
+    [
+      "admin",
+      "comercial",
+      "analista",
+      "tecnico_quarta",
+      "tecnico_terceirizado",
+      "cliente",
+      "parceiro",
+    ].includes(papel)
   );
 
 function getBaseUrl(headersList: Headers) {

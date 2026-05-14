@@ -3,25 +3,36 @@ import type { PapelUsuario } from "./types";
 export const PAPEIS_USUARIO: PapelUsuario[] = [
   "super_admin",
   "admin",
-  "gestor",
-  "operador",
+  "comercial",
   "analista",
-  "tecnico",
+  "tecnico_quarta",
+  "tecnico_terceirizado",
   "cliente",
-  "solicitante",
+  "parceiro",
 ];
 
 export const PAPEIS_PROVISIONAMENTO: PapelUsuario[] = [
   "super_admin",
   "admin",
-  "gestor",
+  "comercial",
   "analista",
-  "tecnico",
+  "tecnico_quarta",
+  "tecnico_terceirizado",
   "cliente",
-  "solicitante",
+  "parceiro",
 ];
 
 export const PAPEIS_ADMIN_USUARIOS: PapelUsuario[] = ["super_admin", "admin"];
+export const PAPEIS_CATALOGOS_CHAMADO: PapelUsuario[] = [
+  "super_admin",
+  "admin",
+  "analista",
+];
+export const PAPEIS_BASE_CONHECIMENTO: PapelUsuario[] = [
+  ...PAPEIS_CATALOGOS_CHAMADO,
+  "tecnico_quarta",
+  "tecnico_terceirizado",
+];
 export const PAPEIS_ALTERAR_CHAMADO_FATURADO: PapelUsuario[] = [
   "super_admin",
   "admin",
@@ -31,12 +42,12 @@ export const PAPEIS_ALTERAR_CHAMADO_FATURADO: PapelUsuario[] = [
 export const LABEL_PAPEL_USUARIO: Record<PapelUsuario, string> = {
   super_admin: "Super-Admin",
   admin: "Admin",
-  gestor: "Gestor",
-  operador: "Operador (legado)",
+  comercial: "Comercial",
   analista: "Analista",
-  tecnico: "Técnico",
+  tecnico_quarta: "Técnico-Quarta",
+  tecnico_terceirizado: "Técnico-Terceirizado",
   cliente: "Cliente",
-  solicitante: "Solicitante",
+  parceiro: "Parceiro",
 };
 
 export function isPapelUsuario(papel: string): papel is PapelUsuario {
@@ -45,6 +56,22 @@ export function isPapelUsuario(papel: string): papel is PapelUsuario {
 
 export function podeAdministrarUsuarios(papel: PapelUsuario) {
   return PAPEIS_ADMIN_USUARIOS.includes(papel);
+}
+
+export function podeGerenciarCatalogosChamado(papel: PapelUsuario) {
+  return PAPEIS_CATALOGOS_CHAMADO.includes(papel);
+}
+
+export function podeConsultarBaseConhecimento(papel: PapelUsuario) {
+  return PAPEIS_BASE_CONHECIMENTO.includes(papel);
+}
+
+export function isClienteOuParceiro(papel: PapelUsuario) {
+  return papel === "cliente" || papel === "parceiro";
+}
+
+export function podeOperarChamados(papel: PapelUsuario) {
+  return PAPEIS_OPERACIONAIS.includes(papel);
 }
 
 export function podeAlterarChamadoFaturado(papel: PapelUsuario) {
@@ -68,10 +95,10 @@ const TODOS_PAPEIS: PapelUsuario[] = PAPEIS_USUARIO;
 const PAPEIS_OPERACIONAIS: PapelUsuario[] = [
   "super_admin",
   "admin",
-  "gestor",
-  "operador",
+  "comercial",
   "analista",
-  "tecnico",
+  "tecnico_quarta",
+  "tecnico_terceirizado",
 ];
 
 export const MATRIZ_PERMISSOES: PermissaoTela[] = [

@@ -12,6 +12,7 @@ import {
 } from "@/lib/supabase/client";
 import {
   ROADMAP_PATH,
+  filterNavigationGroupsByRole,
   findNavigationItem,
   navigationGroups,
   type MenuIcon,
@@ -460,7 +461,11 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
   const [pendente, startTransition] = useTransition();
   const userMenuRef = useRef<HTMLDivElement | null>(null);
   const sidebarRef = useRef<HTMLElement | null>(null);
-  const active = findNavigationItem(pathname);
+  const allowedNavigationGroups = useMemo(
+    () => filterNavigationGroupsByRole(perfil.papel),
+    [perfil.papel]
+  );
+  const active = findNavigationItem(pathname, perfil.papel);
   const activeItemId = active?.item.id;
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navigationGroups.map((group) => [group.id, true]))
@@ -486,10 +491,10 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
     const term = menuTerm.trim().toLowerCase();
 
     if (!term) {
-      return navigationGroups;
+      return allowedNavigationGroups;
     }
 
-    return navigationGroups
+    return allowedNavigationGroups
       .map((group) => ({
         ...group,
         items: group.items.filter(
@@ -499,7 +504,7 @@ export function AppHeaderClient({ perfil }: { perfil: HeaderPerfil }) {
         ),
       }))
       .filter((group) => group.items.length > 0);
-  }, [menuTerm]);
+  }, [allowedNavigationGroups, menuTerm]);
   const allGroupsOpen = filteredGroups.every((group) => openGroups[group.id] ?? true);
   const allGroupsClosed = filteredGroups.every((group) => !(openGroups[group.id] ?? true));
   const effectiveGroupAction = allGroupsOpen

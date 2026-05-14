@@ -9,37 +9,37 @@ const permissoes = [
   {
     papel: "Admin",
     descricao:
-      "Administra usuários, aprova solicitações e acompanha a operação interna.",
+      "Administra usuários, aprova solicitações, mantém catálogos de chamados e acompanha a operação interna.",
   },
   {
-    papel: "Gestor",
+    papel: "Comercial",
     descricao:
-      "Faz gestão geral, acompanha chamados, clientes, lojas, usuários e relatórios, sem ser tratado como analista responsável por padrão.",
+      "Pode abrir e preencher chamados, sem acesso aos catálogos administrativos ou à Base de Conhecimento nesta fase.",
   },
   {
     papel: "Analista",
     descricao:
-      "Pode abrir chamado, assumir responsabilidade e atribuir técnico enquanto o chamado não estiver finalizado.",
+      "Pode abrir chamado, assumir responsabilidade, atribuir técnico, manter catálogos e administrar artigos da Base de Conhecimento.",
   },
   {
-    papel: "Técnico",
+    papel: "Técnico-Quarta",
     descricao:
-      "Abre chamado para si mesmo, não atribui outro técnico e não exclui chamados.",
+      "Pode abrir e preencher chamados, consultar artigos ativos e relacionar artigos ao atendimento.",
   },
   {
-    papel: "Operador",
+    papel: "Técnico-Terceirizado",
     descricao:
-      "Papel legado mantido para compatibilidade; não deve ser usado em novos provisionamentos.",
+      "Pode abrir e preencher chamados, consultar artigos ativos e relacionar artigos ao atendimento, sem administrar catálogos.",
   },
   {
     papel: "Cliente",
     descricao:
-      "Abre e acompanha chamados próprios, sem acesso administrativo ou visão operacional ampla.",
+      "Abre e acompanha chamados somente da loja vinculada ao próprio perfil, sem acesso administrativo.",
   },
   {
-    papel: "Solicitante",
+    papel: "Parceiro",
     descricao:
-      "Abre e acompanha chamados próprios, com acesso restrito ao seu atendimento.",
+      "Abre e acompanha chamados somente da loja vinculada ao próprio perfil, sem acesso à Base de Conhecimento interna nesta fase.",
   },
 ];
 

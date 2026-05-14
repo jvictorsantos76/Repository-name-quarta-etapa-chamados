@@ -3,12 +3,12 @@ import type { CorPreferida, FonteEscala, TemaPreferido } from "@/lib/theme/types
 export type PapelUsuario =
   | "super_admin"
   | "admin"
-  | "gestor"
-  | "operador"
+  | "comercial"
   | "analista"
-  | "tecnico"
+  | "tecnico_quarta"
+  | "tecnico_terceirizado"
   | "cliente"
-  | "solicitante";
+  | "parceiro";
 
 export type PerfilAutenticado = {
   id: string;

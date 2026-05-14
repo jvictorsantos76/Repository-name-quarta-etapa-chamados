@@ -23,7 +23,7 @@ export type OpcaoVisual<T extends string> = {
 };
 
 export const statusChamadoOpcoes: OpcaoVisual<StatusChamado>[] = [
-  { value: "pendente_agendamento", label: "Pendente Agendamento" },
+  { value: "pendente_agendamento", label: "Pendente de agendamento" },
   { value: "orcamento", label: "Orçamento" },
   { value: "agendado", label: "Agendado" },
   { value: "em_atendimento", label: "Em atendimento" },
@@ -150,15 +150,15 @@ const prioridadeClasses: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  pendente_agendamento: "Pendente Agendamento",
+  pendente_agendamento: "Pendente de agendamento",
   orcamento: "Orçamento",
   agendado: "Agendado",
   em_atendimento: "Em atendimento",
   pendente_peca: "Pendente Peça",
   resolvido: "Resolvido",
   faturado: "Faturado",
-  aberto: "Pendente Agendamento",
-  pendente: "Pendente Agendamento",
+  aberto: "Pendente de agendamento",
+  pendente: "Pendente de agendamento",
   finalizado: "Resolvido",
   concluido: "Resolvido",
 };

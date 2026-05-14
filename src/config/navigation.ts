@@ -1,3 +1,5 @@
+import type { PapelUsuario } from "@/lib/auth/types";
+
 export type MenuItemStatus = "disponivel" | "em_construcao" | "em_breve";
 
 export type MenuIcon =
@@ -29,6 +31,7 @@ export type NavigationItem = {
   href: string;
   status: MenuItemStatus;
   icon: MenuIcon;
+  allowedRoles?: PapelUsuario[];
 };
 
 export type NavigationGroup = {
@@ -36,6 +39,7 @@ export type NavigationGroup = {
   label: string;
   icon: MenuIcon;
   items: NavigationItem[];
+  allowedRoles?: PapelUsuario[];
 };
 
 export const ROADMAP_PATH = "/roadmap";
@@ -174,6 +178,20 @@ export const navigationGroups: NavigationGroup[] = [
     icon: "tool",
     items: [
       {
+        id: "ferramentas-base-conhecimento",
+        label: "Base de conhecimento",
+        href: "/ferramentas/base-conhecimento",
+        status: "disponivel",
+        icon: "database",
+        allowedRoles: [
+          "super_admin",
+          "admin",
+          "analista",
+          "tecnico_quarta",
+          "tecnico_terceirizado",
+        ],
+      },
+      {
         id: "ferramentas-faq",
         label: "FAQ",
         href: "/faq/permissoes",
@@ -223,6 +241,38 @@ export const navigationGroups: NavigationGroup[] = [
     icon: "settings",
     items: [
       {
+        id: "configurar-status-chamados",
+        label: "Status de chamados",
+        href: "/configurar/status-chamados",
+        status: "disponivel",
+        icon: "checkSquare",
+        allowedRoles: ["super_admin", "admin", "analista"],
+      },
+      {
+        id: "configurar-tipos-chamado",
+        label: "Tipos de chamado",
+        href: "/configurar/tipos-chamado",
+        status: "disponivel",
+        icon: "clipboard",
+        allowedRoles: ["super_admin", "admin", "analista"],
+      },
+      {
+        id: "configurar-origens-chamado",
+        label: "Origem do chamado",
+        href: "/configurar/origens-chamado",
+        status: "disponivel",
+        icon: "globe",
+        allowedRoles: ["super_admin", "admin", "analista"],
+      },
+      {
+        id: "configurar-grupos-atendimento",
+        label: "Grupos de atendimento",
+        href: "/configurar/grupos-atendimento",
+        status: "disponivel",
+        icon: "users",
+        allowedRoles: ["super_admin", "admin", "analista"],
+      },
+      {
         id: "configurar-preferencias",
         label: "Preferências",
         href: "/conta/aparencia",
@@ -247,8 +297,26 @@ export const navigationGroups: NavigationGroup[] = [
   },
 ];
 
-export function findNavigationItem(pathname: string) {
-  const exactMatch = navigationGroups
+export function filterNavigationGroupsByRole(
+  papel: PapelUsuario,
+  groups: NavigationGroup[] = navigationGroups
+) {
+  return groups
+    .filter((group) => !group.allowedRoles || group.allowedRoles.includes(papel))
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.allowedRoles || item.allowedRoles.includes(papel)
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+export function findNavigationItem(pathname: string, papel?: PapelUsuario) {
+  const groups = papel
+    ? filterNavigationGroupsByRole(papel)
+    : navigationGroups;
+  const exactMatch = groups
     .flatMap((group) => group.items.map((item) => ({ group, item })))
     .find(({ item }) => item.href === pathname);
 
@@ -257,7 +325,7 @@ export function findNavigationItem(pathname: string) {
   }
 
   if (pathname.startsWith("/chamados/") && pathname !== "/chamados/novo") {
-    const group = navigationGroups.find((item) => item.id === "assistencia");
+    const group = groups.find((item) => item.id === "assistencia");
     const item = group?.items.find((navItem) => navItem.id === "assistencia-chamados");
 
     return group && item ? { group, item } : null;
@@ -265,4 +333,3 @@ export function findNavigationItem(pathname: string) {
 
   return null;
 }
-

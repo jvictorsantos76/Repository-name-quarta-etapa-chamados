@@ -4,6 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PapelUsuario, PerfilAutenticado } from "@/lib/auth/types";
+import {
+  isClienteOuParceiro,
+  podeConsultarBaseConhecimento,
+  podeGerenciarCatalogosChamado,
+} from "@/lib/auth/permissions";
 import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   ativosPorCategoria,
@@ -20,6 +25,7 @@ import {
   criarGrupoAtendimento,
   criarOrigemChamado,
   criarOrganizacao,
+  criarStatusChamado,
   criarTipoChamado,
   type BaseConhecimentoItem,
   type CatalogoItem,
@@ -34,6 +40,7 @@ type Impacto = "baixo" | "medio" | "alto";
 type Urgencia = "baixa" | "media" | "alta";
 type Prioridade = "baixa" | "media" | "alta" | "critica";
 type InlineTipo =
+  | "status"
   | "tipo"
   | "origem"
   | "organizacao"
@@ -130,6 +137,7 @@ const acceptEvidencias = [
 ].join(",");
 
 const dadosIniciais: NovoChamadoDados = {
+  statusPadrao: null,
   tipos: [],
   origens: [],
   grupos: [],
@@ -182,12 +190,12 @@ function normalizarPapel(papel: string): PapelUsuario | null {
   if (
     papel === "admin" ||
     papel === "super_admin" ||
-    papel === "gestor" ||
-    papel === "operador" ||
+    papel === "comercial" ||
     papel === "analista" ||
-    papel === "tecnico" ||
+    papel === "tecnico_quarta" ||
+    papel === "tecnico_terceirizado" ||
     papel === "cliente" ||
-    papel === "solicitante"
+    papel === "parceiro"
   ) {
     return papel;
   }
@@ -199,18 +207,12 @@ function podeAtribuirResponsaveis(papel: PapelUsuario | undefined) {
   return (
     papel === "super_admin" ||
     papel === "admin" ||
-    papel === "gestor" ||
     papel === "analista"
   );
 }
 
 function podeCriarCatalogo(papel: PapelUsuario | undefined) {
-  return (
-    papel === "super_admin" ||
-    papel === "admin" ||
-    papel === "gestor" ||
-    papel === "analista"
-  );
+  return papel ? podeGerenciarCatalogosChamado(papel) : false;
 }
 
 function montarUsuariosOperacionais(perfis: PerfilItem[]) {
@@ -391,20 +393,27 @@ function InlineModal({
 }: {
   tipo: InlineTipo;
   onClose: () => void;
-  onSubmit: (campos: { nome: string; descricao: string; url: string }) => void;
+  onSubmit: (campos: {
+    nome: string;
+    descricao: string;
+    url: string;
+    cor: string;
+  }) => void;
   salvando: boolean;
   erro: string;
 }) {
   const [nome, setNome] = useState("");
   const [descricao, setDescricao] = useState("");
   const [url, setUrl] = useState("");
+  const [cor, setCor] = useState("");
   const config: Record<InlineTipo, { titulo: string; label: string }> = {
+    status: { titulo: "Novo status de chamado", label: "Nome do status" },
     tipo: { titulo: "Novo tipo de chamado", label: "Nome do tipo" },
     origem: { titulo: "Nova origem", label: "Nome da origem" },
     organizacao: { titulo: "Nova organização", label: "Nome da organização" },
     filial: { titulo: "Nova filial", label: "Nome da filial" },
     grupo: { titulo: "Novo grupo de atendimento", label: "Nome do grupo" },
-    base: { titulo: "Nova base de conhecimento", label: "Título" },
+    base: { titulo: "Novo artigo", label: "Título do artigo" },
   };
 
   return (
@@ -441,13 +450,19 @@ function InlineModal({
             />
           </div>
 
-          {tipo === "base" && (
+          {(tipo === "status" || tipo === "base") && (
             <div>
-              <label className="mb-2 block text-sm font-semibold">URL</label>
+              <label className="mb-2 block text-sm font-semibold">
+                {tipo === "status" ? "Cor" : "URL"}
+              </label>
               <input
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder="https://..."
+                value={tipo === "status" ? cor : url}
+                onChange={(event) =>
+                  tipo === "status"
+                    ? setCor(event.target.value)
+                    : setUrl(event.target.value)
+                }
+                placeholder={tipo === "status" ? "#2563eb" : "https://..."}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
@@ -470,7 +485,7 @@ function InlineModal({
           <button
             type="button"
             disabled={salvando}
-            onClick={() => onSubmit({ nome, descricao, url })}
+            onClick={() => onSubmit({ nome, descricao, url, cor })}
             className="inline-flex min-h-10 items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {salvando ? "Salvando..." : "Salvar cadastro"}
@@ -539,6 +554,10 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
       setTipoChamadoId(resultado.data.tipos[0]?.id ?? "");
       setOrigemId(resultado.data.origens[0]?.id ?? "");
       setGrupoAtendimentoId(resultado.data.grupos[0]?.id ?? "");
+      if (perfilAtual.papel === "cliente" || perfilAtual.papel === "parceiro") {
+        setClienteId(perfilAtual.cliente_id ?? resultado.data.clientes[0]?.id ?? "");
+        setLojaId(perfilAtual.loja_id ?? resultado.data.lojas[0]?.id ?? "");
+      }
       setCarregando(false);
     }
 
@@ -547,7 +566,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     return () => {
       ativo = false;
     };
-  }, []);
+  }, [perfilAtual.cliente_id, perfilAtual.loja_id, perfilAtual.papel]);
 
   const usuariosOperacionais = useMemo(
     () => montarUsuariosOperacionais(dados.perfis),
@@ -560,13 +579,20 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
   };
   const papelAtual = usuarioAtual.papel;
   const podeCriarInline = podeCriarCatalogo(papelAtual);
+  const podeRelacionarBase = podeConsultarBaseConhecimento(papelAtual);
+  const clienteOuParceiro = isClienteOuParceiro(papelAtual);
   const analistas = useMemo(
     () =>
       usuariosOperacionais.filter((usuario) => usuario.papel === "analista"),
     [usuariosOperacionais]
   );
   const tecnicos = useMemo(
-    () => usuariosOperacionais.filter((usuario) => usuario.papel === "tecnico"),
+    () =>
+      usuariosOperacionais.filter(
+        (usuario) =>
+          usuario.papel === "tecnico_quarta" ||
+          usuario.papel === "tecnico_terceirizado"
+      ),
     [usuariosOperacionais]
   );
   const prioridadeCalculada = calcularPrioridade(impacto, urgencia);
@@ -587,7 +613,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         ? analistaResponsavelId || analistas[0]?.id || ""
         : "";
   const tecnicoResponsavelEfetivo =
-    papelAtual === "tecnico"
+    papelAtual === "tecnico_quarta" || papelAtual === "tecnico_terceirizado"
       ? usuarioAtual.id
       : !podeAtribuir
         ? ""
@@ -654,6 +680,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     nome: string;
     descricao: string;
     url: string;
+    cor: string;
   }) {
     if (!modalAberto) {
       return;
@@ -674,7 +701,13 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         | BaseConhecimentoItem
       >;
 
-      if (modalAberto === "tipo") {
+      if (modalAberto === "status") {
+        resultado = await criarStatusChamado({
+          nome: campos.nome,
+          descricao: campos.descricao,
+          cor: campos.cor,
+        });
+      } else if (modalAberto === "tipo") {
         resultado = await criarTipoChamado(campos.nome, campos.descricao);
       } else if (modalAberto === "origem") {
         resultado = await criarOrigemChamado(campos.nome, campos.descricao);
@@ -697,7 +730,19 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         return;
       }
 
-      if (modalAberto === "tipo") {
+      if (modalAberto === "status") {
+        const item = resultado.data as CatalogoItem;
+        setDados((atual) => ({
+          ...atual,
+          statusPadrao: {
+            id: item.id,
+            codigo: "novo_status",
+            nome: item.nome,
+            descricao: item.descricao,
+            cor: campos.cor || null,
+          },
+        }));
+      } else if (modalAberto === "tipo") {
         const item = resultado.data as CatalogoItem;
         setDados((atual) => ({ ...atual, tipos: [...atual.tipos, item] }));
         setTipoChamadoId(item.id);
@@ -848,8 +893,15 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
 
             <CampoInformativo
               label="Status"
-              value="Pendente de agendamento"
+              value={dados.statusPadrao?.nome ?? "Pendente de agendamento"}
             />
+            {podeCriarInline ? (
+              <div className="-mt-2 md:col-start-2">
+                <BotaoNovo onClick={() => setModalAberto("status")}>
+                  + Novo status
+                </BotaoNovo>
+              </div>
+            ) : null}
 
             <div className="md:col-span-2">
               <label className="mb-2 block text-sm font-semibold">
@@ -972,14 +1024,18 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
                 </label>
                 {podeCriarInline && (
                   <BotaoNovo onClick={() => setModalAberto("base")}>
-                    + Nova base
+                    + Novo artigo
                   </BotaoNovo>
                 )}
               </div>
               <div className="max-h-44 space-y-2 overflow-auto rounded-lg border border-gray-300 bg-white p-3">
-                {dados.bases.length === 0 ? (
+                {!podeRelacionarBase ? (
                   <p className="text-sm text-gray-500">
-                    Nenhuma base cadastrada.
+                    Base interna indisponível para este perfil.
+                  </p>
+                ) : dados.bases.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Nenhum artigo ativo cadastrado.
                   </p>
                 ) : (
                   dados.bases.map((base) => (
@@ -1030,10 +1086,15 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
               <select
                 value={clienteId}
                 onChange={(event) => {
+                  if (clienteOuParceiro) {
+                    return;
+                  }
+
                   setClienteId(event.target.value);
                   setLojaId("");
                 }}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+                disabled={clienteOuParceiro}
+                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
               >
                 <option value="">Selecione uma organização</option>
                 {dados.clientes.map((cliente) => (
@@ -1069,9 +1130,15 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
               </div>
               <select
                 value={lojaId}
-                onChange={(event) => setLojaId(event.target.value)}
+                onChange={(event) => {
+                  if (clienteOuParceiro) {
+                    return;
+                  }
+
+                  setLojaId(event.target.value);
+                }}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
-                disabled={!clienteId}
+                disabled={!clienteId || clienteOuParceiro}
               >
                 <option value="">Selecione uma filial</option>
                 {lojasFiltradas.map((loja) => (
