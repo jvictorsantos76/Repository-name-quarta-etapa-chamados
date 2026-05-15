@@ -1,11 +1,23 @@
 export type StatusChamado =
   | "pendente_agendamento"
+  | "aberto"
+  | "pendente"
   | "orcamento"
+  | "orçamento"
+  | "em_orcamento"
+  | "pendente_orcamento"
   | "agendado"
+  | "analisado"
   | "em_atendimento"
+  | "em-atendimento"
   | "pendente_peca"
+  | "pendente-peca"
   | "resolvido"
-  | "faturado";
+  | "finalizado"
+  | "concluido"
+  | "concluído"
+  | "faturado"
+  | "arquivado";
 
 export type CategoriaChamado =
   | "cabeamento"
@@ -26,10 +38,12 @@ export const statusChamadoOpcoes: OpcaoVisual<StatusChamado>[] = [
   { value: "pendente_agendamento", label: "Pendente de agendamento" },
   { value: "orcamento", label: "Orçamento" },
   { value: "agendado", label: "Agendado" },
+  { value: "analisado", label: "Analisado" },
   { value: "em_atendimento", label: "Em atendimento" },
   { value: "pendente_peca", label: "Pendente Peça" },
   { value: "resolvido", label: "Resolvido" },
   { value: "faturado", label: "Faturado" },
+  { value: "arquivado", label: "Arquivado" },
 ];
 
 export const categoriaChamadoOpcoes: OpcaoVisual<CategoriaChamado>[] = [
@@ -164,9 +178,11 @@ const statusLabels: Record<string, string> = {
   orcamento: "Orçamento",
   agendado: "Agendado",
   em_atendimento: "Em atendimento",
+  analisado: "Analisado",
   pendente_peca: "Pendente Peça",
   resolvido: "Resolvido",
   faturado: "Faturado",
+  arquivado: "Arquivado",
   aberto: "Pendente de agendamento",
   pendente: "Pendente de agendamento",
   finalizado: "Resolvido",
