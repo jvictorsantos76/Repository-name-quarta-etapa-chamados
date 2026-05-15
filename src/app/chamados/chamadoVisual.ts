@@ -129,24 +129,34 @@ export const ativosPorCategoria: Record<CategoriaChamado, string[]> = {
 };
 
 const statusClasses: Record<string, string> = {
-  pendente_agendamento: "bg-blue-50 text-blue-700 ring-blue-200",
-  orcamento: "bg-purple-50 text-purple-700 ring-purple-200",
-  agendado: "bg-yellow-50 text-yellow-700 ring-yellow-200",
-  em_atendimento: "bg-orange-50 text-orange-700 ring-orange-200",
-  pendente_peca: "bg-red-50 text-red-700 ring-red-200",
-  resolvido: "bg-green-50 text-green-700 ring-green-200",
-  faturado: "bg-emerald-900 text-emerald-50 ring-emerald-800",
-  aberto: "bg-blue-50 text-blue-700 ring-blue-200",
-  pendente: "bg-blue-50 text-blue-700 ring-blue-200",
-  finalizado: "bg-green-50 text-green-700 ring-green-200",
-  concluido: "bg-green-50 text-green-700 ring-green-200",
+  pendente_agendamento: "qe-badge qe-badge-status-pendente",
+  aberto: "qe-badge qe-badge-status-pendente",
+  pendente: "qe-badge qe-badge-status-pendente",
+  orcamento: "qe-badge qe-badge-status-orcamento",
+  orçamento: "qe-badge qe-badge-status-orcamento",
+  em_orcamento: "qe-badge qe-badge-status-orcamento",
+  pendente_orcamento: "qe-badge qe-badge-status-orcamento",
+  agendado: "qe-badge qe-badge-status-agendado",
+  analisado: "qe-badge qe-badge-status-analisado",
+  em_atendimento: "qe-badge qe-badge-status-em-atendimento",
+  "em-atendimento": "qe-badge qe-badge-status-em-atendimento",
+  pendente_peca: "qe-badge qe-badge-status-pendente-peca",
+  "pendente-peca": "qe-badge qe-badge-status-pendente-peca",
+  resolvido: "qe-badge qe-badge-status-resolvido",
+  finalizado: "qe-badge qe-badge-status-resolvido",
+  concluido: "qe-badge qe-badge-status-resolvido",
+  concluído: "qe-badge qe-badge-status-resolvido",
+  faturado: "qe-badge qe-badge-status-faturado",
+  arquivado: "qe-badge qe-badge-status-arquivado",
 };
 
 const prioridadeClasses: Record<string, string> = {
-  baixa: "bg-green-50 text-green-700 ring-green-200",
-  media: "bg-blue-50 text-blue-700 ring-blue-200",
-  alta: "bg-orange-50 text-orange-700 ring-orange-200",
-  critica: "bg-red-50 text-red-700 ring-red-200",
+  baixa: "qe-badge qe-badge-priority-baixa",
+  media: "qe-badge qe-badge-priority-media",
+  média: "qe-badge qe-badge-priority-media",
+  alta: "qe-badge qe-badge-priority-alta",
+  critica: "qe-badge qe-badge-priority-critica",
+  crítica: "qe-badge qe-badge-priority-critica",
 };
 
 const statusLabels: Record<string, string> = {
@@ -174,19 +184,12 @@ const prioridadeLabels: Record<string, string> = {
   critica: "Crítica",
 };
 
-const badgeBaseClass =
-  "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset";
-
 export function getStatusClass(status: string) {
-  return `${badgeBaseClass} ${
-    statusClasses[status] ?? "bg-gray-50 text-gray-700 ring-gray-200"
-  }`;
+  return statusClasses[status] ?? "qe-badge qe-badge-status-neutro";
 }
 
 export function getPrioridadeClass(prioridade: string) {
-  return `${badgeBaseClass} ${
-    prioridadeClasses[prioridade] ?? "bg-gray-50 text-gray-700 ring-gray-200"
-  }`;
+  return prioridadeClasses[prioridade] ?? "qe-badge qe-badge-priority-neutra";
 }
 
 export function formatarStatus(status: string | null | undefined) {

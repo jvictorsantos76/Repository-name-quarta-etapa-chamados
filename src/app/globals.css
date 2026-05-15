@@ -128,6 +128,102 @@ html[data-accent="neutro"] {
   --ring: rgb(100 116 139 / 0.34);
 }
 
+.qe-badge {
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--qe-radius-full);
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: var(--qe-font-weight-semibold);
+  line-height: 1rem;
+  padding: 0.25rem 0.75rem;
+}
+
+.qe-badge-status-pendente {
+  background: var(--qe-status-pendente);
+  border-color: var(--qe-status-pendente);
+  color: var(--qe-color-on-primary);
+}
+
+.qe-badge-status-orcamento {
+  background: var(--qe-status-orcamento);
+  border-color: var(--qe-status-orcamento);
+  color: #ffffff;
+}
+
+.qe-badge-status-agendado {
+  background: var(--qe-status-agendado);
+  border-color: var(--qe-status-agendado);
+  color: #111827;
+}
+
+.qe-badge-status-analisado {
+  background: var(--qe-status-analisado);
+  border-color: var(--qe-status-analisado);
+  color: #111827;
+}
+
+.qe-badge-status-em-atendimento {
+  background: var(--qe-status-em-atendimento);
+  border-color: var(--qe-status-em-atendimento);
+  color: #111827;
+}
+
+.qe-badge-status-pendente-peca {
+  background: var(--qe-status-pendente-peca);
+  border-color: var(--qe-status-pendente-peca);
+  color: #ffffff;
+}
+
+.qe-badge-status-resolvido {
+  background: var(--qe-status-resolvido);
+  border-color: var(--qe-status-resolvido);
+  color: #ffffff;
+}
+
+.qe-badge-status-faturado {
+  background: var(--qe-status-faturado);
+  border-color: var(--qe-status-faturado);
+  color: #ffffff;
+}
+
+.qe-badge-status-arquivado {
+  background: var(--qe-status-arquivado);
+  border-color: var(--qe-color-outline);
+  color: #ffffff;
+}
+
+.qe-badge-status-neutro,
+.qe-badge-priority-neutra {
+  background: var(--qe-color-surface-container-highest);
+  border-color: var(--qe-color-outline);
+  color: var(--qe-color-on-surface);
+}
+
+.qe-badge-priority-baixa {
+  background: var(--qe-priority-baixa);
+  border-color: var(--qe-priority-baixa);
+  color: #ffffff;
+}
+
+.qe-badge-priority-media {
+  background: var(--qe-priority-media);
+  border-color: var(--qe-priority-media);
+  color: #ffffff;
+}
+
+.qe-badge-priority-alta {
+  background: var(--qe-priority-alta);
+  border-color: var(--qe-priority-alta);
+  color: #111827;
+}
+
+.qe-badge-priority-critica {
+  background: var(--qe-priority-critica);
+  border-color: var(--qe-priority-critica);
+  color: #ffffff;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
