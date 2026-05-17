@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
-import { CONTA_APARENCIA_PAGE_VERSION } from "@/config/version";
 import { requirePerfilAutenticado } from "@/lib/supabase/server";
 import { AparenciaForm } from "./AparenciaForm";
 
@@ -33,9 +32,6 @@ export default async function ContaAparenciaPage() {
               fonte.
             </p>
           </div>
-          <span className="w-fit rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-600">
-            Tela v{CONTA_APARENCIA_PAGE_VERSION.replace(/^v/, "")}
-          </span>
         </div>
 
         <AparenciaForm perfil={perfilAtual} />

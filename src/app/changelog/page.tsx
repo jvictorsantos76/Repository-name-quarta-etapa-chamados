@@ -3,9 +3,37 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
-    versao: APP_VERSION,
+    versao: "v0.9.23",
+    data: "17/05/2026",
+    alteracoes: [
+      "Status de chamados v0.1.3 passa a garantir regra única de padrão: ao definir um status como padrão, os demais são desmarcados automaticamente no salvamento.",
+    ],
+    correcoes: [
+      "Removido o indicador redundante de contagem de padrão no topo da tela de Status de chamados.",
+      "Migration nova reforça no banco que apenas um registro em chamado_status pode ficar com eh_padrao = true.",
+    ],
+  },
+  {
+    versao: "v0.9.22",
+    data: "17/05/2026",
+    alteracoes: [
+      "Status de chamados v0.1.2 adiciona filtros por campo e paginação local com opções de 10, 20, 30 ou 50 registros, além de navegação para primeiro, anterior, próximo e último.",
+    ],
+    correcoes: [],
+  },
+  {
+    versao: "v0.9.21",
+    data: "17/05/2026",
+    alteracoes: [
+      "Versionamento passa a ser centralizado no botão/painel global em todo o sistema, removendo badges locais de versão das páginas e preservando o rodapé interno apenas nas telas com chrome operacional.",
+    ],
+    correcoes: [],
+  },
+  {
+    versao: "v0.9.20",
     data: "13/05/2026",
     alteracoes: [
+      "Status de chamados v0.1.1 reorganiza a página com layout mais denso e responsivo, mantendo Código, Nome, Descrição, Cor, Ordem, Ativo, Padrão, Referências, autosave e exclusão visíveis em mobile, tablet e desktop.",
       "Status de chamados v0.1.0 troca botões de salvar/atualizar por autosave, gera código automaticamente a partir do nome, usa seletor de cor, compacta o campo de ordem e adiciona exclusão segura sem vínculos.",
       "Consolida a matriz de papéis para Super-Admin, Admin, Comercial, Analista, Técnico-Quarta, Técnico-Terceirizado, Cliente e Parceiro.",
       "Cria o cadastro de Status de chamados e adiciona telas administrativas individuais para status, tipos, origens e grupos de atendimento em Configurar.",

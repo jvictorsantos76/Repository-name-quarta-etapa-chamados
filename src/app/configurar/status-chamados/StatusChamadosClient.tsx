@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useTransition } from "react";
-import { STATUS_CHAMADOS_PAGE_VERSION } from "@/config/version";
+import { type ReactNode, useMemo, useRef, useState, useTransition } from "react";
 import {
   excluirStatusChamado,
   salvarStatusChamado,
@@ -35,6 +34,23 @@ type DraftStatus = {
   eh_padrao: boolean;
 };
 
+type DraftTouched = {
+  nome: boolean;
+  descricao: boolean;
+  cor: boolean;
+  ordem: boolean;
+};
+
+type FiltrosStatus = {
+  codigo: string;
+  nome: string;
+  descricao: string;
+  cor: string;
+  ativo: "todos" | "ativos" | "inativos";
+  padrao: "todos" | "padrao" | "nao_padrao";
+  vinculo: "todos" | "com_vinculo" | "sem_vinculo";
+};
+
 const NOVO_STATUS_INICIAL: DraftStatus = {
   nome: "",
   descricao: "",
@@ -44,19 +60,31 @@ const NOVO_STATUS_INICIAL: DraftStatus = {
   eh_padrao: false,
 };
 
-type DraftTouched = {
-  nome: boolean;
-  descricao: boolean;
-  cor: boolean;
-  ordem: boolean;
-};
-
 const CAMPOS_OBRIGATORIOS_INICIAIS: DraftTouched = {
   nome: false,
   descricao: false,
   cor: false,
   ordem: false,
 };
+
+const FILTROS_INICIAIS: FiltrosStatus = {
+  codigo: "",
+  nome: "",
+  descricao: "",
+  cor: "",
+  ativo: "todos",
+  padrao: "todos",
+  vinculo: "todos",
+};
+
+const OPCOES_ITENS_POR_PAGINA = [10, 20, 30, 50];
+
+const labelClass =
+  "block text-[11px] font-semibold uppercase tracking-wide text-gray-500";
+const inputClass =
+  "mt-1 min-h-9 w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 read-only:bg-gray-100 read-only:text-gray-500";
+const selectClass =
+  "mt-1 min-h-9 w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100";
 
 function normalizarCodigoPreview(valor: string) {
   return valor
@@ -65,6 +93,19 @@ function normalizarCodigoPreview(valor: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
+}
+
+function statusTemCamposObrigatorios(draft: DraftStatus) {
+  return (
+    draft.nome.trim().length > 0 &&
+    draft.descricao.trim().length > 0 &&
+    draft.cor.trim().length > 0 &&
+    Number.isFinite(draft.ordem)
+  );
+}
+
+function textoFiltro(valor: string | number | null | undefined) {
+  return String(valor ?? "").trim().toLowerCase();
 }
 
 function CampoTexto({
@@ -83,7 +124,7 @@ function CampoTexto({
   readOnly?: boolean;
 }) {
   return (
-    <label className="block text-sm font-semibold text-gray-700">
+    <label className={labelClass}>
       {label}
       <input
         value={value}
@@ -91,8 +132,57 @@ function CampoTexto({
         onBlur={onBlur}
         placeholder={placeholder}
         readOnly={readOnly}
-        className="mt-1 min-h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-900 read-only:bg-gray-100 read-only:text-gray-500"
+        className={inputClass}
       />
+    </label>
+  );
+}
+
+function CampoFiltroTexto({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className={labelClass}>
+      {label}
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className={inputClass}
+      />
+    </label>
+  );
+}
+
+function CampoFiltroSelecao({
+  label,
+  value,
+  onChange,
+  children,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className={labelClass}>
+      {label}
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={selectClass}
+      >
+        {children}
+      </select>
     </label>
   );
 }
@@ -107,10 +197,10 @@ function CampoCor({
   onBlur?: () => void;
 }) {
   return (
-    <label className="block text-sm font-semibold text-gray-700">
+    <label className={labelClass}>
       Cor
-      <div className="mt-1 flex h-10 items-center gap-3 rounded-lg border border-gray-300 bg-white px-3">
-        <label className="relative block h-6 w-6 shrink-0 cursor-pointer overflow-hidden rounded-full border border-gray-300 ring-1 ring-white/80">
+      <div className="mt-1 flex min-h-9 items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2 transition focus-within:border-blue-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-100">
+        <label className="relative block h-6 w-6 shrink-0 cursor-pointer overflow-hidden rounded-full border border-gray-300 ring-1 ring-white">
           <span
             className="block h-full w-full rounded-full"
             style={{ backgroundColor: value }}
@@ -125,7 +215,9 @@ function CampoCor({
             aria-label="Selecionar cor do status"
           />
         </label>
-        <span className="text-sm font-medium text-gray-600">{value}</span>
+        <span className="min-w-0 truncate font-mono text-xs font-semibold normal-case tracking-normal text-gray-700">
+          {value}
+        </span>
       </div>
     </label>
   );
@@ -141,7 +233,7 @@ function CampoOrdem({
   onBlur?: () => void;
 }) {
   return (
-    <label className="block w-24 text-sm font-semibold text-gray-700">
+    <label className={labelClass}>
       Ordem
       <input
         type="number"
@@ -151,18 +243,48 @@ function CampoOrdem({
         value={value}
         onChange={(event) => onChange(Number(event.target.value || 0))}
         onBlur={onBlur}
-        className="mt-1 min-h-10 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal text-gray-900"
+        className={inputClass}
       />
     </label>
   );
 }
 
-function statusTemCamposObrigatorios(draft: DraftStatus) {
+function CampoBooleano({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
   return (
-    draft.nome.trim().length > 0 &&
-    draft.descricao.trim().length > 0 &&
-    draft.cor.trim().length > 0 &&
-    Number.isFinite(draft.ordem)
+    <label className="flex min-h-9 items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 text-xs font-semibold text-gray-700">
+      <span>{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+      />
+    </label>
+  );
+}
+
+function AutosaveStatus({
+  isPending,
+  texto,
+}: {
+  isPending: boolean;
+  texto: string;
+}) {
+  const label = isPending ? "Salvando..." : texto;
+
+  return (
+    <span className="inline-flex min-h-7 w-fit items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 text-xs font-semibold text-blue-700">
+      <span className="h-1.5 w-1.5 rounded-full bg-blue-500" aria-hidden="true" />
+      {label}
+    </span>
   );
 }
 
@@ -228,20 +350,18 @@ function NovoStatusForm() {
   }
 
   return (
-    <section className="mb-6 rounded-xl bg-white p-5 shadow">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-bold text-gray-950">Novo item</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            O status novo é salvo automaticamente ao sair do último campo obrigatório preenchido.
+          <h2 className="text-base font-bold text-gray-950">Novo item</h2>
+          <p className="mt-1 text-xs text-gray-600">
+            Preencha os campos obrigatórios. O salvamento acontece ao sair do último campo.
           </p>
         </div>
-        <span className="text-xs font-semibold text-gray-500">
-          {isPending ? "Salvando..." : mensagem ?? "Autosave ativo"}
-        </span>
+        <AutosaveStatus isPending={isPending} texto={mensagem ?? "Autosave ativo"} />
       </div>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-[1.2fr_1.4fr_1.4fr_1fr_auto]">
+      <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-[1.1fr_1.25fr_2fr_1fr_0.8fr]">
         <CampoTexto label="Código" value={codigoPreview} readOnly />
         <CampoTexto
           label="Nome"
@@ -269,6 +389,7 @@ function NovoStatusForm() {
             marcarCampo("descricao");
             salvarNovoStatusSeValido("descricao");
           }}
+          placeholder="Descreva o uso operacional deste status"
         />
         <CampoCor
           value={draft.cor}
@@ -296,32 +417,28 @@ function NovoStatusForm() {
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-5">
-        <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-          <input
-            type="checkbox"
-            checked={draft.ativo}
-            onChange={(event) => {
-              setErro(null);
-              setMensagem(null);
-              setDraft((atual) => ({ ...atual, ativo: event.target.checked }));
-            }}
-          />
-          Ativo
-        </label>
-        <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-          <input
-            type="checkbox"
-            checked={draft.eh_padrao}
-            onChange={(event) => {
-              setErro(null);
-              setMensagem(null);
-              setDraft((atual) => ({ ...atual, eh_padrao: event.target.checked }));
-            }}
-          />
-          Padrão
-        </label>
-        {erro ? <span className="text-sm font-semibold text-red-600">{erro}</span> : null}
+      <div className="grid gap-3 border-t border-gray-100 px-4 py-3 sm:grid-cols-2 lg:grid-cols-[160px_160px_1fr]">
+        <CampoBooleano
+          label="Ativo"
+          checked={draft.ativo}
+          onChange={(ativo) => {
+            setErro(null);
+            setMensagem(null);
+            setDraft((atual) => ({ ...atual, ativo }));
+          }}
+        />
+        <CampoBooleano
+          label="Padrão"
+          checked={draft.eh_padrao}
+          onChange={(eh_padrao) => {
+            setErro(null);
+            setMensagem(null);
+            setDraft((atual) => ({ ...atual, eh_padrao }));
+          }}
+        />
+        {erro ? (
+          <span className="self-center text-sm font-semibold text-red-600">{erro}</span>
+        ) : null}
       </div>
     </section>
   );
@@ -381,10 +498,21 @@ function StatusRow({ item }: { item: StatusChamadoListItem }) {
   }
 
   const podeExcluir = item.referencias === 0 && !item.eh_padrao;
+  const tituloExclusao = item.eh_padrao
+    ? "O status padrão não pode ser excluído."
+    : item.referencias > 0
+      ? "Esse status já está relacionado a chamados ou histórico."
+      : "Excluir status";
 
   return (
-    <div className="rounded-lg border border-gray-200 p-4">
-      <div className="grid gap-3 md:grid-cols-[1.2fr_1.4fr_1.4fr_1fr_auto]">
+    <article className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div
+        className="h-1 w-full"
+        style={{ backgroundColor: draft.cor || "#2563eb" }}
+        aria-hidden="true"
+      />
+
+      <div className="grid gap-3 p-4 lg:grid-cols-[1.05fr_1.2fr_2fr_0.95fr_0.7fr]">
         <CampoTexto label="Código" value={item.codigo} readOnly />
         <CampoTexto
           label="Nome"
@@ -426,34 +554,40 @@ function StatusRow({ item }: { item: StatusChamadoListItem }) {
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-5">
-        <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-          <input
-            type="checkbox"
-            checked={draft.ativo}
-            onChange={(event) => {
-              setErro(null);
-              setStatusTexto("Alterações pendentes...");
-              setDraft((atual) => ({ ...atual, ativo: event.target.checked }));
-            }}
-          />
-          Ativo
-        </label>
-        <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-          <input
-            type="checkbox"
-            checked={draft.eh_padrao}
-            onChange={(event) => {
-              setErro(null);
-              setStatusTexto("Alterações pendentes...");
-              setDraft((atual) => ({ ...atual, eh_padrao: event.target.checked }));
-            }}
-          />
-          Padrão
-        </label>
-        <span className="text-xs font-semibold text-gray-500">
-          {isPending ? "Salvando..." : statusTexto}
-        </span>
+      <div className="grid gap-3 border-t border-gray-100 bg-gray-50 px-4 py-3 md:grid-cols-2 lg:grid-cols-[130px_130px_150px_1fr_auto] lg:items-center">
+        <CampoBooleano
+          label="Ativo"
+          checked={draft.ativo}
+          onChange={(ativo) => {
+            setErro(null);
+            setStatusTexto("Alterações pendentes...");
+            setDraft((atual) => ({ ...atual, ativo }));
+          }}
+        />
+        <CampoBooleano
+          label="Padrão"
+          checked={draft.eh_padrao}
+          onChange={(eh_padrao) => {
+            setErro(null);
+            setStatusTexto("Alterações pendentes...");
+            setDraft((atual) => ({ ...atual, eh_padrao }));
+          }}
+        />
+        <div className="rounded-md border border-gray-200 bg-white px-3 py-2">
+          <span className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+            Referências
+          </span>
+          <span className="text-sm font-bold text-gray-950">{item.referencias}</span>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <AutosaveStatus isPending={isPending} texto={statusTexto} />
+          {item.referencias > 0 ? (
+            <span className="text-xs font-semibold text-amber-700">
+              {item.referencias} relacionamento(s) impedem a exclusão.
+            </span>
+          ) : null}
+          {erro ? <span className="text-sm font-semibold text-red-600">{erro}</span> : null}
+        </div>
         <button
           type="button"
           disabled={!podeExcluir || isDeleting}
@@ -470,68 +604,286 @@ function StatusRow({ item }: { item: StatusChamadoListItem }) {
               router.refresh();
             })
           }
-          className="min-h-10 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700 disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400"
-          title={
-            item.eh_padrao
-              ? "O status padrão não pode ser excluído."
-              : item.referencias > 0
-                ? "Esse status já está relacionado a chamados ou histórico."
-                : "Excluir status"
-          }
+          className="min-h-9 rounded-md border border-red-200 bg-white px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+          title={tituloExclusao}
         >
           {isDeleting ? "Excluindo..." : "Excluir"}
         </button>
-        {item.referencias > 0 ? (
-          <span className="text-xs font-semibold text-amber-700">
-            {item.referencias} relacionamento(s) impedem a exclusão.
-          </span>
-        ) : null}
-        {erro ? <span className="text-sm font-semibold text-red-600">{erro}</span> : null}
       </div>
-    </div>
+    </article>
   );
 }
 
 export function StatusChamadosClient({ itens, erroCarregamento }: Props) {
+  const [filtros, setFiltros] = useState<FiltrosStatus>(FILTROS_INICIAIS);
+  const [itensPorPagina, setItensPorPagina] = useState(10);
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const ativos = itens.filter((item) => item.ativo).length;
+  const vinculados = itens.filter((item) => item.referencias > 0).length;
+  const itensFiltrados = useMemo(
+    () =>
+      itens.filter((item) => {
+        const codigoMatch = textoFiltro(item.codigo).includes(textoFiltro(filtros.codigo));
+        const nomeMatch = textoFiltro(item.nome).includes(textoFiltro(filtros.nome));
+        const descricaoMatch = textoFiltro(item.descricao).includes(
+          textoFiltro(filtros.descricao)
+        );
+        const corMatch = textoFiltro(item.cor).includes(textoFiltro(filtros.cor));
+        const ativoMatch =
+          filtros.ativo === "todos" ||
+          (filtros.ativo === "ativos" && item.ativo) ||
+          (filtros.ativo === "inativos" && !item.ativo);
+        const padraoMatch =
+          filtros.padrao === "todos" ||
+          (filtros.padrao === "padrao" && Boolean(item.eh_padrao)) ||
+          (filtros.padrao === "nao_padrao" && !item.eh_padrao);
+        const vinculoMatch =
+          filtros.vinculo === "todos" ||
+          (filtros.vinculo === "com_vinculo" && item.referencias > 0) ||
+          (filtros.vinculo === "sem_vinculo" && item.referencias === 0);
+
+        return (
+          codigoMatch &&
+          nomeMatch &&
+          descricaoMatch &&
+          corMatch &&
+          ativoMatch &&
+          padraoMatch &&
+          vinculoMatch
+        );
+      }),
+    [filtros, itens]
+  );
+  const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length / itensPorPagina));
+  const paginaSegura = Math.min(paginaAtual, totalPaginas);
+  const inicioPagina = (paginaSegura - 1) * itensPorPagina;
+  const itensPaginados = itensFiltrados.slice(
+    inicioPagina,
+    inicioPagina + itensPorPagina
+  );
+  const primeiroItemVisivel =
+    itensFiltrados.length === 0 ? 0 : inicioPagina + 1;
+  const ultimoItemVisivel = Math.min(inicioPagina + itensPorPagina, itensFiltrados.length);
+
+  function atualizarFiltro<K extends keyof FiltrosStatus>(
+    campo: K,
+    valor: FiltrosStatus[K]
+  ) {
+    setFiltros((atuais) => ({ ...atuais, [campo]: valor }));
+    setPaginaAtual(1);
+  }
+
+  function limparFiltros() {
+    setFiltros(FILTROS_INICIAIS);
+    setPaginaAtual(1);
+  }
+
   return (
-    <section className="mx-auto max-w-6xl px-6 pb-10 md:px-8">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <Link href="/chamados/novo" className="text-sm font-semibold text-blue-600">
+    <section className="mx-auto w-full max-w-7xl px-4 pb-10 pt-4 sm:px-6 md:px-8">
+      <div className="mb-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <Link href="/chamados/novo" className="text-xs font-semibold text-blue-600">
             Voltar para novo chamado
           </Link>
-          <h1 className="mt-3 text-2xl font-bold text-gray-950">Status de chamados</h1>
-          <p className="mt-2 max-w-3xl text-sm text-gray-600">
+          <h1 className="mt-1 text-xl font-bold text-gray-950 sm:text-2xl">
+            Status de chamados
+          </h1>
+          <p className="mt-1 max-w-3xl text-sm text-gray-600">
             Cadastro operacional dos status usados no ciclo de vida dos chamados.
           </p>
         </div>
-        <span className="w-fit rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-600">
-          Tela v{STATUS_CHAMADOS_PAGE_VERSION.replace(/^v/, "")}
-        </span>
+        <div className="grid grid-cols-2 gap-2 text-xs lg:min-w-[220px]">
+          <span className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 font-semibold text-gray-700">
+            Total: {itens.length}
+          </span>
+          <span className="rounded-md border border-green-100 bg-green-50 px-3 py-2 font-semibold text-green-700">
+            Ativos: {ativos}
+          </span>
+        </div>
       </div>
 
       {erroCarregamento ? (
-        <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
           {erroCarregamento}
         </div>
       ) : null}
 
-      <NovoStatusForm />
+      <div className="space-y-4">
+        <NovoStatusForm />
 
-      <section className="rounded-xl bg-white p-5 shadow">
-        <h2 className="text-lg font-bold text-gray-950">Registros</h2>
-        <div className="mt-4 space-y-3">
-          {itens.map((item) => (
-            <StatusRow key={item.id} item={item} />
-          ))}
+        <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-gray-950">Registros</h2>
+              <p className="mt-1 text-xs text-gray-600">
+                Filtre, pagine e edite os status sem ocultar campos operacionais.
+              </p>
+            </div>
+            <span className="w-fit rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+              {vinculados} com vínculo operacional
+            </span>
+          </div>
 
-          {itens.length === 0 ? (
-            <p className="rounded-lg border border-gray-200 p-4 text-sm text-gray-600">
-              Nenhum registro cadastrado.
+          <div className="border-b border-gray-100 bg-white p-3 sm:p-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1.1fr_1.6fr_0.9fr_0.9fr_0.9fr_1fr_auto] xl:items-end">
+              <CampoFiltroTexto
+                label="Código"
+                value={filtros.codigo}
+                onChange={(valor) => atualizarFiltro("codigo", valor)}
+                placeholder="Filtrar código"
+              />
+              <CampoFiltroTexto
+                label="Nome"
+                value={filtros.nome}
+                onChange={(valor) => atualizarFiltro("nome", valor)}
+                placeholder="Filtrar nome"
+              />
+              <CampoFiltroTexto
+                label="Descrição"
+                value={filtros.descricao}
+                onChange={(valor) => atualizarFiltro("descricao", valor)}
+                placeholder="Filtrar descrição"
+              />
+              <CampoFiltroTexto
+                label="Cor"
+                value={filtros.cor}
+                onChange={(valor) => atualizarFiltro("cor", valor)}
+                placeholder="#2563eb"
+              />
+              <CampoFiltroSelecao
+                label="Ativo"
+                value={filtros.ativo}
+                onChange={(valor) =>
+                  atualizarFiltro("ativo", valor as FiltrosStatus["ativo"])
+                }
+              >
+                <option value="todos">Todos</option>
+                <option value="ativos">Ativos</option>
+                <option value="inativos">Inativos</option>
+              </CampoFiltroSelecao>
+              <CampoFiltroSelecao
+                label="Padrão"
+                value={filtros.padrao}
+                onChange={(valor) =>
+                  atualizarFiltro("padrao", valor as FiltrosStatus["padrao"])
+                }
+              >
+                <option value="todos">Todos</option>
+                <option value="padrao">Padrão</option>
+                <option value="nao_padrao">Não padrão</option>
+              </CampoFiltroSelecao>
+              <CampoFiltroSelecao
+                label="Referências"
+                value={filtros.vinculo}
+                onChange={(valor) =>
+                  atualizarFiltro("vinculo", valor as FiltrosStatus["vinculo"])
+                }
+              >
+                <option value="todos">Todos</option>
+                <option value="com_vinculo">Com vínculo</option>
+                <option value="sem_vinculo">Sem vínculo</option>
+              </CampoFiltroSelecao>
+              <button
+                type="button"
+                onClick={limparFiltros}
+                className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white"
+              >
+                Limpar
+              </button>
+            </div>
+            <div className="mt-3 hidden rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-500 lg:grid lg:grid-cols-[1.05fr_1.2fr_2fr_0.95fr_0.7fr]">
+              <span>Código</span>
+              <span>Nome</span>
+              <span>Descrição</span>
+              <span>Cor</span>
+              <span>Ordem</span>
+            </div>
+          </div>
+
+          <div className="space-y-3 bg-gray-50 p-3 sm:p-4">
+            {itensPaginados.map((item) => (
+              <StatusRow key={item.id} item={item} />
+            ))}
+
+            {itens.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-600">
+                Nenhum registro cadastrado.
+              </p>
+            ) : null}
+
+            {itens.length > 0 && itensFiltrados.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-600">
+                Nenhum registro encontrado com os filtros aplicados.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-gray-100 bg-white px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-sm font-medium text-gray-600">
+              Mostrando {primeiroItemVisivel}-{ultimoItemVisivel} de{" "}
+              {itensFiltrados.length} registro(s) filtrado(s).
             </p>
-          ) : null}
-        </div>
-      </section>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                Visualizar
+                <select
+                  value={itensPorPagina}
+                  onChange={(event) => {
+                    setItensPorPagina(Number(event.target.value));
+                    setPaginaAtual(1);
+                  }}
+                  className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+                >
+                  {OPCOES_ITENS_POR_PAGINA.map((opcao) => (
+                    <option key={opcao} value={opcao}>
+                      {opcao}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaginaAtual(1)}
+                  disabled={paginaSegura === 1}
+                  className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white disabled:cursor-not-allowed disabled:text-gray-400"
+                >
+                  Primeiro
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaginaAtual((pagina) => Math.max(1, pagina - 1))}
+                  disabled={paginaSegura === 1}
+                  className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white disabled:cursor-not-allowed disabled:text-gray-400"
+                >
+                  Voltar
+                </button>
+                <span className="min-h-9 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700">
+                  {paginaSegura}/{totalPaginas}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPaginaAtual((pagina) => Math.min(totalPaginas, pagina + 1))
+                  }
+                  disabled={paginaSegura === totalPaginas}
+                  className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white disabled:cursor-not-allowed disabled:text-gray-400"
+                >
+                  Avançar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaginaAtual(totalPaginas)}
+                  disabled={paginaSegura === totalPaginas}
+                  className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white disabled:cursor-not-allowed disabled:text-gray-400"
+                >
+                  Último
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
     </section>
   );
 }

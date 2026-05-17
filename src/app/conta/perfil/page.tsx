@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
-import { CONTA_PERFIL_PAGE_VERSION } from "@/config/version";
 import {
   isPapelUsuario,
   LABEL_PAPEL_USUARIO,
@@ -136,9 +135,6 @@ export default async function ContaPerfilPage({ searchParams }: PageProps) {
               Dados básicos usados na identificação operacional do usuário.
             </p>
           </div>
-          <span className="w-fit rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-600">
-            Tela v{CONTA_PERFIL_PAGE_VERSION.replace(/^v/, "")}
-          </span>
         </div>
 
         <div className="grid gap-10 lg:grid-cols-[260px_minmax(0,1fr)]">

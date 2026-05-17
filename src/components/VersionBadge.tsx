@@ -118,6 +118,7 @@ export function VersionBadge() {
   const pageVersion = getPageVersion(pathname);
   const globalVersion = `${APP_VERSION} - ${formatarDataVersao(APP_UPDATED_AT)}`;
   const isOpen = openPathname === pathname;
+  const showAppFooter = hasAppChrome(pathname);
 
   useEffect(() => {
     if (!isOpen) {
@@ -136,10 +137,6 @@ export function VersionBadge() {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
-
-  if (!hasAppChrome(pathname)) {
-    return null;
-  }
 
   return (
     <>
@@ -170,6 +167,7 @@ export function VersionBadge() {
         </button>
       </div>
 
+      {showAppFooter ? (
       <footer className="qe-app-footer" aria-label="Links principais e informações do sistema">
         <div className="qe-app-footer-inner">
           <div className="qe-app-footer-top">
@@ -220,6 +218,7 @@ export function VersionBadge() {
           </div>
         </div>
       </footer>
+      ) : null}
     </>
   );
 }

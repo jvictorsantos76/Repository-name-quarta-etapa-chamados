@@ -184,6 +184,20 @@ export async function salvarStatusChamado(
     atualizado_por: perfil.id,
   };
 
+  if (payload.eh_padrao) {
+    const limparPadraoQuery = supabase
+      .from("chamado_status")
+      .update({ eh_padrao: false, atualizado_por: perfil.id });
+
+    const { error: limparPadraoError } = input.id
+      ? await limparPadraoQuery.neq("id", input.id)
+      : await limparPadraoQuery;
+
+    if (limparPadraoError) {
+      return { ok: false, error: "Não foi possível aplicar o status padrão." };
+    }
+  }
+
   const query = input.id
     ? supabase.from("chamado_status").update(payload).eq("id", input.id)
     : supabase.from("chamado_status").insert({
@@ -286,6 +300,18 @@ export async function salvarCatalogoChamado(formData: FormData) {
       cor: normalizarTexto(formData.get("cor")) || null,
       eh_padrao: formData.get("eh_padrao") === "on",
     };
+
+    if (payload.eh_padrao) {
+      const limparPadraoQuery = supabase
+        .from(config.tabela)
+        .update({ eh_padrao: false, atualizado_por: perfil.id });
+
+      if (id) {
+        await limparPadraoQuery.neq("id", id);
+      } else {
+        await limparPadraoQuery;
+      }
+    }
 
     if (id) {
       await supabase.from(config.tabela).update(payload).eq("id", id);

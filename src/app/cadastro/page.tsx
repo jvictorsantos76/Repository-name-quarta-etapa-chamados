@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CADASTRO_USUARIO_PAGE_VERSION } from "@/config/version";
 import {
   PASSWORD_POLICY_HINT,
   validarPoliticaSenha,
@@ -118,11 +117,8 @@ export default function CadastroPage() {
         <p className="mt-6 text-sm font-semibold uppercase tracking-wide text-blue-600">
           Solicitação de acesso
         </p>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mt-2">
           <h1 className="text-2xl font-bold">Cadastro público controlado</h1>
-          <span className="w-fit rounded-lg border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-600">
-            Tela v{CADASTRO_USUARIO_PAGE_VERSION.replace(/^v/, "")}
-          </span>
         </div>
         <p className="mt-2 text-sm text-gray-600">
           O envio deste formulário não libera acesso automático. A solicitação

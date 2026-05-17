@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { ContaAcoesRapidas } from "@/components/ContaAcoesRapidas";
-import { CONTA_PAGE_VERSION } from "@/config/version";
 import { LABEL_PAPEL_USUARIO } from "@/lib/auth/permissions";
 import { requirePerfilAutenticado } from "@/lib/supabase/server";
 
@@ -60,9 +59,6 @@ export default async function ContaPage() {
               usuário autenticado.
             </p>
           </div>
-          <span className="w-fit rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-600">
-            Tela v{CONTA_PAGE_VERSION.replace(/^v/, "")}
-          </span>
         </div>
 
         <section className="mb-8 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">

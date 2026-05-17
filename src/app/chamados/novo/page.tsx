@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { requirePerfilAutenticado } from "@/lib/supabase/server";
 import { AppHeader } from "@/components/AppHeader";
-import { NOVO_CHAMADO_PAGE_VERSION } from "@/config/version";
 import { NovoChamadoForm } from "./NovoChamadoForm";
 
 export default async function NovoChamado() {
@@ -33,9 +32,6 @@ export default async function NovoChamado() {
               atendimento.
             </p>
           </div>
-          <span className="w-fit rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-600">
-            Tela v{NOVO_CHAMADO_PAGE_VERSION.replace(/^v/, "")}
-          </span>
         </div>
 
         <NovoChamadoForm perfilAtual={perfilAtual} />

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { ContaAcoesRapidas } from "@/components/ContaAcoesRapidas";
-import { CONTA_PERMISSOES_PAGE_VERSION } from "@/config/version";
 import {
   getPermissoesPorPapel,
   LABEL_PAPEL_USUARIO,
@@ -40,9 +39,6 @@ export default async function ContaPermissoesPage() {
               administração.
             </p>
           </div>
-          <span className="w-fit rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-600">
-            Tela v{CONTA_PERMISSOES_PAGE_VERSION.replace(/^v/, "")}
-          </span>
         </div>
 
         <section className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">

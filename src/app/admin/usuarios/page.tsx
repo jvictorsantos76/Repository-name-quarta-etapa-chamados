@@ -13,7 +13,6 @@ import {
   PAPEIS_PROVISIONAMENTO,
   isPapelUsuario,
 } from "@/lib/auth/permissions";
-import { SOLICITACOES_ACESSO_PAGE_VERSION } from "@/config/version";
 import { AppHeader } from "@/components/AppHeader";
 
 type SolicitacaoAcesso = {
@@ -539,9 +538,6 @@ export default async function AdminUsuariosPage() {
           <Link href="/" className="text-sm font-semibold text-blue-600">
             Voltar para chamados
           </Link>
-          <span className="w-fit rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs font-semibold text-gray-600">
-            Tela v{SOLICITACOES_ACESSO_PAGE_VERSION.replace(/^v/, "")}
-          </span>
         </div>
 
         <div className="rounded-xl bg-white p-6 shadow">
