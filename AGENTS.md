@@ -77,6 +77,7 @@ Before starting `npm run dev`, check whether port `3000` already has a running N
 - Use clear error messages that a non-developer can understand.
 - When changing CSS, prefer reusable structure and design consistency over scattered visual fixes.
 - Preserve Quarta Etapa branding on auth and access screens unless the request says otherwise.
+- Telas administrativas pequenas de configuração devem seguir o padrão canônico de Status de Chamados: listagem tabular, filtros visíveis, paginação local, navegação Primeiro/Voltar/Avançar/Último, persistência real e revalidação após mutações.
 
 ## Validation
 

@@ -14,9 +14,12 @@ import {
   DASHBOARD_PAGE_VERSION,
   LOGIN_PAGE_VERSION,
   NOVO_CHAMADO_PAGE_VERSION,
+  GRUPOS_ATENDIMENTO_PAGE_VERSION,
+  ORIGENS_CHAMADO_PAGE_VERSION,
   PERFIL_USUARIO_PAGE_VERSION,
   STATUS_CHAMADOS_PAGE_VERSION,
   SOLICITACOES_ACESSO_PAGE_VERSION,
+  TIPOS_CHAMADO_PAGE_VERSION,
 } from "@/config/version";
 
 const footerGroups = [
@@ -103,6 +106,18 @@ function getPageVersion(pathname: string) {
 
   if (pathname === "/configurar/status-chamados") {
     return `Tela | Status de Chamados ${STATUS_CHAMADOS_PAGE_VERSION}`;
+  }
+
+  if (pathname === "/configurar/tipos-chamado") {
+    return `Tela | Tipos de Chamado ${TIPOS_CHAMADO_PAGE_VERSION}`;
+  }
+
+  if (pathname === "/configurar/origens-chamado") {
+    return `Tela | Origens de Chamado ${ORIGENS_CHAMADO_PAGE_VERSION}`;
+  }
+
+  if (pathname === "/configurar/grupos-atendimento") {
+    return `Tela | Grupos de Atendimento ${GRUPOS_ATENDIMENTO_PAGE_VERSION}`;
   }
 
   return null;

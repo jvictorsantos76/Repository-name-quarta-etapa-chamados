@@ -111,6 +111,31 @@ const alterarSenhaActionsSource = await readFile(
   new URL("../src/app/auth/alterar-senha/actions.ts", import.meta.url),
   "utf8"
 );
+const designSource = await readFile(new URL("../DESIGN.md", import.meta.url), "utf8");
+const agentsSource = await readFile(new URL("../AGENTS.md", import.meta.url), "utf8");
+const catalogoConfiguracaoClientSource = await readFile(
+  new URL("../src/app/configurar/CatalogoConfiguracaoClient.tsx", import.meta.url),
+  "utf8"
+);
+const catalogoChamadosPageSource = await readFile(
+  new URL("../src/app/configurar/CatalogoChamadosPage.tsx", import.meta.url),
+  "utf8"
+);
+const statusChamadosClientSource = await readFile(
+  new URL(
+    "../src/app/configurar/status-chamados/StatusChamadosClient.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const versionBadgeSource = await readFile(
+  new URL("../src/components/VersionBadge.tsx", import.meta.url),
+  "utf8"
+);
+const versionSource = await readFile(
+  new URL("../src/config/version.ts", import.meta.url),
+  "utf8"
+);
 
 function extractArray(source, constantName) {
   let declarationStart = source.indexOf(`export const ${constantName}:`);
@@ -335,4 +360,39 @@ test("password policy helper is reused in cadastro and authenticated password ch
   assert.match(passwordPolicySource, /DIGIT_REGEX/);
   assert.match(alterarSenhaActionsSource, /validarPoliticaSenha\(senha\)/);
   assert.match(alterarSenhaActionsSource, /auth\.updateUser\(\{ password: senha \}\)/);
+});
+
+test("small configuration catalogs follow the canonical ticket status pattern", () => {
+  for (const source of [designSource, agentsSource]) {
+    assert.match(source, /padrão canônico de Status de Chamados/i);
+    assert.match(source, /filtros visíveis/i);
+    assert.match(source, /paginação local/i);
+    assert.match(source, /Primeiro/i);
+    assert.match(source, /Voltar/i);
+    assert.match(source, /Avançar/i);
+    assert.match(source, /Último/i);
+    assert.match(source, /persistência/i);
+  }
+
+  assert.match(catalogoConfiguracaoClientSource, /export function CatalogoConfiguracaoClient/);
+  assert.match(catalogoConfiguracaoClientSource, /export function CatalogoPaginacao/);
+  assert.match(catalogoConfiguracaoClientSource, /CampoFiltroTexto/);
+  assert.match(catalogoConfiguracaoClientSource, /CampoFiltroSelecao/);
+  assert.match(catalogoConfiguracaoClientSource, /itensFiltrados/);
+  assert.match(catalogoConfiguracaoClientSource, /itensPaginados/);
+
+  for (const label of ["Primeiro", "Voltar", "Avançar", "Último"]) {
+    assert.match(catalogoConfiguracaoClientSource, new RegExp(label));
+  }
+
+  assert.match(catalogoChamadosPageSource, /CatalogoConfiguracaoClient/);
+  assert.match(statusChamadosClientSource, /CatalogoPaginacao/);
+  assert.match(versionSource, /STATUS_CHAMADOS_PAGE_VERSION = "v1\.0\.0"/);
+  assert.match(versionSource, /TIPOS_CHAMADO_PAGE_VERSION = "v1\.0\.0"/);
+  assert.match(versionSource, /ORIGENS_CHAMADO_PAGE_VERSION = "v1\.0\.0"/);
+  assert.match(versionSource, /GRUPOS_ATENDIMENTO_PAGE_VERSION = "v1\.0\.0"/);
+  assert.match(versionBadgeSource, /\/configurar\/status-chamados/);
+  assert.match(versionBadgeSource, /\/configurar\/tipos-chamado/);
+  assert.match(versionBadgeSource, /\/configurar\/origens-chamado/);
+  assert.match(versionBadgeSource, /\/configurar\/grupos-atendimento/);
 });

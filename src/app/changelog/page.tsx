@@ -3,6 +3,17 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.26",
+    data: "18/05/2026",
+    alteracoes: [
+      "Status de chamados v1.0.0 passa a ser o padrão canônico para registros pequenos de configuração.",
+      "Tipos de chamado, origens de chamado e grupos de atendimento v1.0.0 adotam filtros visíveis, paginação local e navegação Primeiro, Voltar, Avançar e Último.",
+    ],
+    correcoes: [
+      "Catálogos de configuração passam a compartilhar um cliente operacional simples, preservando Server Actions, RLS e permissões existentes.",
+    ],
+  },
+  {
     versao: "v0.9.25",
     data: "17/05/2026",
     alteracoes: [

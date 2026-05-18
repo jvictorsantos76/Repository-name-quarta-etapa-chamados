@@ -188,6 +188,14 @@ Este sistema de design foi extraído e consolidado a partir da análise das inte
 
 \- Colunas alinhadas para leitura rápida de ID, Título, Cliente e Técnico.
 
+\### Registros de Configuração
+
+\- Telas administrativas pequenas de configuração devem seguir o padrão canônico de Status de Chamados.
+
+\- Usar listagem tabular, filtros visíveis, paginação local e navegação Primeiro, Voltar, Avançar e Último.
+
+\- Garantir persistência nas tabelas operacionais existentes via Server Actions, mantendo autorização, RLS e revalidação da tela.
+
 
 
 \### Formulários

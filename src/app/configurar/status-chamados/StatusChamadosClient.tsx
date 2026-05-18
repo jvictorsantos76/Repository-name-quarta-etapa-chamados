@@ -15,6 +15,10 @@ import {
   excluirStatusChamado,
   salvarStatusChamado,
 } from "../catalogos-actions";
+import {
+  CatalogoPaginacao,
+  OPCOES_CATALOGOS_ITENS_POR_PAGINA,
+} from "../CatalogoConfiguracaoClient";
 
 export type StatusChamadoListItem = {
   id: string;
@@ -84,8 +88,6 @@ const FILTROS_INICIAIS: FiltrosStatus = {
   padrao: "todos",
   vinculo: "todos",
 };
-
-const OPCOES_ITENS_POR_PAGINA = [10, 20, 30, 50];
 
 const labelClass =
   "block text-[11px] font-semibold uppercase tracking-wide text-gray-500";
@@ -1017,70 +1019,20 @@ export function StatusChamadosClient({ itens, erroCarregamento }: Props) {
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-gray-100 bg-white px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-            <p className="text-sm font-medium text-gray-600">
-              Mostrando {primeiroItemVisivel}-{ultimoItemVisivel} de{" "}
-              {itensFiltrados.length} registro(s) filtrado(s).
-            </p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                Visualizar
-                <select
-                  value={itensPorPagina}
-                  onChange={(event) => {
-                    setItensPorPagina(Number(event.target.value));
-                    setPaginaAtual(1);
-                  }}
-                  className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
-                >
-                  {OPCOES_ITENS_POR_PAGINA.map((opcao) => (
-                    <option key={opcao} value={opcao}>
-                      {opcao}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPaginaAtual(1)}
-                  disabled={paginaSegura === 1}
-                  className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white disabled:cursor-not-allowed disabled:text-gray-400"
-                >
-                  Primeiro
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaginaAtual((pagina) => Math.max(1, pagina - 1))}
-                  disabled={paginaSegura === 1}
-                  className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white disabled:cursor-not-allowed disabled:text-gray-400"
-                >
-                  Voltar
-                </button>
-                <span className="min-h-9 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700">
-                  {paginaSegura}/{totalPaginas}
-                </span>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setPaginaAtual((pagina) => Math.min(totalPaginas, pagina + 1))
-                  }
-                  disabled={paginaSegura === totalPaginas}
-                  className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white disabled:cursor-not-allowed disabled:text-gray-400"
-                >
-                  Avançar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaginaAtual(totalPaginas)}
-                  disabled={paginaSegura === totalPaginas}
-                  className="min-h-9 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 transition hover:bg-white disabled:cursor-not-allowed disabled:text-gray-400"
-                >
-                  Último
-                </button>
-              </div>
-            </div>
-          </div>
+          <CatalogoPaginacao
+            primeiroItemVisivel={primeiroItemVisivel}
+            ultimoItemVisivel={ultimoItemVisivel}
+            totalItens={itensFiltrados.length}
+            itensPorPagina={itensPorPagina}
+            opcoesItensPorPagina={OPCOES_CATALOGOS_ITENS_POR_PAGINA}
+            paginaAtual={paginaSegura}
+            totalPaginas={totalPaginas}
+            onItensPorPaginaChange={(value) => {
+              setItensPorPagina(value);
+              setPaginaAtual(1);
+            }}
+            onPaginaChange={setPaginaAtual}
+          />
         </section>
       </div>
     </section>
