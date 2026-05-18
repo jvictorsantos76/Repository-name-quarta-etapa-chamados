@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useId,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   excluirStatusChamado,
   salvarStatusChamado,
@@ -104,6 +112,17 @@ function statusTemCamposObrigatorios(draft: DraftStatus) {
   );
 }
 
+function draftsIguais(a: DraftStatus, b: DraftStatus) {
+  return (
+    a.nome === b.nome &&
+    a.descricao === b.descricao &&
+    a.cor === b.cor &&
+    a.ordem === b.ordem &&
+    a.ativo === b.ativo &&
+    a.eh_padrao === b.eh_padrao
+  );
+}
+
 function textoFiltro(valor: string | number | null | undefined) {
   return String(valor ?? "").trim().toLowerCase();
 }
@@ -183,6 +202,124 @@ function CampoFiltroSelecao({
       >
         {children}
       </select>
+    </label>
+  );
+}
+
+function CampoFiltroCor({
+  label,
+  value,
+  onChange,
+  opcoes,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  opcoes: Array<{ value: string; label: string }>;
+}) {
+  const listboxId = useId();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [aberto, setAberto] = useState(false);
+  const corSelecionada = value.trim();
+  const mostrarSwatch = corSelecionada.length > 0;
+  const opcaoSelecionada =
+    opcoes.find((opcao) => opcao.value === value) ??
+    opcoes.find((opcao) => opcao.value === "") ??
+    opcoes[0];
+
+  useEffect(() => {
+    if (!aberto) {
+      return;
+    }
+
+    function handleClickFora(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setAberto(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setAberto(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickFora);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickFora);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [aberto]);
+
+  return (
+    <label className={labelClass}>
+      {label}
+      <div
+        ref={containerRef}
+        className="relative mt-1 flex min-h-9 items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2 transition focus-within:border-blue-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-100"
+      >
+        <span
+          className={`h-5 w-5 shrink-0 rounded-full border ${
+            mostrarSwatch ? "border-gray-300 ring-1 ring-white" : "border-dashed border-gray-400"
+          }`}
+          style={mostrarSwatch ? { backgroundColor: corSelecionada } : undefined}
+          aria-hidden="true"
+        />
+        <button
+          type="button"
+          onClick={() => setAberto((atual) => !atual)}
+          aria-haspopup="listbox"
+          aria-expanded={aberto}
+          aria-controls={listboxId}
+          className="flex min-h-9 w-full items-center justify-between gap-2 bg-transparent py-2 text-left text-sm font-medium text-gray-950 outline-none"
+        >
+          <span className="truncate">{opcaoSelecionada?.label ?? "Todas"}</span>
+          <span aria-hidden="true" className="text-xs text-gray-500">
+            ▾
+          </span>
+        </button>
+
+        {aberto ? (
+          <ul
+            id={listboxId}
+            role="listbox"
+            className="absolute left-0 right-0 top-[calc(100%+4px)] z-20 max-h-64 overflow-auto rounded-md border border-gray-200 bg-white py-1 shadow-lg"
+          >
+            {opcoes.map((opcao) => {
+              const temCor = opcao.value.startsWith("#");
+              const selecionada = opcao.value === value;
+
+              return (
+                <li key={opcao.value || "todas"} role="option" aria-selected={selecionada}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(opcao.value);
+                      setAberto(false);
+                    }}
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
+                      selecionada
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-900 transition hover:bg-gray-100"
+                    }`}
+                  >
+                    <span
+                      className={`h-3 w-3 shrink-0 rounded-full border ${
+                        temCor ? "border-gray-300" : "border-transparent"
+                      }`}
+                      style={temCor ? { backgroundColor: opcao.value } : undefined}
+                      aria-hidden="true"
+                    />
+                    <span className="truncate">{opcao.label}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+      </div>
     </label>
   );
 }
@@ -446,55 +583,98 @@ function NovoStatusForm() {
 
 function StatusRow({ item }: { item: StatusChamadoListItem }) {
   const router = useRouter();
-  const [draft, setDraft] = useState<DraftStatus>({
+  const itemDraft = useMemo<DraftStatus>(() => ({
     nome: item.nome,
     descricao: item.descricao ?? "",
     cor: item.cor ?? "#2563eb",
     ordem: item.ordem ?? 0,
     ativo: item.ativo,
     eh_padrao: Boolean(item.eh_padrao),
-  });
+  }), [item.ativo, item.cor, item.descricao, item.eh_padrao, item.nome, item.ordem]);
+  const [draft, setDraft] = useState<DraftStatus>(itemDraft);
   const [statusTexto, setStatusTexto] = useState<string>("Autosave ativo");
   const [erro, setErro] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [isDeleting, startDeleteTransition] = useTransition();
   const savingRef = useRef(false);
+  const draftNaFilaRef = useRef<DraftStatus | null>(null);
+  const ultimoSalvoRef = useRef<DraftStatus>(itemDraft);
+  const sincronizacaoInicialRef = useRef(true);
 
-  function salvarLinhaSeValida() {
-    if (savingRef.current) {
+  useEffect(() => {
+    if (sincronizacaoInicialRef.current) {
+      sincronizacaoInicialRef.current = false;
       return;
     }
 
-    if (!statusTemCamposObrigatorios(draft)) {
-      setErro("Preencha todos os campos obrigatórios antes de salvar.");
-      setStatusTexto("Campos obrigatórios pendentes");
+    setDraft(itemDraft);
+    ultimoSalvoRef.current = itemDraft;
+    draftNaFilaRef.current = null;
+    setErro(null);
+
+    if (!savingRef.current) {
+      setStatusTexto("Salvo automaticamente");
+    }
+  }, [itemDraft]);
+
+  function processarFila() {
+    if (savingRef.current || !draftNaFilaRef.current) {
       return;
     }
 
     startTransition(async () => {
       savingRef.current = true;
+      setStatusTexto("Salvando...");
 
       try {
-        const resultado = await salvarStatusChamado({
-          id: item.id,
-          ...draft,
-        });
+        while (draftNaFilaRef.current) {
+          const draftAtual = draftNaFilaRef.current;
+          draftNaFilaRef.current = null;
 
-        if (!resultado.ok) {
-          setErro(resultado.error);
-          setStatusTexto("Falha ao salvar");
-          return;
+          const resultado = await salvarStatusChamado({
+            id: item.id,
+            ...draftAtual,
+          });
+
+          if (!resultado.ok) {
+            setErro(resultado.error);
+            setStatusTexto("Falha ao salvar");
+            return;
+          }
+
+          setErro(null);
+          ultimoSalvoRef.current = draftAtual;
+          setStatusTexto(resultado.message ?? "Salvo automaticamente");
+          router.refresh();
         }
-
-        setErro(null);
-        setStatusTexto(resultado.message ?? "Salvo automaticamente");
       } catch {
         setErro("Não foi possível salvar o status.");
         setStatusTexto("Falha ao salvar");
       } finally {
         savingRef.current = false;
+
+        if (draftNaFilaRef.current) {
+          processarFila();
+        }
       }
     });
+  }
+
+  function salvarLinhaSeValida(draftAtual: DraftStatus = draft) {
+    if (!statusTemCamposObrigatorios(draftAtual)) {
+      setErro("Preencha todos os campos obrigatórios antes de salvar.");
+      setStatusTexto("Campos obrigatórios pendentes");
+      return;
+    }
+
+    if (!savingRef.current && draftsIguais(ultimoSalvoRef.current, draftAtual)) {
+      setStatusTexto("Salvo automaticamente");
+      return;
+    }
+
+    draftNaFilaRef.current = draftAtual;
+    setStatusTexto("Alterações pendentes...");
+    processarFila();
   }
 
   const podeExcluir = item.referencias === 0 && !item.eh_padrao;
@@ -522,7 +702,7 @@ function StatusRow({ item }: { item: StatusChamadoListItem }) {
             setStatusTexto("Alterações pendentes...");
             setDraft((atual) => ({ ...atual, nome }));
           }}
-          onBlur={salvarLinhaSeValida}
+          onBlur={() => salvarLinhaSeValida()}
         />
         <CampoTexto
           label="Descrição"
@@ -532,7 +712,7 @@ function StatusRow({ item }: { item: StatusChamadoListItem }) {
             setStatusTexto("Alterações pendentes...");
             setDraft((atual) => ({ ...atual, descricao }));
           }}
-          onBlur={salvarLinhaSeValida}
+          onBlur={() => salvarLinhaSeValida()}
         />
         <CampoCor
           value={draft.cor}
@@ -541,7 +721,7 @@ function StatusRow({ item }: { item: StatusChamadoListItem }) {
             setStatusTexto("Alterações pendentes...");
             setDraft((atual) => ({ ...atual, cor }));
           }}
-          onBlur={salvarLinhaSeValida}
+          onBlur={() => salvarLinhaSeValida()}
         />
         <CampoOrdem
           value={draft.ordem}
@@ -550,7 +730,7 @@ function StatusRow({ item }: { item: StatusChamadoListItem }) {
             setStatusTexto("Alterações pendentes...");
             setDraft((atual) => ({ ...atual, ordem }));
           }}
-          onBlur={salvarLinhaSeValida}
+          onBlur={() => salvarLinhaSeValida()}
         />
       </div>
 
@@ -559,18 +739,22 @@ function StatusRow({ item }: { item: StatusChamadoListItem }) {
           label="Ativo"
           checked={draft.ativo}
           onChange={(ativo) => {
+            const proximoDraft = { ...draft, ativo };
             setErro(null);
             setStatusTexto("Alterações pendentes...");
-            setDraft((atual) => ({ ...atual, ativo }));
+            setDraft(proximoDraft);
+            salvarLinhaSeValida(proximoDraft);
           }}
         />
         <CampoBooleano
           label="Padrão"
           checked={draft.eh_padrao}
           onChange={(eh_padrao) => {
+            const proximoDraft = { ...draft, eh_padrao };
             setErro(null);
             setStatusTexto("Alterações pendentes...");
-            setDraft((atual) => ({ ...atual, eh_padrao }));
+            setDraft(proximoDraft);
+            salvarLinhaSeValida(proximoDraft);
           }}
         />
         <div className="rounded-md border border-gray-200 bg-white px-3 py-2">
@@ -618,7 +802,6 @@ export function StatusChamadosClient({ itens, erroCarregamento }: Props) {
   const [filtros, setFiltros] = useState<FiltrosStatus>(FILTROS_INICIAIS);
   const [itensPorPagina, setItensPorPagina] = useState(10);
   const [paginaAtual, setPaginaAtual] = useState(1);
-  const ativos = itens.filter((item) => item.ativo).length;
   const vinculados = itens.filter((item) => item.referencias > 0).length;
   const itensFiltrados = useMemo(
     () =>
@@ -653,6 +836,21 @@ export function StatusChamadosClient({ itens, erroCarregamento }: Props) {
         );
       }),
     [filtros, itens]
+  );
+  const opcoesCor = useMemo(() => {
+    const cores = Array.from(
+      new Set(
+        itens
+          .map((item) => (item.cor ?? "").trim().toLowerCase())
+          .filter((cor) => cor.length > 0)
+      )
+    );
+
+    return cores.sort((a, b) => a.localeCompare(b));
+  }, [itens]);
+  const opcoesFiltroCor = useMemo(
+    () => [{ value: "", label: "Todas" }, ...opcoesCor.map((cor) => ({ value: cor, label: cor }))],
+    [opcoesCor]
   );
   const totalPaginas = Math.max(1, Math.ceil(itensFiltrados.length / itensPorPagina));
   const paginaSegura = Math.min(paginaAtual, totalPaginas);
@@ -692,12 +890,9 @@ export function StatusChamadosClient({ itens, erroCarregamento }: Props) {
             Cadastro operacional dos status usados no ciclo de vida dos chamados.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-xs lg:min-w-[220px]">
+        <div className="grid grid-cols-1 gap-2 text-xs lg:min-w-[120px]">
           <span className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 font-semibold text-gray-700">
             Total: {itens.length}
-          </span>
-          <span className="rounded-md border border-green-100 bg-green-50 px-3 py-2 font-semibold text-green-700">
-            Ativos: {ativos}
           </span>
         </div>
       </div>
@@ -717,6 +912,10 @@ export function StatusChamadosClient({ itens, erroCarregamento }: Props) {
               <h2 className="text-base font-bold text-gray-950">Registros</h2>
               <p className="mt-1 text-xs text-gray-600">
                 Filtre, pagine e edite os status sem ocultar campos operacionais.
+              </p>
+              <p className="mt-1 text-xs font-semibold text-amber-700">
+                Apenas um status pode ficar marcado como Padrão. Ao marcar outro
+                registro, o padrão anterior é desmarcado automaticamente no salvamento.
               </p>
             </div>
             <span className="w-fit rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
@@ -744,11 +943,11 @@ export function StatusChamadosClient({ itens, erroCarregamento }: Props) {
                 onChange={(valor) => atualizarFiltro("descricao", valor)}
                 placeholder="Filtrar descrição"
               />
-              <CampoFiltroTexto
+              <CampoFiltroCor
                 label="Cor"
                 value={filtros.cor}
                 onChange={(valor) => atualizarFiltro("cor", valor)}
-                placeholder="#2563eb"
+                opcoes={opcoesFiltroCor}
               />
               <CampoFiltroSelecao
                 label="Ativo"

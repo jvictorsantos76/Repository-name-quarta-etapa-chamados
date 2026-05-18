@@ -3,6 +3,27 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.25",
+    data: "17/05/2026",
+    alteracoes: [
+      "Status de chamados v0.1.5 sincroniza o estado visual das linhas após atualização da lista.",
+    ],
+    correcoes: [
+      "Corrige a exibição temporária de dois registros marcados como padrão quando o autosave troca o status padrão.",
+    ],
+  },
+  {
+    versao: "v0.9.24",
+    data: "17/05/2026",
+    alteracoes: [
+      "Status de chamados v0.1.4 exibe a regra de padrão único diretamente na lista de registros.",
+    ],
+    correcoes: [
+      "Corrige o autosave ao sair dos campos da linha de status, garantindo que as alterações sejam salvas com os dados atuais.",
+      "Ao marcar um status como padrão, a tela recarrega a lista para refletir que os demais registros foram desmarcados automaticamente.",
+    ],
+  },
+  {
     versao: "v0.9.23",
     data: "17/05/2026",
     alteracoes: [

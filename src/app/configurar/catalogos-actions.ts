@@ -161,6 +161,18 @@ function revalidarCatalogoStatus() {
   revalidatePath("/chamados/novo");
 }
 
+function mensagemErroSalvarStatus(error: { code?: string; message?: string }) {
+  if (error.code === "23505") {
+    return "Já existe um status com esse código ou regra única.";
+  }
+
+  if (error.code === "42501") {
+    return "Sem permissão para salvar este status.";
+  }
+
+  return "Não foi possível salvar o status.";
+}
+
 export async function salvarStatusChamado(
   input: StatusChamadoInput
 ): Promise<StatusChamadoActionResult> {
@@ -172,7 +184,7 @@ export async function salvarStatusChamado(
   }
 
   const codigo = await gerarCodigoUnicoStatus(nome, input.id);
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
   const payload = {
     codigo,
     nome,
@@ -194,7 +206,7 @@ export async function salvarStatusChamado(
       : await limparPadraoQuery;
 
     if (limparPadraoError) {
-      return { ok: false, error: "Não foi possível aplicar o status padrão." };
+      return { ok: false, error: mensagemErroSalvarStatus(limparPadraoError) };
     }
   }
 
@@ -208,7 +220,7 @@ export async function salvarStatusChamado(
   const { error } = await query;
 
   if (error) {
-    return { ok: false, error: "Não foi possível salvar o status." };
+    return { ok: false, error: mensagemErroSalvarStatus(error) };
   }
 
   revalidarCatalogoStatus();
@@ -219,7 +231,9 @@ export async function salvarStatusChamado(
     message:
       codigo !== normalizarCodigo(nome)
         ? `Código ajustado automaticamente para ${codigo}.`
-        : "Status salvo automaticamente.",
+        : payload.eh_padrao
+          ? "Status salvo. Este registro agora é o único padrão."
+          : "Status salvo automaticamente.",
   };
 }
 
