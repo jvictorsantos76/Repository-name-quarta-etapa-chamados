@@ -157,6 +157,14 @@ export const navigationGroups: NavigationGroup[] = [
         icon: "users",
       },
       {
+        id: "gerencia-organizacoes",
+        label: "Organizações",
+        href: "/cadastros/organizacoes",
+        status: "disponivel",
+        icon: "folder",
+        allowedRoles: ["super_admin", "admin", "analista"],
+      },
+      {
         id: "gerencia-tecnicos",
         label: "Técnicos",
         href: "/admin/usuarios",

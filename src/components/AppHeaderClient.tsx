@@ -201,7 +201,7 @@ function Logo({
 
 function Avatar({ perfil }: { perfil: HeaderPerfil }) {
   return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-900 text-xs font-bold text-white">
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-900 text-xs font-bold text-white">
       {perfil.avatarUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={perfil.avatarUrl} alt="" className="h-full w-full object-cover" />

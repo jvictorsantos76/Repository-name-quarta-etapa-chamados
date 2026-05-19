@@ -15,4 +15,5 @@ export const STATUS_CHAMADOS_PAGE_VERSION = "v1.0.0";
 export const TIPOS_CHAMADO_PAGE_VERSION = "v1.0.0";
 export const ORIGENS_CHAMADO_PAGE_VERSION = "v1.0.0";
 export const GRUPOS_ATENDIMENTO_PAGE_VERSION = "v1.0.0";
+export const ORGANIZACOES_PAGE_VERSION = "v1.0.0";
 export const LEGAL_DOCUMENTS_VERSION = "v0.7.0";
