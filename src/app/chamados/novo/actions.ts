@@ -796,6 +796,38 @@ export async function criarChamadoIdentificacao(
     };
   }
 
+  const [parceiroResposta, parceiroFilialResposta] = await Promise.all([
+    supabase
+      .from("parceiros")
+      .select("id")
+      .eq("cliente_legado_id", organizacaoIdEfetiva)
+      .maybeSingle(),
+    supabase
+      .from("parceiros_filiais")
+      .select("id")
+      .eq("loja_legado_id", lojaIdEfetiva)
+      .maybeSingle(),
+  ]);
+  const parceiroId =
+    parceiroResposta.error && isSchemaCacheError(parceiroResposta.error.message)
+      ? null
+      : ((parceiroResposta.data as { id: string } | null)?.id ?? null);
+  const parceiroFilialId =
+    parceiroFilialResposta.error &&
+    isSchemaCacheError(parceiroFilialResposta.error.message)
+      ? null
+      : ((parceiroFilialResposta.data as { id: string } | null)?.id ?? null);
+
+  if (parceiroId || parceiroFilialId) {
+    await supabase
+      .from("chamados")
+      .update({
+        parceiro_id: parceiroId,
+        parceiro_filial_id: parceiroFilialId,
+      })
+      .eq("id", chamadoCriado.id);
+  }
+
   if (basesSelecionadas.length > 0) {
     const basesRelacionadas = basesSelecionadas.map((baseId) => ({
       chamado_id: chamadoCriado.id,

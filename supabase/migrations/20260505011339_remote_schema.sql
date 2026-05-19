@@ -42,6 +42,9 @@ alter table "public"."solicitacoes_acesso" drop constraint "solicitacoes_acesso_
 
 alter table "public"."solicitacoes_acesso" drop constraint "solicitacoes_acesso_status_check";
 
+alter table if exists "public"."solicitacoes_acesso"
+  alter column "expira_em" drop default;
+
 drop function if exists "public"."calcular_expiracao_horas_uteis"(inicio timestamp with time zone, horas_uteis integer);
 
 drop index if exists "public"."solicitacoes_acesso_expira_em_idx";
@@ -808,5 +811,4 @@ CREATE TRIGGER trg_lojas_updated_at BEFORE UPDATE ON public.lojas FOR EACH ROW E
 CREATE TRIGGER trg_perfis_updated_at BEFORE UPDATE ON public.perfis FOR EACH ROW EXECUTE FUNCTION public.atualizar_updated_at();
 
 CREATE TRIGGER trg_registros_tecnicos_updated_at BEFORE UPDATE ON public.registros_tecnicos FOR EACH ROW EXECUTE FUNCTION public.atualizar_updated_at();
-
 

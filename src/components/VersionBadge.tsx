@@ -14,6 +14,7 @@ import {
   DASHBOARD_PAGE_VERSION,
   LOGIN_PAGE_VERSION,
   NOVO_CHAMADO_PAGE_VERSION,
+  PARCEIROS_PAGE_VERSION,
   GRUPOS_ATENDIMENTO_PAGE_VERSION,
   ORIGENS_CHAMADO_PAGE_VERSION,
   PERFIL_USUARIO_PAGE_VERSION,
@@ -52,7 +53,7 @@ const footerGroups = [
   },
 ];
 
-const appChromePrefixes = ["/chamados", "/admin", "/conta", "/roadmap", "/configurar"];
+const appChromePrefixes = ["/chamados", "/admin", "/conta", "/roadmap", "/configurar", "/cadastros"];
 
 function formatarDataVersao(data: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -118,6 +119,10 @@ function getPageVersion(pathname: string) {
 
   if (pathname === "/configurar/grupos-atendimento") {
     return `Tela | Grupos de Atendimento ${GRUPOS_ATENDIMENTO_PAGE_VERSION}`;
+  }
+
+  if (pathname.startsWith("/cadastros/parceiros")) {
+    return `Tela | Clientes / Parceiros ${PARCEIROS_PAGE_VERSION}`;
   }
 
   return null;

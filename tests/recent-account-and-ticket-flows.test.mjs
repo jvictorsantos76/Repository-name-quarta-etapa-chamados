@@ -31,6 +31,20 @@ const roleValuesMigration = await readFile(
   ),
   "utf8"
 );
+const remoteSchemaMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260505011339_remote_schema.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const chamadoBloco1Migration = await readFile(
+  new URL(
+    "../supabase/migrations/202605080001_chamado_identificacao_bloco1.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const novoChamadoActionsSource = await readFile(
   new URL("../src/app/chamados/novo/actions.ts", import.meta.url),
   "utf8"
@@ -134,6 +148,21 @@ const versionBadgeSource = await readFile(
 );
 const versionSource = await readFile(
   new URL("../src/config/version.ts", import.meta.url),
+  "utf8"
+);
+const parceirosMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260519205423_create_parceiros_operacionais.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const parceirosPageSource = await readFile(
+  new URL("../src/app/cadastros/parceiros/page.tsx", import.meta.url),
+  "utf8"
+);
+const parceirosActionsSource = await readFile(
+  new URL("../src/app/cadastros/parceiros/actions.ts", import.meta.url),
   "utf8"
 );
 
@@ -395,4 +424,68 @@ test("small configuration catalogs follow the canonical ticket status pattern", 
   assert.match(versionBadgeSource, /\/configurar\/tipos-chamado/);
   assert.match(versionBadgeSource, /\/configurar\/origens-chamado/);
   assert.match(versionBadgeSource, /\/configurar\/grupos-atendimento/);
+});
+
+test("operational partners module keeps legacy compatibility and guarded RLS", () => {
+  for (const tabela of [
+    "parceiros",
+    "parceiros_enderecos",
+    "parceiros_contatos",
+    "parceiros_filiais",
+    "parceiros_financeiro",
+    "parceiros_operacional",
+    "parceiros_contratos",
+    "parceiros_anexos",
+    "parceiros_historico",
+  ]) {
+    assert.match(parceirosMigration, new RegExp(`create table if not exists public\\.${tabela}`, "i"));
+    assert.match(parceirosMigration, new RegExp(`alter table public\\.${tabela} enable row level security`, "i"));
+    assert.match(parceirosMigration, new RegExp(`grant .* on table public\\.${tabela} to authenticated`, "i"));
+    assert.match(parceirosMigration, new RegExp(`grant .* on table public\\.${tabela} to service_role`, "i"));
+    assert.match(parceirosMigration, new RegExp(`revoke delete on table public\\.${tabela} from authenticated`, "i"));
+  }
+
+  assert.match(parceirosMigration, /cliente_legado_id uuid null references public\.clientes\(id\)/i);
+  assert.match(parceirosMigration, /loja_legado_id uuid null references public\.lojas\(id\)/i);
+  assert.match(parceirosMigration, /add column if not exists parceiro_id uuid null references public\.parceiros\(id\)/i);
+  assert.match(parceirosMigration, /add column if not exists parceiro_filial_id uuid null references public\.parceiros_filiais\(id\)/i);
+  assert.doesNotMatch(parceirosMigration, /add column if not exists filial_id/i);
+  assert.match(parceirosMigration, /insert into public\.parceiros[\s\S]*where not exists/i);
+  assert.match(parceirosMigration, /insert into public\.parceiros_filiais[\s\S]*where not exists/i);
+  assert.match(parceirosMigration, /insert into storage\.buckets \(id, name, public\)[\s\S]*'parceiros-anexos'/i);
+  assert.match(parceirosMigration, /name like 'parceiros\/%'/i);
+
+  assert.match(novoChamadoActionsSource, /parceiro_id: parceiroId/);
+  assert.match(novoChamadoActionsSource, /parceiro_filial_id: parceiroFilialId/);
+  assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.0\.0"/);
+  assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
+});
+
+test("partner form normalizes website before hitting database constraints", () => {
+  assert.match(parceirosActionsSource, /function normalizarWebsite/);
+  assert.match(parceirosActionsSource, /`https:\/\/\$\{texto\}`/);
+  assert.match(parceirosActionsSource, /parceiros_website_check/);
+  assert.match(
+    parceirosActionsSource,
+    /Informe o website com http:\/\/ ou https:\/\/\./
+  );
+  assert.match(parceirosActionsSource, /mensagemErroParceiro\(parceiroResposta\.error\)/);
+});
+
+test("legacy reset migrations keep function dependency and catalog helper valid", () => {
+  const dropDefaultIndex = remoteSchemaMigration.indexOf(
+    'alter column "expira_em" drop default'
+  );
+  const dropFunctionIndex = remoteSchemaMigration.indexOf(
+    'drop function if exists "public"."calcular_expiracao_horas_uteis"'
+  );
+
+  assert.ok(dropDefaultIndex > -1);
+  assert.ok(dropFunctionIndex > -1);
+  assert.ok(dropDefaultIndex < dropFunctionIndex);
+  assert.match(
+    chamadoBloco1Migration,
+    /select exists \([\s\S]*and papel::text in \('super_admin', 'admin', 'gestor', 'analista'\)[\s\S]*\);\s*\$function\$/i
+  );
 });

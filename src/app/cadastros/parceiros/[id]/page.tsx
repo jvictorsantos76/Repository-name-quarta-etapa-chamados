@@ -1,0 +1,191 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { AppHeader } from "@/components/AppHeader";
+import { PARCEIROS_PAGE_VERSION } from "@/config/version";
+import { podeGerenciarCatalogosChamado } from "@/lib/auth/permissions";
+import {
+  createSupabaseAdminClient,
+  requirePerfilAutenticado,
+} from "@/lib/supabase/server";
+import { alterarStatusParceiro } from "../actions";
+import { ParceiroForm } from "../ParceiroForm";
+import type {
+  ParceiroAnexo,
+  ParceiroContato,
+  ParceiroContrato,
+  ParceiroDetalhe,
+  ParceiroEndereco,
+  ParceiroFilial,
+  ParceiroFinanceiro,
+  ParceiroHistorico,
+  ParceiroOperacional,
+} from "../types";
+
+type PageProps = {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+async function getErro(searchParams: PageProps["searchParams"]) {
+  const params = searchParams ? await searchParams : {};
+  const value = params.erro;
+
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function EditarParceiroPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const perfilAtual = await requirePerfilAutenticado();
+
+  if (!podeGerenciarCatalogosChamado(perfilAtual.papel)) {
+    notFound();
+  }
+
+  const { id } = await params;
+  const supabase = createSupabaseAdminClient();
+  const [
+    parceiroResposta,
+    enderecosResposta,
+    contatosResposta,
+    filiaisResposta,
+    financeiroResposta,
+    operacionalResposta,
+    contratosResposta,
+    anexosResposta,
+    historicoResposta,
+  ] = await Promise.all([
+    supabase
+      .from("parceiros")
+      .select(
+        "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, inscricao_estadual, inscricao_municipal, crt, situacao, cliente_desde, segmento, cnae, suframa, website, ativo, cliente_legado_id, criado_em, atualizado_em, criado_por, atualizado_por"
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("parceiros_enderecos")
+      .select("*")
+      .eq("parceiro_id", id)
+      .order("principal", { ascending: false })
+      .order("atualizado_em", { ascending: false }),
+    supabase
+      .from("parceiros_contatos")
+      .select("*")
+      .eq("parceiro_id", id)
+      .order("principal", { ascending: false })
+      .order("nome"),
+    supabase
+      .from("parceiros_filiais")
+      .select("*")
+      .eq("parceiro_id", id)
+      .order("nome_filial"),
+    supabase
+      .from("parceiros_financeiro")
+      .select("*")
+      .eq("parceiro_id", id)
+      .maybeSingle(),
+    supabase
+      .from("parceiros_operacional")
+      .select("*")
+      .eq("parceiro_id", id)
+      .maybeSingle(),
+    supabase
+      .from("parceiros_contratos")
+      .select("*")
+      .eq("parceiro_id", id)
+      .order("atualizado_em", { ascending: false }),
+    supabase
+      .from("parceiros_anexos")
+      .select("*")
+      .eq("parceiro_id", id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("parceiros_historico")
+      .select("*")
+      .eq("parceiro_id", id)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (parceiroResposta.error || !parceiroResposta.data) {
+    notFound();
+  }
+
+  const enderecos = (enderecosResposta.data as ParceiroEndereco[] | null) ?? [];
+  const contatos = (contatosResposta.data as ParceiroContato[] | null) ?? [];
+  const parceiro = {
+    ...(parceiroResposta.data as Omit<
+      ParceiroDetalhe,
+      | "endereco_principal"
+      | "contato_principal"
+      | "filiais"
+      | "contatos"
+      | "financeiro"
+      | "operacional"
+      | "contratos"
+      | "anexos"
+      | "historico"
+    >),
+    endereco_principal: enderecos[0] ?? null,
+    contato_principal: contatos.find((contato) => contato.principal) ?? contatos[0] ?? null,
+    filiais: (filiaisResposta.data as ParceiroFilial[] | null) ?? [],
+    contatos,
+    financeiro: (financeiroResposta.data as ParceiroFinanceiro | null) ?? null,
+    operacional: (operacionalResposta.data as ParceiroOperacional | null) ?? null,
+    contratos: (contratosResposta.data as ParceiroContrato[] | null) ?? [],
+    anexos: (anexosResposta.data as ParceiroAnexo[] | null) ?? [],
+    historico: (historicoResposta.data as ParceiroHistorico[] | null) ?? [],
+  } satisfies ParceiroDetalhe;
+  const erro = await getErro(searchParams);
+
+  return (
+    <main className="min-h-screen bg-gray-100 text-gray-900">
+      <AppHeader perfil={perfilAtual} />
+      <section className="mx-auto w-full max-w-7xl px-4 pb-10 pt-4 sm:px-6 md:px-8">
+        <div className="mb-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <nav
+              aria-label="Navegação de cadastros"
+              className="flex items-center gap-2 text-sm font-semibold text-gray-600"
+            >
+              <Link href="/cadastros/parceiros" className="hover:text-gray-950">
+                Cadastros
+              </Link>
+              <span aria-hidden="true" className="text-gray-400">
+                &gt;
+              </span>
+              <Link href="/cadastros/parceiros" className="hover:text-gray-950">
+                Clientes / Parceiros
+              </Link>
+              <span aria-hidden="true" className="text-gray-400">
+                &gt;
+              </span>
+              <span className="text-gray-950">Editar</span>
+            </nav>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <h1 className="break-words text-xl font-bold text-gray-950 sm:text-2xl">
+                {parceiro.nome_fantasia}
+              </h1>
+              <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
+                {PARCEIROS_PAGE_VERSION}
+              </span>
+            </div>
+            <p className="mt-1 max-w-3xl text-sm text-gray-600">
+              Cadastro mestre ERP operacional separado de organizações internas.
+            </p>
+          </div>
+          <form action={alterarStatusParceiro.bind(null, parceiro.id, !parceiro.ativo)}>
+            <button
+              type="submit"
+              className="inline-flex min-h-10 items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+            >
+              {parceiro.ativo ? "Inativar" : "Ativar"}
+            </button>
+          </form>
+        </div>
+
+        <ParceiroForm parceiro={parceiro} erro={erro} />
+      </section>
+    </main>
+  );
+}

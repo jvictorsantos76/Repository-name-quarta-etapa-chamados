@@ -151,10 +151,11 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       {
         id: "gerencia-clientes",
-        label: "Clientes",
-        href: "/chamados/novo",
-        status: "em_construcao",
+        label: "Clientes / Parceiros",
+        href: "/cadastros/parceiros",
+        status: "disponivel",
         icon: "users",
+        allowedRoles: ["super_admin", "admin", "analista"],
       },
       {
         id: "gerencia-organizacoes",

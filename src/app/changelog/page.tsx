@@ -3,6 +3,18 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.27",
+    data: "19/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.0.0 cria o cadastro mestre ERP operacional separado de Organizações, com abas para Geral, Filiais, Contatos, Financeiro, Contratos e SLA, Operação, Anexos e Histórico.",
+      "Nova estrutura Supabase adiciona parceiros, filiais, contatos, financeiro, operacional, contratos, anexos e histórico com backfill idempotente de clientes e lojas legados.",
+      "Chamados passam a receber campos opcionais parceiro_id e parceiro_filial_id, preservando cliente_id e loja_id durante a transição operacional.",
+    ],
+    correcoes: [
+      "RLS, grants para authenticated/service_role e bucket parceiros-anexos são definidos por migration versionada, mantendo delete fechado para usuários comuns.",
+    ],
+  },
+  {
     versao: "v0.9.26",
     data: "18/05/2026",
     alteracoes: [
