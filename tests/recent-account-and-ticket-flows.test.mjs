@@ -157,6 +157,27 @@ const parceirosMigration = await readFile(
   ),
   "utf8"
 );
+const clientesOrganizacaoMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260519235405_add_organizacao_id_to_clientes.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const chamadosOrganizacaoMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260519235406_fix_chamados_organizacao_fk.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const statusInicialMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260520002801_normalize_default_chamado_status_code.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const parceirosPageSource = await readFile(
   new URL("../src/app/cadastros/parceiros/page.tsx", import.meta.url),
   "utf8"
@@ -257,6 +278,20 @@ test("new ticket form requires manual title and keeps status and number read onl
   assert.match(novoChamadoFormSource, /Base de conhecimento relacionada/);
   assert.match(novoChamadoFormSource, /\+ Novo artigo/);
   assert.match(novoChamadoFormSource, /criarChamadoIdentificacao/);
+});
+
+test("new ticket initial status uses the canonical value accepted by chamados", () => {
+  assert.match(
+    statusInicialMigration,
+    /set codigo = 'pendente_agendamento'[\s\S]*where codigo = 'pendente_de_agendamento'/i
+  );
+  assert.match(novoChamadoActionsSource, /function normalizarStatusInicial/);
+  assert.match(novoChamadoActionsSource, /codigo === "pendente_de_agendamento"/);
+  assert.match(novoChamadoActionsSource, /return "pendente_agendamento"/);
+  assert.match(
+    novoChamadoActionsSource,
+    /status:\s*statusInicial/
+  );
 });
 
 test("admin approval uses invite or recovery links and supports manual regeneration", () => {
@@ -460,6 +495,81 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.0\.0"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
+});
+
+test("organizations link to clients without replacing operational ticket fields", () => {
+  assert.match(
+    clientesOrganizacaoMigration,
+    /add column if not exists organizacao_id uuid null/i
+  );
+  assert.match(
+    clientesOrganizacaoMigration,
+    /foreign key \(organizacao_id\) references public\.organizacoes\(id\)/i
+  );
+  assert.match(
+    clientesOrganizacaoMigration,
+    /lower\(btrim\(c\.nome_fantasia\)\) = lower\(btrim\(o\.nome\)\)/i
+  );
+  assert.match(
+    clientesOrganizacaoMigration,
+    /correspondencias\.total_correspondencias = 1/i
+  );
+  assert.doesNotMatch(clientesOrganizacaoMigration, /ilike|similarity|unaccent/i);
+  assert.match(
+    clientesOrganizacaoMigration,
+    /grant select, references on table public\.organizacoes to authenticated;/i
+  );
+  assert.match(
+    clientesOrganizacaoMigration,
+    /grant select, references on table public\.organizacoes to service_role;/i
+  );
+  assert.match(
+    clientesOrganizacaoMigration,
+    /grant select, insert, update on table public\.clientes to service_role;/i
+  );
+  assert.match(
+    clientesOrganizacaoMigration,
+    /revoke delete on table public\.clientes from anon, authenticated, service_role;/i
+  );
+
+  assert.match(
+    chamadosOrganizacaoMigration,
+    /drop constraint if exists chamados_organizacao_id_fkey/i
+  );
+  assert.match(
+    chamadosOrganizacaoMigration,
+    /set organizacao_id = clientes\.organizacao_id/i
+  );
+  assert.match(
+    chamadosOrganizacaoMigration,
+    /set organizacao_id = null/i
+  );
+  assert.match(
+    chamadosOrganizacaoMigration,
+    /foreign key \(organizacao_id\) references public\.organizacoes\(id\)/i
+  );
+  assert.doesNotMatch(
+    chamadosOrganizacaoMigration,
+    /foreign key \(organizacao_id\) references public\.clientes\(id\)/i
+  );
+  assert.match(
+    chamadosOrganizacaoMigration,
+    /and l\.cliente_id = chamados\.cliente_id/i
+  );
+  assert.doesNotMatch(
+    chamadosOrganizacaoMigration,
+    /l\.cliente_id = chamados\.organizacao_id/i
+  );
+
+  assert.match(novoChamadoActionsSource, /cliente_id: clienteIdEfetivo/);
+  assert.match(novoChamadoActionsSource, /organizacao_id:[\s\S]*clienteResposta\.data/);
+  assert.doesNotMatch(novoChamadoActionsSource, /organizacao_id: clienteIdEfetivo/);
+  assert.match(novoChamadoActionsSource, /lojaResposta\.data\.cliente_id !== clienteIdEfetivo/);
+  assert.match(novoChamadoFormSource, /Organização administrativa:/);
+  assert.doesNotMatch(novoChamadoFormSource, /organizacao_id: clienteId/);
+  assert.match(versionSource, /ORGANIZACOES_PAGE_VERSION = "v1\.1\.0"/);
+  assert.match(versionSource, /NOVO_CHAMADO_PAGE_VERSION = "v0\.2\.6"/);
+  assert.match(versionBadgeSource, /\/cadastros\/organizacoes/);
 });
 
 test("partner form normalizes website before hitting database constraints", () => {

@@ -34,6 +34,10 @@ export type BaseConhecimentoItem = {
 export type ClienteItem = {
   id: string;
   nome_fantasia: string;
+  organizacao_id: string | null;
+  organizacao?: {
+    nome: string;
+  } | null;
 };
 
 export type LojaItem = {
@@ -70,7 +74,7 @@ export type CriarChamadoInput = {
   tipo_chamado_id: string;
   origem_id: string;
   id_externo: string;
-  organizacao_id: string;
+  cliente_id: string;
   grupo_atendimento_id: string;
   base_conhecimento_ids: string[];
   loja_id: string;
@@ -115,6 +119,28 @@ function validarUuidLista(ids: string[]) {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   return ids.every((id) => uuidRegex.test(id));
+}
+
+function normalizarStatusInicial(codigo: string | null | undefined) {
+  if (codigo === "pendente_de_agendamento") {
+    return "pendente_agendamento";
+  }
+
+  const codigosPermitidos = new Set([
+    "pendente_agendamento",
+    "orcamento",
+    "agendado",
+    "analisado",
+    "em_atendimento",
+    "pendente_peca",
+    "resolvido",
+    "faturado",
+    "arquivado",
+  ]);
+
+  return codigo && codigosPermitidos.has(codigo)
+    ? codigo
+    : "pendente_agendamento";
 }
 
 function validarUrlOpcional(url: string) {
@@ -186,13 +212,13 @@ export async function carregarDadosNovoChamado(): Promise<
     usuarioClienteOuParceiro && perfilAtual.cliente_id
       ? supabase
           .from("clientes")
-          .select("id, nome_fantasia")
+          .select("id, nome_fantasia, organizacao_id, organizacao:organizacoes!clientes_organizacao_id_fkey(nome)")
           .eq("id", perfilAtual.cliente_id)
           .eq("ativo", true)
           .order("nome_fantasia")
       : supabase
           .from("clientes")
-          .select("id, nome_fantasia")
+          .select("id, nome_fantasia, organizacao_id, organizacao:organizacoes!clientes_organizacao_id_fkey(nome)")
           .eq("ativo", true)
           .order("nome_fantasia"),
     usuarioClienteOuParceiro && perfilAtual.loja_id
@@ -233,16 +259,16 @@ export async function carregarDadosNovoChamado(): Promise<
     };
   }
 
+  const statusPadraoResposta = isSchemaCacheError(statusResposta.error?.message)
+    ? null
+    : (statusResposta.data as ChamadoStatusItem | null);
   const dados = {
-    statusPadrao: isSchemaCacheError(statusResposta.error?.message)
+    statusPadrao: statusPadraoResposta
       ? {
-          id: "fallback-status-pendente-agendamento",
-          codigo: "pendente_agendamento",
-          nome: "Pendente de agendamento",
-          descricao: null,
-          cor: null,
+          ...statusPadraoResposta,
+          codigo: normalizarStatusInicial(statusPadraoResposta.codigo),
         }
-      : (statusResposta.data as ChamadoStatusItem | null) ?? {
+      : {
           id: "fallback-status-pendente-agendamento",
           codigo: "pendente_agendamento",
           nome: "Pendente de agendamento",
@@ -395,13 +421,13 @@ export async function criarGrupoAtendimento(nome: string, descricao: string) {
   return criarCatalogoSimples("grupos_atendimento", nome, descricao);
 }
 
-export async function criarOrganizacao(nome: string): Promise<MutationResult<ClienteItem>> {
+export async function criarClienteChamado(nome: string): Promise<MutationResult<ClienteItem>> {
   const perfilAtual = await requirePerfilAutenticado();
 
   if (!podeGerenciarCatalogosChamado(perfilAtual.papel)) {
     return {
       status: "permission_error",
-      message: "Seu perfil não pode cadastrar organizações na abertura.",
+      message: "Seu perfil não pode cadastrar clientes na abertura.",
     };
   }
 
@@ -410,7 +436,7 @@ export async function criarOrganizacao(nome: string): Promise<MutationResult<Cli
   if (!nomeNormalizado) {
     return {
       status: "validation_error",
-      message: "Informe o nome da organização.",
+      message: "Informe o nome do cliente.",
     };
   }
 
@@ -422,7 +448,7 @@ export async function criarOrganizacao(nome: string): Promise<MutationResult<Cli
       razao_social: nomeNormalizado,
       ativo: true,
     })
-    .select("id, nome_fantasia")
+    .select("id, nome_fantasia, organizacao_id")
     .single();
 
   if (error) {
@@ -436,13 +462,13 @@ export async function criarOrganizacao(nome: string): Promise<MutationResult<Cli
 
   return {
     status: "success",
-    message: "Organização criada.",
+    message: "Cliente criado.",
     data: data as ClienteItem,
   };
 }
 
 export async function criarFilialOrganizacao(
-  organizacaoId: string,
+  clienteId: string,
   nome: string
 ): Promise<MutationResult<LojaItem>> {
   const perfilAtual = await requirePerfilAutenticado();
@@ -454,10 +480,10 @@ export async function criarFilialOrganizacao(
     };
   }
 
-  if (!validarUuidLista([organizacaoId])) {
+  if (!validarUuidLista([clienteId])) {
     return {
       status: "validation_error",
-      message: "Selecione uma organização válida antes de criar a filial.",
+      message: "Selecione um cliente válido antes de criar a filial.",
     };
   }
 
@@ -471,31 +497,31 @@ export async function criarFilialOrganizacao(
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data: organizacao, error: erroOrganizacao } = await supabase
+  const { data: cliente, error: erroCliente } = await supabase
     .from("clientes")
     .select("id")
-    .eq("id", organizacaoId)
+    .eq("id", clienteId)
     .eq("ativo", true)
     .maybeSingle();
 
-  if (erroOrganizacao) {
+  if (erroCliente) {
     return {
-      status: erroOrganizacao.code === "42501" ? "permission_error" : "error",
-      message: mensagemErroBanco(erroOrganizacao),
+      status: erroCliente.code === "42501" ? "permission_error" : "error",
+      message: mensagemErroBanco(erroCliente),
     };
   }
 
-  if (!organizacao) {
+  if (!cliente) {
     return {
       status: "validation_error",
-      message: "Organização selecionada não está ativa ou não foi encontrada.",
+      message: "Cliente selecionado não está ativo ou não foi encontrado.",
     };
   }
 
   const { data, error } = await supabase
     .from("lojas")
     .insert({
-      cliente_id: organizacaoId,
+      cliente_id: clienteId,
       nome_loja: nomeNormalizado,
       ativo: true,
     })
@@ -586,9 +612,9 @@ export async function criarChamadoIdentificacao(
   const titulo = normalizarTexto(input.titulo);
   const solicitante = normalizarTexto(input.solicitante);
   const descricao = input.descricao.trim();
-  const organizacaoIdEfetiva = usuarioClienteOuParceiro
-    ? perfilAtual.cliente_id ?? input.organizacao_id
-    : input.organizacao_id;
+  const clienteIdEfetivo = usuarioClienteOuParceiro
+    ? perfilAtual.cliente_id ?? input.cliente_id
+    : input.cliente_id;
   const lojaIdEfetiva = usuarioClienteOuParceiro
     ? perfilAtual.loja_id ?? ""
     : input.loja_id;
@@ -598,7 +624,7 @@ export async function criarChamadoIdentificacao(
   const idsObrigatorios = [
     input.tipo_chamado_id,
     input.origem_id,
-    organizacaoIdEfetiva,
+    clienteIdEfetivo,
     input.grupo_atendimento_id,
     lojaIdEfetiva,
   ];
@@ -622,7 +648,7 @@ export async function criarChamadoIdentificacao(
     return {
       status: "validation_error",
       message:
-        "Selecione tipo, origem, organização, filial e grupo de atendimento.",
+        "Selecione tipo, origem, cliente, filial e grupo de atendimento.",
     };
   }
 
@@ -642,7 +668,14 @@ export async function criarChamadoIdentificacao(
   }
 
   const supabase = await createSupabaseServerClient();
-  const [tipoResposta, origemResposta, grupoResposta, lojaResposta, statusResposta] =
+  const [
+    tipoResposta,
+    origemResposta,
+    grupoResposta,
+    clienteResposta,
+    lojaResposta,
+    statusResposta,
+  ] =
     await Promise.all([
     supabase
       .from("chamado_tipos")
@@ -660,6 +693,12 @@ export async function criarChamadoIdentificacao(
       .from("grupos_atendimento")
       .select("nome")
       .eq("id", input.grupo_atendimento_id)
+      .eq("ativo", true)
+      .maybeSingle(),
+    supabase
+      .from("clientes")
+      .select("id, organizacao_id")
+      .eq("id", clienteIdEfetivo)
       .eq("ativo", true)
       .maybeSingle(),
     supabase
@@ -683,6 +722,7 @@ export async function criarChamadoIdentificacao(
     tipoResposta.error,
     origemResposta.error,
     grupoResposta.error,
+    clienteResposta.error,
     lojaResposta.error,
     statusResposta.error,
   ].find((item) => item && !isSchemaCacheError(item.message));
@@ -702,10 +742,17 @@ export async function criarChamadoIdentificacao(
     };
   }
 
-  if (!lojaResposta.data || lojaResposta.data.cliente_id !== organizacaoIdEfetiva) {
+  if (!clienteResposta.data) {
     return {
       status: "validation_error",
-      message: "A filial selecionada não pertence à organização vinculada.",
+      message: "Cliente selecionado não está mais ativo. Recarregue a tela.",
+    };
+  }
+
+  if (!lojaResposta.data || lojaResposta.data.cliente_id !== clienteIdEfetivo) {
+    return {
+      status: "validation_error",
+      message: "A filial selecionada não pertence ao cliente vinculado.",
     };
   }
 
@@ -735,7 +782,7 @@ export async function criarChamadoIdentificacao(
 
   const statusInicial = isSchemaCacheError(statusResposta.error?.message)
     ? "pendente_agendamento"
-    : statusResposta.data?.codigo ?? "pendente_agendamento";
+    : normalizarStatusInicial(statusResposta.data?.codigo);
 
   const descricaoProblema = [
     `Solicitante: ${solicitante}`,
@@ -758,8 +805,10 @@ export async function criarChamadoIdentificacao(
   const { data: chamadoCriado, error: erroChamado } = await supabase
     .from("chamados")
     .insert({
-      cliente_id: organizacaoIdEfetiva,
-      organizacao_id: organizacaoIdEfetiva,
+      cliente_id: clienteIdEfetivo,
+      organizacao_id:
+        (clienteResposta.data as { organizacao_id: string | null }).organizacao_id ??
+        null,
       loja_id: lojaIdEfetiva,
       operador_id: perfilAtual.id,
       tecnico_id: input.tecnico_responsavel_id || null,
@@ -800,7 +849,7 @@ export async function criarChamadoIdentificacao(
     supabase
       .from("parceiros")
       .select("id")
-      .eq("cliente_legado_id", organizacaoIdEfetiva)
+      .eq("cliente_legado_id", clienteIdEfetivo)
       .maybeSingle(),
     supabase
       .from("parceiros_filiais")
