@@ -3,6 +3,18 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.29",
+    data: "20/05/2026",
+    alteracoes: [
+      "Organizações v1.1.1 explicita quais clientes alimentam o vínculo administrativo, mostrando parceiro mestre e quantidade de filiais operacionais por cliente.",
+      "Clientes / Parceiros v1.0.1 mostra o cliente legado, a organização derivada e as filiais conectadas ao cadastro mestre.",
+      "Novo Chamado v0.2.7 exibe organização administrativa, parceiro mestre e filial mestre derivados automaticamente do cliente e da filial selecionados.",
+    ],
+    correcoes: [
+      "A transparência dos vínculos passa a vir de consultas de leitura sobre os campos existentes, sem escolha manual divergente e sem mudança de RLS ou schema.",
+    ],
+  },
+  {
     versao: "v0.9.28",
     data: "19/05/2026",
     alteracoes: [

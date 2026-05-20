@@ -192,7 +192,7 @@ export function OrganizacoesTable({ organizacoes }: Props) {
       <div className="border-b border-gray-100 px-4 py-3">
         <h2 className="text-base font-bold text-gray-950">Registros</h2>
         <p className="mt-1 text-xs text-gray-600">
-          Filtre, pagine e gerencie organizações sem excluir registros.
+          O total de clientes indica quais registros alimentam a organização derivada nos chamados.
         </p>
       </div>
 
@@ -246,7 +246,7 @@ export function OrganizacoesTable({ organizacoes }: Props) {
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Código interno</th>
               <th className="px-4 py-3">Tipo</th>
-              <th className="px-4 py-3">Clientes</th>
+              <th className="px-4 py-3">Clientes vinculados</th>
               <th className="px-4 py-3">Possui filiais</th>
               <th className="px-4 py-3">Sistema externo padrão</th>
               <th className="px-4 py-3">ID externo</th>
@@ -268,7 +268,14 @@ export function OrganizacoesTable({ organizacoes }: Props) {
                   {LABEL_TIPO_ORGANIZACAO[organizacao.tipo_organizacao]}
                 </td>
                 <td className="px-4 py-3 text-gray-700">
-                  {organizacao.clientes_vinculados_count ?? 0}
+                  <span className="font-semibold text-gray-900">
+                    {organizacao.clientes_vinculados_count ?? 0}
+                  </span>
+                  <span className="mt-1 block text-xs text-gray-500">
+                    {organizacao.clientes_vinculados_count
+                      ? "Deriva chamados"
+                      : "Sem vínculo operacional"}
+                  </span>
                 </td>
                 <td className="px-4 py-3 text-gray-700">
                   {organizacao.possui_filiais ? "Sim" : "Não"}

@@ -36,6 +36,8 @@ export type ClienteOrganizacao = {
   razao_social: string | null;
   ativo: boolean;
   organizacao_id: string | null;
+  lojas_count?: number;
+  parceiro_mestre_nome?: string | null;
 };
 
 export const LABEL_TIPO_ORGANIZACAO: Record<TipoOrganizacao, string> = {

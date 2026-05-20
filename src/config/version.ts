@@ -1,5 +1,5 @@
-export const APP_VERSION = "v0.9.28";
-export const APP_UPDATED_AT = "2026-05-19";
+export const APP_VERSION = "v0.9.29";
+export const APP_UPDATED_AT = "2026-05-20";
 
 export const DASHBOARD_PAGE_VERSION = "v0.1.0";
 export const LOGIN_PAGE_VERSION = "v0.2.1";
@@ -10,11 +10,11 @@ export const CONTA_PAGE_VERSION = "v0.1.1";
 export const CONTA_PERFIL_PAGE_VERSION = "v0.2.0";
 export const CONTA_APARENCIA_PAGE_VERSION = "v0.1.0";
 export const CONTA_PERMISSOES_PAGE_VERSION = "v0.1.2";
-export const NOVO_CHAMADO_PAGE_VERSION = "v0.2.6";
+export const NOVO_CHAMADO_PAGE_VERSION = "v0.2.7";
 export const STATUS_CHAMADOS_PAGE_VERSION = "v1.0.0";
 export const TIPOS_CHAMADO_PAGE_VERSION = "v1.0.0";
 export const ORIGENS_CHAMADO_PAGE_VERSION = "v1.0.0";
 export const GRUPOS_ATENDIMENTO_PAGE_VERSION = "v1.0.0";
-export const ORGANIZACOES_PAGE_VERSION = "v1.1.0";
-export const PARCEIROS_PAGE_VERSION = "v1.0.0";
+export const ORGANIZACOES_PAGE_VERSION = "v1.1.1";
+export const PARCEIROS_PAGE_VERSION = "v1.0.1";
 export const LEGAL_DOCUMENTS_VERSION = "v0.7.0";

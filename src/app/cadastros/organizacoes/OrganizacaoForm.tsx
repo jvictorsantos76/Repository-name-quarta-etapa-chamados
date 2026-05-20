@@ -337,6 +337,19 @@ export function OrganizacaoForm({ organizacao, clientes = [], erro }: Props) {
                               {cliente.razao_social}
                             </span>
                           ) : null}
+                          <span className="mt-1 block text-xs text-gray-600">
+                            Parceiro mestre:{" "}
+                            <span className="font-semibold text-gray-800">
+                              {cliente.parceiro_mestre_nome ??
+                                "sem vínculo no cadastro mestre"}
+                            </span>
+                          </span>
+                          <span className="mt-0.5 block text-xs text-gray-600">
+                            Filiais operacionais:{" "}
+                            <span className="font-semibold text-gray-800">
+                              {cliente.lojas_count ?? 0}
+                            </span>
+                          </span>
                           {vinculadoEmOutraOrganizacao ? (
                             <span className="mt-1 block text-xs font-semibold text-amber-700">
                               Já vinculado a outra organização. Marcar aqui transfere o vínculo.

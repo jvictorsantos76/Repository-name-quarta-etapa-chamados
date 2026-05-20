@@ -234,6 +234,38 @@ function GeralTab({
       <input type="hidden" name="endereco_id" value={endereco?.id ?? ""} />
       <input type="hidden" name="contato_id" value={contato?.id ?? ""} />
 
+      {parceiro ? (
+        <section className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
+          <h2 className="text-base font-bold text-blue-950">
+            Vínculo usado nos chamados
+          </h2>
+          <div className="mt-2 grid gap-2 md:grid-cols-3">
+            <div>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-blue-700">
+                Cliente legado
+              </span>
+              <span className="font-semibold">
+                {parceiro.cliente_legado_nome ?? "Sem vínculo legado"}
+              </span>
+            </div>
+            <div>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-blue-700">
+                Organização derivada
+              </span>
+              <span className="font-semibold">
+                {parceiro.organizacao_legada_nome ?? "Sem organização vinculada"}
+              </span>
+            </div>
+            <div>
+              <span className="block text-xs font-semibold uppercase tracking-wide text-blue-700">
+                Filiais conectadas
+              </span>
+              <span className="font-semibold">{parceiro.filiais_count ?? 0}</span>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <FormSection title="Dados cadastrais" densidade={densidade}>
         <label className={labelClass}>
           Tipo de parceiro
@@ -391,9 +423,10 @@ function FiliaisTab({
   return (
     <div className="space-y-4">
       <MiniTable
-        headers={["Filial", "Cidade", "SLA", "Contato", "Status"]}
+        headers={["Filial", "Loja vinculada", "Cidade", "SLA", "Contato", "Status"]}
         rows={parceiro.filiais.map((filial) => [
           filial.nome_filial,
+          filial.loja_legado_nome ?? "Sem loja legada",
           filial.cidade ?? "-",
           filial.sla_padrao ?? "-",
           filial.contato_nome ?? filial.contato_telefone ?? "-",

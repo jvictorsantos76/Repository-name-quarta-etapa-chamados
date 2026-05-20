@@ -35,7 +35,12 @@ export default async function EditarOrganizacaoPage({
 
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
-  const [{ data, error }, clientesResposta] = await Promise.all([
+  const [
+    { data, error },
+    clientesResposta,
+    parceirosResposta,
+    lojasResposta,
+  ] = await Promise.all([
     supabase
       .from("organizacoes")
       .select(
@@ -47,6 +52,12 @@ export default async function EditarOrganizacaoPage({
       .from("clientes")
       .select("id, nome_fantasia, razao_social, ativo, organizacao_id")
       .order("nome_fantasia"),
+    supabase
+      .from("parceiros")
+      .select("nome_fantasia, cliente_legado_id"),
+    supabase
+      .from("lojas")
+      .select("id, cliente_id"),
   ]);
 
   if (error || !data) {
@@ -54,9 +65,45 @@ export default async function EditarOrganizacaoPage({
   }
 
   const organizacao = data as Organizacao;
+  const parceirosPorCliente = new Map<string, string>();
+  const lojasPorCliente = new Map<string, number>();
+
+  if (!parceirosResposta.error) {
+    for (const parceiro of
+      (parceirosResposta.data as
+        | { nome_fantasia: string; cliente_legado_id: string | null }[]
+        | null) ?? []) {
+      if (parceiro.cliente_legado_id) {
+        parceirosPorCliente.set(
+          parceiro.cliente_legado_id,
+          parceiro.nome_fantasia
+        );
+      }
+    }
+  }
+
+  if (!lojasResposta.error) {
+    for (const loja of
+      (lojasResposta.data as { id: string; cliente_id: string | null }[] | null) ??
+      []) {
+      if (loja.cliente_id) {
+        lojasPorCliente.set(
+          loja.cliente_id,
+          (lojasPorCliente.get(loja.cliente_id) ?? 0) + 1
+        );
+      }
+    }
+  }
+
   const clientes = clientesResposta.error
     ? []
-    : ((clientesResposta.data as ClienteOrganizacao[] | null) ?? []);
+    : ((clientesResposta.data as ClienteOrganizacao[] | null) ?? []).map(
+        (cliente) => ({
+          ...cliente,
+          lojas_count: lojasPorCliente.get(cliente.id) ?? 0,
+          parceiro_mestre_nome: parceirosPorCliente.get(cliente.id) ?? null,
+        })
+      );
   const erro = await getErro(searchParams);
 
   return (

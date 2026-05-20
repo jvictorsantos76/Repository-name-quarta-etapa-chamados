@@ -196,7 +196,7 @@ export function ParceirosTable({ parceiros }: Props) {
       <div className="border-b border-gray-100 px-4 py-3">
         <h2 className="text-base font-bold text-gray-950">Registros</h2>
         <p className="mt-1 text-xs text-gray-600">
-          Filtre parceiros comerciais e operacionais sem misturar com organizações internas.
+          A coluna de vínculo mostra se o cadastro mestre está conectado ao cliente legado usado nos chamados.
         </p>
       </div>
 
@@ -258,7 +258,7 @@ export function ParceirosTable({ parceiros }: Props) {
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-[1120px] w-full border-collapse text-left text-sm">
+        <table className="min-w-[1220px] w-full border-collapse text-left text-sm">
           <thead className="bg-gray-50 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-4 py-3">Nome fantasia</th>
@@ -267,7 +267,8 @@ export function ParceirosTable({ parceiros }: Props) {
               <th className="px-4 py-3">Documento</th>
               <th className="px-4 py-3">Segmento</th>
               <th className="px-4 py-3">Situação</th>
-              <th className="px-4 py-3">Origem</th>
+              <th className="px-4 py-3">Vínculo operacional</th>
+              <th className="px-4 py-3">Filiais</th>
               <th className="px-4 py-3">Atualizado em</th>
               <th className="px-4 py-3">Ações</th>
             </tr>
@@ -302,7 +303,19 @@ export function ParceirosTable({ parceiros }: Props) {
                   </span>
                 </td>
                 <td className="px-4 py-3 text-gray-700">
-                  {parceiro.cliente_legado_id ? "Legado" : "Novo"}
+                  <span className="font-semibold text-gray-900">
+                    {parceiro.cliente_legado_id
+                      ? parceiro.cliente_legado_nome ?? "Cliente legado"
+                      : "Sem cliente legado"}
+                  </span>
+                  <span className="mt-1 block text-xs text-gray-500">
+                    {parceiro.cliente_legado_id
+                      ? "Sincroniza com chamados"
+                      : "Ainda não deriva chamados legados"}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-gray-700">
+                  {parceiro.filiais_count ?? 0}
                 </td>
                 <td className="px-4 py-3 text-gray-700">
                   {formatarData(parceiro.atualizado_em)}
