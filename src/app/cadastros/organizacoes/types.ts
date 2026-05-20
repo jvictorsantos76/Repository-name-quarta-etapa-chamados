@@ -27,6 +27,15 @@ export type Organizacao = {
   atualizado_em: string;
   criado_por: string | null;
   atualizado_por: string | null;
+  clientes_vinculados_count?: number;
+};
+
+export type ClienteOrganizacao = {
+  id: string;
+  nome_fantasia: string;
+  razao_social: string | null;
+  ativo: boolean;
+  organizacao_id: string | null;
 };
 
 export const LABEL_TIPO_ORGANIZACAO: Record<TipoOrganizacao, string> = {

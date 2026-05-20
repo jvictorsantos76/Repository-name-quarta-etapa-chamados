@@ -38,16 +38,38 @@ export default async function OrganizacoesPage({ searchParams }: PageProps) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  const [{ data, error }, clientesResposta] = await Promise.all([
+    supabase
     .from("organizacoes")
     .select(
       "id, nome, codigo_interno, tipo_organizacao, possui_filiais, ativo, observacoes, logo_url, cor_identificacao, sistema_externo_padrao, id_externo, criado_em, atualizado_em, criado_por, atualizado_por"
     )
-    .order("nome");
+      .order("nome"),
+    supabase.from("clientes").select("id, organizacao_id"),
+  ]);
+  const totaisPorOrganizacao = new Map<string, number>();
+
+  if (!clientesResposta.error || isSchemaCacheError(clientesResposta.error.message)) {
+    for (const cliente of clientesResposta.data ?? []) {
+      const organizacaoId = (cliente as { organizacao_id: string | null }).organizacao_id;
+
+      if (organizacaoId) {
+        totaisPorOrganizacao.set(
+          organizacaoId,
+          (totaisPorOrganizacao.get(organizacaoId) ?? 0) + 1
+        );
+      }
+    }
+  }
+
   const organizacoes =
     error && isSchemaCacheError(error.message)
       ? []
-      : ((data as Organizacao[] | null) ?? []);
+      : ((data as Organizacao[] | null) ?? []).map((organizacao) => ({
+          ...organizacao,
+          clientes_vinculados_count:
+            totaisPorOrganizacao.get(organizacao.id) ?? 0,
+        }));
   const erro = await getSearchParam(searchParams, "erro");
   const salvo = await getSearchParam(searchParams, "salvo");
 

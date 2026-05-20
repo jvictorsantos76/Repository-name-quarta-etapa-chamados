@@ -8,11 +8,13 @@ import { salvarOrganizacao } from "./actions";
 import {
   LABEL_TIPO_ORGANIZACAO,
   TIPOS_ORGANIZACAO,
+  type ClienteOrganizacao,
   type Organizacao,
 } from "./types";
 
 type Props = {
   organizacao?: Organizacao | null;
+  clientes?: ClienteOrganizacao[];
   erro?: string | null;
 };
 
@@ -161,7 +163,7 @@ function FormSection({
   );
 }
 
-export function OrganizacaoForm({ organizacao, erro }: Props) {
+export function OrganizacaoForm({ organizacao, clientes = [], erro }: Props) {
   const editando = Boolean(organizacao);
   const supabase = useSupabaseBrowserClient();
   const [logoUrl, setLogoUrl] = useState(organizacao?.logo_url ?? "");
@@ -293,6 +295,69 @@ export function OrganizacaoForm({ organizacao, erro }: Props) {
             estrutura com múltiplos clientes/unidades operacionais.
           </p>
         </div>
+        {editando ? (
+          <div className="md:col-span-2">
+            <div className={labelClass}>Clientes vinculados</div>
+            <div className="mt-1 max-h-72 overflow-auto rounded-md border border-gray-200 bg-gray-50 p-3">
+              {clientes.length === 0 ? (
+                <p className="text-sm font-medium normal-case tracking-normal text-gray-600">
+                  Nenhum cliente disponível para vínculo.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {clientes.map((cliente) => {
+                    const vinculadoNestaOrganizacao =
+                      cliente.organizacao_id === organizacao?.id;
+                    const vinculadoEmOutraOrganizacao =
+                      Boolean(cliente.organizacao_id) && !vinculadoNestaOrganizacao;
+
+                    return (
+                      <label
+                        key={cliente.id}
+                        className={`flex items-start gap-3 rounded-md border px-3 py-2 text-sm normal-case tracking-normal ${
+                          vinculadoEmOutraOrganizacao
+                            ? "border-amber-200 bg-amber-50 text-amber-900"
+                            : "border-gray-200 bg-white text-gray-800"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          name="clientes_vinculados"
+                          value={cliente.id}
+                          defaultChecked={vinculadoNestaOrganizacao}
+                          className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span>
+                          <span className="block font-semibold">
+                            {cliente.nome_fantasia}
+                            {!cliente.ativo ? " (inativo)" : ""}
+                          </span>
+                          {cliente.razao_social ? (
+                            <span className="mt-0.5 block text-xs text-gray-500">
+                              {cliente.razao_social}
+                            </span>
+                          ) : null}
+                          {vinculadoEmOutraOrganizacao ? (
+                            <span className="mt-1 block text-xs font-semibold text-amber-700">
+                              Já vinculado a outra organização. Marcar aqui transfere o vínculo.
+                            </span>
+                          ) : null}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <p className="mt-2 text-sm normal-case tracking-normal text-gray-600">
+              O vínculo define a organização administrativa derivada nos novos chamados.
+            </p>
+          </div>
+        ) : (
+          <p className="md:col-span-2 text-sm text-gray-600">
+            Salve a organização antes de vincular clientes existentes.
+          </p>
+        )}
         <div className="md:col-span-2">
           <CampoTextarea
             name="observacoes"

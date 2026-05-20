@@ -9,7 +9,7 @@ import {
 } from "@/lib/supabase/server";
 import { alterarStatusOrganizacao } from "../actions";
 import { OrganizacaoForm } from "../OrganizacaoForm";
-import type { Organizacao } from "../types";
+import type { ClienteOrganizacao, Organizacao } from "../types";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -35,19 +35,28 @@ export default async function EditarOrganizacaoPage({
 
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("organizacoes")
-    .select(
-      "id, nome, codigo_interno, tipo_organizacao, possui_filiais, ativo, observacoes, logo_url, cor_identificacao, sistema_externo_padrao, id_externo, criado_em, atualizado_em, criado_por, atualizado_por"
-    )
-    .eq("id", id)
-    .maybeSingle();
+  const [{ data, error }, clientesResposta] = await Promise.all([
+    supabase
+      .from("organizacoes")
+      .select(
+        "id, nome, codigo_interno, tipo_organizacao, possui_filiais, ativo, observacoes, logo_url, cor_identificacao, sistema_externo_padrao, id_externo, criado_em, atualizado_em, criado_por, atualizado_por"
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("clientes")
+      .select("id, nome_fantasia, razao_social, ativo, organizacao_id")
+      .order("nome_fantasia"),
+  ]);
 
   if (error || !data) {
     notFound();
   }
 
   const organizacao = data as Organizacao;
+  const clientes = clientesResposta.error
+    ? []
+    : ((clientesResposta.data as ClienteOrganizacao[] | null) ?? []);
   const erro = await getErro(searchParams);
 
   return (
@@ -96,7 +105,7 @@ export default async function EditarOrganizacaoPage({
           </form>
         </div>
 
-        <OrganizacaoForm organizacao={organizacao} erro={erro} />
+        <OrganizacaoForm organizacao={organizacao} clientes={clientes} erro={erro} />
       </section>
     </main>
   );

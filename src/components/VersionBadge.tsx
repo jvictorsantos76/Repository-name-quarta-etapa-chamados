@@ -14,6 +14,7 @@ import {
   DASHBOARD_PAGE_VERSION,
   LOGIN_PAGE_VERSION,
   NOVO_CHAMADO_PAGE_VERSION,
+  ORGANIZACOES_PAGE_VERSION,
   PARCEIROS_PAGE_VERSION,
   GRUPOS_ATENDIMENTO_PAGE_VERSION,
   ORIGENS_CHAMADO_PAGE_VERSION,
@@ -123,6 +124,10 @@ function getPageVersion(pathname: string) {
 
   if (pathname.startsWith("/cadastros/parceiros")) {
     return `Tela | Clientes / Parceiros ${PARCEIROS_PAGE_VERSION}`;
+  }
+
+  if (pathname.startsWith("/cadastros/organizacoes")) {
+    return `Tela | Organizações ${ORGANIZACOES_PAGE_VERSION}`;
   }
 
   return null;

@@ -246,6 +246,7 @@ export function OrganizacoesTable({ organizacoes }: Props) {
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Código interno</th>
               <th className="px-4 py-3">Tipo</th>
+              <th className="px-4 py-3">Clientes</th>
               <th className="px-4 py-3">Possui filiais</th>
               <th className="px-4 py-3">Sistema externo padrão</th>
               <th className="px-4 py-3">ID externo</th>
@@ -265,6 +266,9 @@ export function OrganizacoesTable({ organizacoes }: Props) {
                 </td>
                 <td className="px-4 py-3 text-gray-700">
                   {LABEL_TIPO_ORGANIZACAO[organizacao.tipo_organizacao]}
+                </td>
+                <td className="px-4 py-3 text-gray-700">
+                  {organizacao.clientes_vinculados_count ?? 0}
                 </td>
                 <td className="px-4 py-3 text-gray-700">
                   {organizacao.possui_filiais ? "Sim" : "Não"}

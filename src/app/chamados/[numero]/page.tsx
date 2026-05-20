@@ -53,7 +53,7 @@ type ChamadoDetalhe = {
     nome: string;
   } | null;
   organizacao: {
-    nome_fantasia: string;
+    nome: string;
   } | null;
   clientes: {
     nome_fantasia: string;
@@ -171,8 +171,8 @@ export default async function DetalheChamado({ params }: PageProps) {
       grupo_atendimento:grupos_atendimento!chamados_grupo_atendimento_id_fkey (
         nome
       ),
-      organizacao:clientes!chamados_organizacao_id_fkey (
-        nome_fantasia
+      organizacao:organizacoes!chamados_organizacao_id_fkey (
+        nome
       ),
       clientes:clientes!chamados_cliente_id_fkey (
         nome_fantasia
@@ -454,10 +454,16 @@ export default async function DetalheChamado({ params }: PageProps) {
 
         <div className="mb-6 grid gap-4 md:grid-cols-3">
           <div className="rounded-xl bg-white p-5 shadow">
+            <p className="text-sm font-medium text-gray-500">Organização</p>
+            <p className="mt-2 font-semibold">
+              {chamadoDetalhe.organizacao?.nome ?? "Não vinculada"}
+            </p>
+          </div>
+
+          <div className="rounded-xl bg-white p-5 shadow">
             <p className="text-sm font-medium text-gray-500">Cliente</p>
             <p className="mt-2 font-semibold">
-              {chamadoDetalhe.organizacao?.nome_fantasia ??
-                chamadoDetalhe.clientes?.nome_fantasia}
+              {chamadoDetalhe.clientes?.nome_fantasia ?? "Não informado"}
             </p>
           </div>
 

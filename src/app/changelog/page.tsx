@@ -3,6 +3,17 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.28",
+    data: "19/05/2026",
+    alteracoes: [
+      "Organizações v1.1.0 passa a vincular clientes existentes ao agrupador administrativo, preservando clientes e lojas como base operacional dos chamados.",
+      "Novo Chamado v0.2.6 deriva a organização administrativa exclusivamente do cliente selecionado no backend, sem escolha manual divergente na interface.",
+    ],
+    correcoes: [
+      "Migration separada corrige chamados.organizacao_id para referenciar public.organizacoes, convertendo dados legados quando houver vínculo e mantendo NULL quando não houver organização resolvida.",
+    ],
+  },
+  {
     versao: "v0.9.27",
     data: "19/05/2026",
     alteracoes: [

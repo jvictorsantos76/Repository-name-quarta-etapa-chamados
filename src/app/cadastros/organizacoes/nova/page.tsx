@@ -58,7 +58,7 @@ export default async function NovaOrganizacaoPage({ searchParams }: PageProps) {
             </span>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-gray-600">
-            Cadastre o agrupador operacional sem alterar clientes ou chamados.
+            Cadastre o agrupador administrativo; o vínculo com clientes fica disponível após salvar.
           </p>
         </div>
 

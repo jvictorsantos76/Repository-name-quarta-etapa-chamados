@@ -21,10 +21,10 @@ import {
   carregarDadosNovoChamado,
   criarBaseConhecimento,
   criarChamadoIdentificacao,
+  criarClienteChamado,
   criarFilialOrganizacao,
   criarGrupoAtendimento,
   criarOrigemChamado,
-  criarOrganizacao,
   criarStatusChamado,
   criarTipoChamado,
   type BaseConhecimentoItem,
@@ -43,7 +43,7 @@ type InlineTipo =
   | "status"
   | "tipo"
   | "origem"
-  | "organizacao"
+  | "cliente"
   | "filial"
   | "grupo"
   | "base";
@@ -410,7 +410,7 @@ function InlineModal({
     status: { titulo: "Novo status de chamado", label: "Nome do status" },
     tipo: { titulo: "Novo tipo de chamado", label: "Nome do tipo" },
     origem: { titulo: "Nova origem", label: "Nome da origem" },
-    organizacao: { titulo: "Nova organização", label: "Nome da organização" },
+    cliente: { titulo: "Novo cliente", label: "Nome do cliente" },
     filial: { titulo: "Nova filial", label: "Nome da filial" },
     grupo: { titulo: "Novo grupo de atendimento", label: "Nome do grupo" },
     base: { titulo: "Novo artigo", label: "Título do artigo" },
@@ -468,7 +468,7 @@ function InlineModal({
             </div>
           )}
 
-          {tipo !== "organizacao" && tipo !== "filial" && (
+          {tipo !== "cliente" && tipo !== "filial" && (
             <div>
               <label className="mb-2 block text-sm font-semibold">
                 Descrição ou resumo
@@ -600,6 +600,10 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     () => dados.lojas.filter((loja) => loja.cliente_id === clienteId),
     [clienteId, dados.lojas]
   );
+  const clienteSelecionado = useMemo(
+    () => dados.clientes.find((cliente) => cliente.id === clienteId) ?? null,
+    [clienteId, dados.clientes]
+  );
   const ativosDisponiveis = useMemo(
     () => (categoria ? ativosPorCategoria[categoria] : []),
     [categoria]
@@ -689,7 +693,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     setErroInline("");
 
     if (modalAberto === "filial" && !clienteId) {
-      setErroInline("Selecione uma organização antes de criar a filial.");
+      setErroInline("Selecione um cliente antes de criar a filial.");
       return;
     }
 
@@ -713,8 +717,8 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         resultado = await criarOrigemChamado(campos.nome, campos.descricao);
       } else if (modalAberto === "grupo") {
         resultado = await criarGrupoAtendimento(campos.nome, campos.descricao);
-      } else if (modalAberto === "organizacao") {
-        resultado = await criarOrganizacao(campos.nome);
+      } else if (modalAberto === "cliente") {
+        resultado = await criarClienteChamado(campos.nome);
       } else if (modalAberto === "filial") {
         resultado = await criarFilialOrganizacao(clienteId, campos.nome);
       } else {
@@ -754,7 +758,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         const item = resultado.data as CatalogoItem;
         setDados((atual) => ({ ...atual, grupos: [...atual.grupos, item] }));
         setGrupoAtendimentoId(item.id);
-      } else if (modalAberto === "organizacao") {
+      } else if (modalAberto === "cliente") {
         const item = resultado.data as ClienteItem;
         setDados((atual) => ({ ...atual, clientes: [...atual.clientes, item] }));
         setClienteId(item.id);
@@ -791,7 +795,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
       !lojaId
     ) {
       setErro(
-        "Selecione tipo, origem, organização, filial e grupo de atendimento."
+        "Selecione tipo, origem, cliente, filial e grupo de atendimento."
       );
       return;
     }
@@ -811,7 +815,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
       tipo_chamado_id: tipoChamadoId,
       origem_id: origemId,
       id_externo: idExterno,
-      organizacao_id: clienteId,
+      cliente_id: clienteId,
       grupo_atendimento_id: grupoAtendimentoId,
       base_conhecimento_ids: basesSelecionadas,
       loja_id: lojaId,
@@ -1068,18 +1072,18 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
         </BlocoChamado>
 
         <BlocoChamado
-          title="2. Organização e filial"
-          description="Organização e filial onde o atendimento será tratado."
+          title="2. Cliente e filial"
+          description="Cliente e filial onde o atendimento será tratado. A organização administrativa é derivada do cliente."
         >
           <div className="space-y-5">
             <div>
               <div className="mb-2 flex items-center justify-between gap-3">
                 <label className="block text-sm font-semibold">
-                  Organização <span className="text-red-600">*</span>
+                  Cliente <span className="text-red-600">*</span>
                 </label>
                 {podeCriarInline && (
-                  <BotaoNovo onClick={() => setModalAberto("organizacao")}>
-                    + Nova organização
+                  <BotaoNovo onClick={() => setModalAberto("cliente")}>
+                    + Novo cliente
                   </BotaoNovo>
                 )}
               </div>
@@ -1096,13 +1100,22 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
                 disabled={clienteOuParceiro}
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm disabled:bg-gray-100 disabled:text-gray-500"
               >
-                <option value="">Selecione uma organização</option>
+                <option value="">Selecione um cliente</option>
                 {dados.clientes.map((cliente) => (
                   <option key={cliente.id} value={cliente.id}>
                     {cliente.nome_fantasia}
                   </option>
                 ))}
               </select>
+              {clienteId ? (
+                <p className="mt-2 text-sm text-gray-600">
+                  Organização administrativa:{" "}
+                  <span className="font-semibold text-gray-800">
+                    {clienteSelecionado?.organizacao?.nome ??
+                      "Sem organização vinculada"}
+                  </span>
+                </p>
+              ) : null}
             </div>
 
             <div>
@@ -1115,7 +1128,7 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
                     onClick={() => {
                       if (!clienteId) {
                         setErro(
-                          "Selecione uma organização antes de criar a filial."
+                          "Selecione um cliente antes de criar a filial."
                         );
                         return;
                       }
