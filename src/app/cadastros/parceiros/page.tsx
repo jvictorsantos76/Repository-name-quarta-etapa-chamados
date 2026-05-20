@@ -38,16 +38,49 @@ export default async function ParceirosPage({ searchParams }: PageProps) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("parceiros")
-    .select(
-      "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, situacao, segmento, ativo, cliente_legado_id, criado_em, atualizado_em"
-    )
-    .order("nome_fantasia");
+  const [parceirosResposta, clientesResposta, filiaisResposta] = await Promise.all([
+    supabase
+      .from("parceiros")
+      .select(
+        "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, situacao, segmento, ativo, cliente_legado_id, criado_em, atualizado_em"
+      )
+      .order("nome_fantasia"),
+    supabase.from("clientes").select("id, nome_fantasia"),
+    supabase.from("parceiros_filiais").select("id, parceiro_id"),
+  ]);
+  const { data, error } = parceirosResposta;
+  const clientesPorId = new Map<string, string>();
+  const filiaisPorParceiro = new Map<string, number>();
+
+  if (!clientesResposta.error) {
+    for (const cliente of
+      (clientesResposta.data as { id: string; nome_fantasia: string }[] | null) ??
+      []) {
+      clientesPorId.set(cliente.id, cliente.nome_fantasia);
+    }
+  }
+
+  if (!filiaisResposta.error) {
+    for (const filial of
+      (filiaisResposta.data as { id: string; parceiro_id: string }[] | null) ??
+      []) {
+      filiaisPorParceiro.set(
+        filial.parceiro_id,
+        (filiaisPorParceiro.get(filial.parceiro_id) ?? 0) + 1
+      );
+    }
+  }
+
   const parceiros =
     error && isSchemaCacheError(error.message)
       ? []
-      : ((data as ParceiroResumo[] | null) ?? []);
+      : ((data as ParceiroResumo[] | null) ?? []).map((parceiro) => ({
+          ...parceiro,
+          cliente_legado_nome: parceiro.cliente_legado_id
+            ? clientesPorId.get(parceiro.cliente_legado_id) ?? null
+            : null,
+          filiais_count: filiaisPorParceiro.get(parceiro.id) ?? 0,
+        }));
   const erro = await getSearchParam(searchParams, "erro");
   const salvo = await getSearchParam(searchParams, "salvo");
 

@@ -43,6 +43,8 @@ export type ParceiroResumo = {
   segmento: string | null;
   ativo: boolean;
   cliente_legado_id: string | null;
+  cliente_legado_nome?: string | null;
+  filiais_count?: number;
   criado_em: string;
   atualizado_em: string;
 };
@@ -86,6 +88,7 @@ export type ParceiroFilial = {
   id: string;
   parceiro_id: string;
   loja_legado_id: string | null;
+  loja_legado_nome?: string | null;
   nome_filial: string;
   codigo_interno: string | null;
   cep: string | null;
@@ -187,6 +190,7 @@ export type ParceiroDetalhe = ParceiroResumo & {
   website: string | null;
   criado_por: string | null;
   atualizado_por: string | null;
+  organizacao_legada_nome?: string | null;
   endereco_principal: ParceiroEndereco | null;
   contato_principal: ParceiroContato | null;
   filiais: ParceiroFilial[];

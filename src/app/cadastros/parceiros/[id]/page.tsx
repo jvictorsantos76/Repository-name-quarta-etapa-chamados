@@ -111,24 +111,76 @@ export default async function EditarParceiroPage({
     notFound();
   }
 
+  const parceiroBase = parceiroResposta.data as Omit<
+    ParceiroDetalhe,
+    | "endereco_principal"
+    | "contato_principal"
+    | "filiais"
+    | "contatos"
+    | "financeiro"
+    | "operacional"
+    | "contratos"
+    | "anexos"
+    | "historico"
+    | "cliente_legado_nome"
+    | "organizacao_legada_nome"
+    | "filiais_count"
+  >;
+  const lojaLegadoIds =
+    (filiaisResposta.data as ParceiroFilial[] | null)
+      ?.map((filial) => filial.loja_legado_id)
+      .filter((lojaId): lojaId is string => Boolean(lojaId)) ?? [];
+  const [clienteLegadoResposta, lojasLegadasResposta] = await Promise.all([
+    parceiroBase.cliente_legado_id
+      ? supabase
+          .from("clientes")
+          .select("nome_fantasia, organizacao:organizacoes!clientes_organizacao_id_fkey(nome)")
+          .eq("id", parceiroBase.cliente_legado_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    lojaLegadoIds.length > 0
+      ? supabase
+          .from("lojas")
+          .select("id, nome_loja")
+          .in("id", lojaLegadoIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
   const enderecos = (enderecosResposta.data as ParceiroEndereco[] | null) ?? [];
   const contatos = (contatosResposta.data as ParceiroContato[] | null) ?? [];
+  const lojasLegadasPorId = new Map<string, string>();
+
+  if (!lojasLegadasResposta.error) {
+    for (const loja of
+      (lojasLegadasResposta.data as { id: string; nome_loja: string }[] | null) ??
+      []) {
+      lojasLegadasPorId.set(loja.id, loja.nome_loja);
+    }
+  }
+
+  const clienteLegado = clienteLegadoResposta.error
+    ? null
+    : (clienteLegadoResposta.data as
+        | {
+            nome_fantasia: string;
+            organizacao: { nome: string } | null;
+          }
+        | null);
+  const filiais = ((filiaisResposta.data as ParceiroFilial[] | null) ?? []).map(
+    (filial) => ({
+      ...filial,
+      loja_legado_nome: filial.loja_legado_id
+        ? lojasLegadasPorId.get(filial.loja_legado_id) ?? null
+        : null,
+    })
+  );
   const parceiro = {
-    ...(parceiroResposta.data as Omit<
-      ParceiroDetalhe,
-      | "endereco_principal"
-      | "contato_principal"
-      | "filiais"
-      | "contatos"
-      | "financeiro"
-      | "operacional"
-      | "contratos"
-      | "anexos"
-      | "historico"
-    >),
+    ...parceiroBase,
+    cliente_legado_nome: clienteLegado?.nome_fantasia ?? null,
+    organizacao_legada_nome: clienteLegado?.organizacao?.nome ?? null,
+    filiais_count: filiais.length,
     endereco_principal: enderecos[0] ?? null,
     contato_principal: contatos.find((contato) => contato.principal) ?? contatos[0] ?? null,
-    filiais: (filiaisResposta.data as ParceiroFilial[] | null) ?? [],
+    filiais,
     contatos,
     financeiro: (financeiroResposta.data as ParceiroFinanceiro | null) ?? null,
     operacional: (operacionalResposta.data as ParceiroOperacional | null) ?? null,
