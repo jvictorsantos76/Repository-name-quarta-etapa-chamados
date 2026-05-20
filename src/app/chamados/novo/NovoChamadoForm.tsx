@@ -604,6 +604,10 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     () => dados.clientes.find((cliente) => cliente.id === clienteId) ?? null,
     [clienteId, dados.clientes]
   );
+  const lojaSelecionada = useMemo(
+    () => dados.lojas.find((loja) => loja.id === lojaId) ?? null,
+    [lojaId, dados.lojas]
+  );
   const ativosDisponiveis = useMemo(
     () => (categoria ? ativosPorCategoria[categoria] : []),
     [categoria]
@@ -1108,13 +1112,22 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
                 ))}
               </select>
               {clienteId ? (
-                <p className="mt-2 text-sm text-gray-600">
-                  Organização administrativa:{" "}
-                  <span className="font-semibold text-gray-800">
-                    {clienteSelecionado?.organizacao?.nome ??
-                      "Sem organização vinculada"}
-                  </span>
-                </p>
+                <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  <div>
+                    Organização administrativa:{" "}
+                    <span className="font-semibold text-gray-900">
+                      {clienteSelecionado?.organizacao?.nome ??
+                        "Sem organização vinculada"}
+                    </span>
+                  </div>
+                  <div className="mt-1">
+                    Cadastro mestre:{" "}
+                    <span className="font-semibold text-gray-900">
+                      {clienteSelecionado?.parceiro_mestre?.nome_fantasia ??
+                        "Sem parceiro mestre vinculado"}
+                    </span>
+                  </div>
+                </div>
               ) : null}
             </div>
 
@@ -1160,6 +1173,15 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
                   </option>
                 ))}
               </select>
+              {lojaId ? (
+                <p className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  Filial no cadastro mestre:{" "}
+                  <span className="font-semibold text-gray-900">
+                    {lojaSelecionada?.parceiro_filial?.nome_filial ??
+                      "Sem filial mestre vinculada"}
+                  </span>
+                </p>
+              ) : null}
             </div>
           </div>
         </BlocoChamado>

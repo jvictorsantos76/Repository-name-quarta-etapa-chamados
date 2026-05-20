@@ -493,7 +493,9 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(novoChamadoActionsSource, /parceiro_id: parceiroId/);
   assert.match(novoChamadoActionsSource, /parceiro_filial_id: parceiroFilialId/);
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.0\.0"/);
+  assert.match(parceirosPageSource, /cliente_legado_nome/);
+  assert.match(parceirosPageSource, /filiais_count/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.0\.1"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 });
 
@@ -563,12 +565,16 @@ test("organizations link to clients without replacing operational ticket fields"
 
   assert.match(novoChamadoActionsSource, /cliente_id: clienteIdEfetivo/);
   assert.match(novoChamadoActionsSource, /organizacao_id:[\s\S]*clienteResposta\.data/);
+  assert.match(novoChamadoActionsSource, /parceiro_mestre/);
+  assert.match(novoChamadoActionsSource, /parceiro_filial/);
   assert.doesNotMatch(novoChamadoActionsSource, /organizacao_id: clienteIdEfetivo/);
   assert.match(novoChamadoActionsSource, /lojaResposta\.data\.cliente_id !== clienteIdEfetivo/);
   assert.match(novoChamadoFormSource, /Organização administrativa:/);
+  assert.match(novoChamadoFormSource, /Cadastro mestre:/);
+  assert.match(novoChamadoFormSource, /Filial no cadastro mestre:/);
   assert.doesNotMatch(novoChamadoFormSource, /organizacao_id: clienteId/);
-  assert.match(versionSource, /ORGANIZACOES_PAGE_VERSION = "v1\.1\.0"/);
-  assert.match(versionSource, /NOVO_CHAMADO_PAGE_VERSION = "v0\.2\.6"/);
+  assert.match(versionSource, /ORGANIZACOES_PAGE_VERSION = "v1\.1\.1"/);
+  assert.match(versionSource, /NOVO_CHAMADO_PAGE_VERSION = "v0\.2\.7"/);
   assert.match(versionBadgeSource, /\/cadastros\/organizacoes/);
 });
 

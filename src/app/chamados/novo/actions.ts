@@ -38,12 +38,20 @@ export type ClienteItem = {
   organizacao?: {
     nome: string;
   } | null;
+  parceiro_mestre?: {
+    id: string;
+    nome_fantasia: string;
+  } | null;
 };
 
 export type LojaItem = {
   id: string;
   cliente_id: string;
   nome_loja: string;
+  parceiro_filial?: {
+    id: string;
+    nome_filial: string;
+  } | null;
 };
 
 export type PerfilItem = {
@@ -259,6 +267,85 @@ export async function carregarDadosNovoChamado(): Promise<
     };
   }
 
+  const clientesBase = (clientesResposta.data as ClienteItem[] | null) ?? [];
+  const lojasBase = (lojasResposta.data as LojaItem[] | null) ?? [];
+  const clienteIds = clientesBase.map((cliente) => cliente.id);
+  const lojaIds = lojasBase.map((loja) => loja.id);
+  const [parceirosResposta, parceirosFiliaisResposta] = await Promise.all([
+    clienteIds.length > 0
+      ? supabase
+          .from("parceiros")
+          .select("id, nome_fantasia, cliente_legado_id")
+          .in("cliente_legado_id", clienteIds)
+      : Promise.resolve({ data: [], error: null }),
+    lojaIds.length > 0
+      ? supabase
+          .from("parceiros_filiais")
+          .select("id, nome_filial, loja_legado_id")
+          .in("loja_legado_id", lojaIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const erroVinculo = [parceirosResposta.error, parceirosFiliaisResposta.error].find(
+    (item) => item && !isSchemaCacheError(item.message)
+  );
+
+  if (erroVinculo) {
+    return {
+      status: "error",
+      message: "Não foi possível carregar os vínculos entre clientes, parceiros e filiais.",
+    };
+  }
+
+  const parceirosPorCliente = new Map<
+    string,
+    { id: string; nome_fantasia: string }
+  >();
+  const filiaisPorLoja = new Map<string, { id: string; nome_filial: string }>();
+
+  if (!isSchemaCacheError(parceirosResposta.error?.message)) {
+    for (const parceiro of
+      (parceirosResposta.data as
+        | {
+            id: string;
+            nome_fantasia: string;
+            cliente_legado_id: string | null;
+          }[]
+        | null) ?? []) {
+      if (parceiro.cliente_legado_id) {
+        parceirosPorCliente.set(parceiro.cliente_legado_id, {
+          id: parceiro.id,
+          nome_fantasia: parceiro.nome_fantasia,
+        });
+      }
+    }
+  }
+
+  if (!isSchemaCacheError(parceirosFiliaisResposta.error?.message)) {
+    for (const filial of
+      (parceirosFiliaisResposta.data as
+        | {
+            id: string;
+            nome_filial: string;
+            loja_legado_id: string | null;
+          }[]
+        | null) ?? []) {
+      if (filial.loja_legado_id) {
+        filiaisPorLoja.set(filial.loja_legado_id, {
+          id: filial.id,
+          nome_filial: filial.nome_filial,
+        });
+      }
+    }
+  }
+
+  const clientes = clientesBase.map((cliente) => ({
+    ...cliente,
+    parceiro_mestre: parceirosPorCliente.get(cliente.id) ?? null,
+  }));
+  const lojas = lojasBase.map((loja) => ({
+    ...loja,
+    parceiro_filial: filiaisPorLoja.get(loja.id) ?? null,
+  }));
   const statusPadraoResposta = isSchemaCacheError(statusResposta.error?.message)
     ? null
     : (statusResposta.data as ChamadoStatusItem | null);
@@ -287,8 +374,8 @@ export async function carregarDadosNovoChamado(): Promise<
     bases: isSchemaCacheError(basesResposta.error?.message)
       ? []
       : (basesResposta.data as BaseConhecimentoItem[] | null) ?? [],
-    clientes: (clientesResposta.data as ClienteItem[] | null) ?? [],
-    lojas: (lojasResposta.data as LojaItem[] | null) ?? [],
+    clientes,
+    lojas,
     perfis: (perfisResposta.data as PerfilItem[] | null) ?? [],
   };
 
