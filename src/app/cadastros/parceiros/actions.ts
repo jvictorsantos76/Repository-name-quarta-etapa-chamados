@@ -8,10 +8,17 @@ import {
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
 import {
+  isCargoContato,
+  isDepartamentoContato,
+  isOpcaoCrt,
+  isSegmentoParceiro,
   isSituacaoParceiro,
   isStatusContrato,
   isStatusFilial,
+  isTipoContato,
   isTipoParceiro,
+  isTipoPessoa,
+  UFS_BRASIL,
 } from "./types";
 
 const LISTAGEM_PARCEIROS_PATH = "/cadastros/parceiros";
@@ -23,6 +30,62 @@ function normalizarTexto(valor: FormDataEntryValue | null) {
 function textoOuNull(valor: FormDataEntryValue | null) {
   const texto = normalizarTexto(valor);
   return texto || null;
+}
+
+function apenasDigitos(valor: FormDataEntryValue | null) {
+  return normalizarTexto(valor).replace(/\D/g, "");
+}
+
+function documentoOuNull(valor: FormDataEntryValue | null, tipoPessoa: string) {
+  const digitos = apenasDigitos(valor);
+
+  if (!digitos) {
+    return { ok: true as const, value: null };
+  }
+
+  if (tipoPessoa === "fisica" && digitos.length !== 11) {
+    return { ok: false as const, error: "Informe um CPF com 11 dígitos." };
+  }
+
+  if (tipoPessoa === "juridica" && digitos.length !== 14) {
+    return { ok: false as const, error: "Informe um CNPJ com 14 dígitos." };
+  }
+
+  return { ok: true as const, value: digitos };
+}
+
+function emailOuNull(valor: FormDataEntryValue | null) {
+  const texto = textoOuNull(valor)?.toLowerCase() ?? null;
+
+  if (!texto) {
+    return { ok: true as const, value: null };
+  }
+
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(texto)) {
+    return { ok: true as const, value: texto };
+  }
+
+  return { ok: false as const, error: "Informe um e-mail válido." };
+}
+
+function ufOuNull(valor: FormDataEntryValue | null) {
+  const texto = normalizarTexto(valor).toUpperCase();
+
+  if (!texto) {
+    return null;
+  }
+
+  return UFS_BRASIL.includes(texto as (typeof UFS_BRASIL)[number]) ? texto : null;
+}
+
+function cepOuNull(valor: FormDataEntryValue | null) {
+  const digitos = apenasDigitos(valor);
+  return digitos || null;
+}
+
+function telefoneOuNull(valor: FormDataEntryValue | null) {
+  const digitos = apenasDigitos(valor);
+  return digitos || null;
 }
 
 function normalizarWebsite(valor: FormDataEntryValue | null) {
@@ -119,13 +182,20 @@ async function requireGestorParceiros() {
 }
 
 function montarPayloadParceiro(formData: FormData) {
+  const tipoPessoa = normalizarTexto(formData.get("tipo_pessoa")) || "juridica";
   const tipoParceiro = normalizarTexto(formData.get("tipo_parceiro"));
   const situacao = normalizarTexto(formData.get("situacao"));
   const razaoSocial = normalizarTexto(formData.get("razao_social"));
   const nomeFantasia = normalizarTexto(formData.get("nome_fantasia"));
+  const crt = normalizarTexto(formData.get("crt"));
+  const segmento = normalizarTexto(formData.get("segmento"));
+
+  if (!isTipoPessoa(tipoPessoa)) {
+    return { ok: false as const, error: "Informe um tipo de pessoa válido." };
+  }
 
   if (!isTipoParceiro(tipoParceiro)) {
-    return { ok: false as const, error: "Informe um tipo de parceiro válido." };
+    return { ok: false as const, error: "Informe um perfil operacional válido." };
   }
 
   if (!isSituacaoParceiro(situacao)) {
@@ -135,8 +205,17 @@ function montarPayloadParceiro(formData: FormData) {
   if (!razaoSocial || !nomeFantasia) {
     return {
       ok: false as const,
-      error: "Informe razão social e nome fantasia.",
+      error:
+        tipoPessoa === "fisica"
+          ? "Informe nome completo e nome de exibição."
+          : "Informe razão social e nome fantasia.",
     };
+  }
+
+  const documento = documentoOuNull(formData.get("cnpj_cpf"), tipoPessoa);
+
+  if (!documento.ok) {
+    return documento;
   }
 
   const website = normalizarWebsite(formData.get("website"));
@@ -145,20 +224,29 @@ function montarPayloadParceiro(formData: FormData) {
     return website;
   }
 
+  if (crt && !isOpcaoCrt(crt)) {
+    return { ok: false as const, error: "Informe um CRT válido." };
+  }
+
+  if (segmento && !isSegmentoParceiro(segmento)) {
+    return { ok: false as const, error: "Informe um segmento válido." };
+  }
+
   return {
     ok: true as const,
     payload: {
+      tipo_pessoa: tipoPessoa,
       tipo_parceiro: tipoParceiro,
       razao_social: razaoSocial,
       nome_fantasia: nomeFantasia,
       codigo_interno: textoOuNull(formData.get("codigo_interno")),
-      cnpj_cpf: textoOuNull(formData.get("cnpj_cpf")),
+      cnpj_cpf: documento.value,
       inscricao_estadual: textoOuNull(formData.get("inscricao_estadual")),
       inscricao_municipal: textoOuNull(formData.get("inscricao_municipal")),
-      crt: textoOuNull(formData.get("crt")),
+      crt: crt || null,
       situacao,
       cliente_desde: dataOuNull(formData.get("cliente_desde")),
-      segmento: textoOuNull(formData.get("segmento")),
+      segmento: segmento || null,
       cnae: textoOuNull(formData.get("cnae")),
       suframa: textoOuNull(formData.get("suframa")),
       website: website.value,
@@ -228,13 +316,13 @@ export async function salvarParceiroGeral(formData: FormData) {
     parceiro_id: parceiroId,
     tipo_endereco: "principal",
     principal: true,
-    cep: textoOuNull(formData.get("cep")),
+    cep: cepOuNull(formData.get("cep")),
     endereco: textoOuNull(formData.get("endereco")),
     numero: textoOuNull(formData.get("numero")),
     complemento: textoOuNull(formData.get("complemento")),
     bairro: textoOuNull(formData.get("bairro")),
     cidade: textoOuNull(formData.get("cidade")),
-    estado: textoOuNull(formData.get("estado")),
+    estado: ufOuNull(formData.get("estado")),
     pais: textoOuNull(formData.get("pais")) ?? "Brasil",
     latitude: numeroOuNull(formData.get("latitude")),
     longitude: numeroOuNull(formData.get("longitude")),
@@ -263,15 +351,41 @@ export async function salvarParceiroGeral(formData: FormData) {
 
   const nomeContato = normalizarTexto(formData.get("contato_nome"));
   if (nomeContato) {
+    const contatoEmail = emailOuNull(formData.get("contato_email"));
+    const contatoTipo = normalizarTexto(formData.get("contato_tipo"));
+    const contatoDepartamento = normalizarTexto(formData.get("contato_departamento"));
+    const contatoCargo = normalizarTexto(formData.get("contato_cargo"));
+    const contatoCelular = telefoneOuNull(formData.get("contato_celular"));
+    const contatoWhatsapp = boolForm(formData, "contato_celular_whatsapp")
+      ? contatoCelular
+      : telefoneOuNull(formData.get("contato_whatsapp"));
+
+    if (!contatoEmail.ok) {
+      redirectComErro(detalhePath(parceiroId), contatoEmail.error);
+    }
+
+    if (contatoTipo && !isTipoContato(contatoTipo)) {
+      redirectComErro(detalhePath(parceiroId), "Informe um tipo de contato válido.");
+    }
+
+    if (contatoDepartamento && !isDepartamentoContato(contatoDepartamento)) {
+      redirectComErro(detalhePath(parceiroId), "Informe um departamento válido.");
+    }
+
+    if (contatoCargo && !isCargoContato(contatoCargo)) {
+      redirectComErro(detalhePath(parceiroId), "Informe um cargo válido.");
+    }
+
     const contatoPayload = {
       parceiro_id: parceiroId,
       nome: nomeContato,
-      cargo: textoOuNull(formData.get("contato_cargo")),
-      telefone: textoOuNull(formData.get("contato_telefone")),
-      celular: textoOuNull(formData.get("contato_celular")),
-      whatsapp: textoOuNull(formData.get("contato_whatsapp")),
-      email: textoOuNull(formData.get("contato_email")),
-      departamento: textoOuNull(formData.get("contato_departamento")),
+      tipo_contato: contatoTipo || null,
+      cargo: contatoCargo || null,
+      telefone: telefoneOuNull(formData.get("contato_telefone")),
+      celular: contatoCelular,
+      whatsapp: contatoWhatsapp,
+      email: contatoEmail.value,
+      departamento: contatoDepartamento || null,
       principal: true,
       contato_financeiro: false,
       contato_tecnico: false,
@@ -347,16 +461,16 @@ export async function salvarParceiroFilial(formData: FormData) {
     parceiro_id: parceiroId,
     nome_filial: nomeFilial,
     codigo_interno: textoOuNull(formData.get("codigo_interno")),
-    cep: textoOuNull(formData.get("cep")),
+    cep: cepOuNull(formData.get("cep")),
     endereco: textoOuNull(formData.get("endereco")),
     numero: textoOuNull(formData.get("numero")),
     complemento: textoOuNull(formData.get("complemento")),
     bairro: textoOuNull(formData.get("bairro")),
     cidade: textoOuNull(formData.get("cidade")),
-    estado: textoOuNull(formData.get("estado")),
+    estado: ufOuNull(formData.get("estado")),
     pais: textoOuNull(formData.get("pais")) ?? "Brasil",
     contato_nome: textoOuNull(formData.get("contato_nome")),
-    contato_telefone: textoOuNull(formData.get("contato_telefone")),
+    contato_telefone: telefoneOuNull(formData.get("contato_telefone")),
     contato_email: textoOuNull(formData.get("contato_email")),
     sla_padrao: textoOuNull(formData.get("sla_padrao")),
     horario_atendimento: textoOuNull(formData.get("horario_atendimento")),
@@ -394,20 +508,45 @@ export async function salvarParceiroContato(formData: FormData) {
   const parceiroId = normalizarTexto(formData.get("parceiro_id"));
   const id = normalizarTexto(formData.get("contato_id"));
   const nome = normalizarTexto(formData.get("nome"));
+  const tipoContato = normalizarTexto(formData.get("tipo_contato"));
+  const departamento = normalizarTexto(formData.get("departamento"));
+  const cargo = normalizarTexto(formData.get("cargo"));
+  const email = emailOuNull(formData.get("email"));
+  const celular = telefoneOuNull(formData.get("celular"));
+  const whatsapp = boolForm(formData, "celular_whatsapp")
+    ? celular
+    : telefoneOuNull(formData.get("whatsapp"));
 
   if (!parceiroId || !nome) {
     redirectComErro(detalhePath(parceiroId), "Informe o nome do contato.");
   }
 
+  if (tipoContato && !isTipoContato(tipoContato)) {
+    redirectComErro(detalhePath(parceiroId), "Informe um tipo de contato válido.");
+  }
+
+  if (departamento && !isDepartamentoContato(departamento)) {
+    redirectComErro(detalhePath(parceiroId), "Informe um departamento válido.");
+  }
+
+  if (cargo && !isCargoContato(cargo)) {
+    redirectComErro(detalhePath(parceiroId), "Informe um cargo válido.");
+  }
+
+  if (!email.ok) {
+    redirectComErro(detalhePath(parceiroId), email.error);
+  }
+
   const payload = {
     parceiro_id: parceiroId,
     nome,
-    cargo: textoOuNull(formData.get("cargo")),
-    telefone: textoOuNull(formData.get("telefone")),
-    celular: textoOuNull(formData.get("celular")),
-    whatsapp: textoOuNull(formData.get("whatsapp")),
-    email: textoOuNull(formData.get("email")),
-    departamento: textoOuNull(formData.get("departamento")),
+    tipo_contato: tipoContato || null,
+    cargo: cargo || null,
+    telefone: telefoneOuNull(formData.get("telefone")),
+    celular,
+    whatsapp,
+    email: email.value,
+    departamento: departamento || null,
     principal: boolForm(formData, "principal"),
     contato_financeiro: boolForm(formData, "contato_financeiro"),
     contato_tecnico: boolForm(formData, "contato_tecnico"),

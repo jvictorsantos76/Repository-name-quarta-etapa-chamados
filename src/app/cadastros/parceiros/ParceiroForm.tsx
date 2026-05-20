@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   registrarParceiroAnexo,
@@ -13,14 +13,29 @@ import {
   salvarParceiroOperacional,
 } from "./actions";
 import {
+  CARGOS_CONTATO,
+  DEPARTAMENTOS_CONTATO,
+  LABEL_CARGO_CONTATO,
+  LABEL_CRT,
+  LABEL_DEPARTAMENTO_CONTATO,
+  LABEL_SEGMENTO_PARCEIRO,
   LABEL_STATUS_CONTRATO,
   LABEL_STATUS_FILIAL,
+  LABEL_SITUACAO_PARCEIRO,
+  LABEL_TIPO_CONTATO,
   LABEL_TIPO_PARCEIRO,
+  LABEL_TIPO_PESSOA,
+  OPCOES_CRT,
+  SEGMENTOS_PARCEIRO,
   SITUACOES_PARCEIRO,
   STATUS_CONTRATO,
   STATUS_FILIAL,
+  TIPOS_CONTATO,
   TIPOS_PARCEIRO,
+  TIPOS_PESSOA,
+  UFS_BRASIL,
   type ParceiroDetalhe,
+  type TipoPessoa,
 } from "./types";
 
 type Props = {
@@ -77,6 +92,78 @@ const labelClass =
 const toggleClass =
   "flex min-h-9 items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 text-xs font-semibold uppercase tracking-wide text-gray-700";
 
+function somenteDigitos(valor: string) {
+  return valor.replace(/\D/g, "");
+}
+
+function mascararCnpj(valor: string) {
+  return somenteDigitos(valor)
+    .slice(0, 14)
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+function mascararCpf(valor: string) {
+  return somenteDigitos(valor)
+    .slice(0, 11)
+    .replace(/^(\d{3})(\d)/, "$1.$2")
+    .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/(\d{3})(\d)/, "$1-$2");
+}
+
+function mascararDocumento(valor: string | null | undefined, tipoPessoa: TipoPessoa) {
+  return tipoPessoa === "fisica"
+    ? mascararCpf(valor ?? "")
+    : mascararCnpj(valor ?? "");
+}
+
+function mascararCep(valor: string) {
+  return somenteDigitos(valor).slice(0, 8).replace(/^(\d{5})(\d)/, "$1-$2");
+}
+
+function mascararTelefone(valor: string) {
+  return somenteDigitos(valor)
+    .slice(0, 10)
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+function mascararCelular(valor: string) {
+  return somenteDigitos(valor)
+    .slice(0, 11)
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
+
+function inferirTipoPessoa(parceiro?: ParceiroDetalhe | null): TipoPessoa {
+  if (parceiro?.tipo_pessoa) {
+    return parceiro.tipo_pessoa;
+  }
+
+  return somenteDigitos(parceiro?.cnpj_cpf ?? "").length === 11 ? "fisica" : "juridica";
+}
+
+function normalizarSelect(valor: string | null | undefined, permitidos: readonly string[]) {
+  return valor && permitidos.includes(valor) ? valor : "";
+}
+
+function enderecoGoogleMaps(endereco?: ParceiroDetalhe["endereco_principal"]) {
+  const partes = [
+    endereco?.endereco,
+    endereco?.numero,
+    endereco?.bairro,
+    endereco?.cidade,
+    endereco?.estado,
+    endereco?.pais,
+  ].filter(Boolean);
+
+  return partes.length >= 3
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(partes.join(", "))}`
+    : null;
+}
+
 function CampoTexto({
   name,
   label,
@@ -84,6 +171,9 @@ function CampoTexto({
   type = "text",
   required = false,
   densidade,
+  inputMode,
+  maxLength,
+  onInput,
 }: {
   name: string;
   label: string;
@@ -91,6 +181,9 @@ function CampoTexto({
   type?: string;
   required?: boolean;
   densidade: Densidade;
+  inputMode?: "text" | "search" | "email" | "tel" | "url" | "numeric" | "decimal";
+  maxLength?: number;
+  onInput?: (event: FormEvent<HTMLInputElement>) => void;
 }) {
   return (
     <label className={labelClass}>
@@ -100,8 +193,41 @@ function CampoTexto({
         type={type}
         defaultValue={defaultValue ?? ""}
         required={required}
+        inputMode={inputMode}
+        maxLength={maxLength}
+        onInput={onInput}
         className={classes(densidade).input}
       />
+    </label>
+  );
+}
+
+function CampoSelect({
+  name,
+  label,
+  defaultValue,
+  children,
+  densidade,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  defaultValue?: string | null;
+  children: ReactNode;
+  densidade: Densidade;
+  onChange?: (event: ChangeEvent<HTMLSelectElement>) => void;
+}) {
+  return (
+    <label className={labelClass}>
+      {label}
+      <select
+        name={name}
+        defaultValue={defaultValue ?? ""}
+        onChange={onChange}
+        className={classes(densidade).input}
+      >
+        {children}
+      </select>
     </label>
   );
 }
@@ -227,12 +353,40 @@ function GeralTab({
 }) {
   const endereco = parceiro?.endereco_principal;
   const contato = parceiro?.contato_principal;
+  const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa>(() =>
+    inferirTipoPessoa(parceiro)
+  );
+  const pessoaFisica = tipoPessoa === "fisica";
+  const mapsUrl = enderecoGoogleMaps(endereco);
 
   return (
     <form action={salvarParceiroGeral} className="space-y-4">
       <input type="hidden" name="id" value={parceiro?.id ?? ""} />
       <input type="hidden" name="endereco_id" value={endereco?.id ?? ""} />
       <input type="hidden" name="contato_id" value={contato?.id ?? ""} />
+
+      <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          <span className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+            {LABEL_TIPO_PESSOA[tipoPessoa]}
+          </span>
+          <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+            {LABEL_TIPO_PARCEIRO[parceiro?.tipo_parceiro ?? "cliente"]}
+          </span>
+          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            {LABEL_SITUACAO_PARCEIRO[parceiro?.situacao ?? "ativo"]}
+          </span>
+          <span
+            className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+              parceiro?.ativo ?? true
+                ? "border-emerald-100 bg-emerald-50 text-emerald-700"
+                : "border-gray-200 bg-gray-50 text-gray-600"
+            }`}
+          >
+            {parceiro?.ativo ?? true ? "Ativo" : "Inativo"}
+          </span>
+        </div>
+      </section>
 
       {parceiro ? (
         <section className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
@@ -242,15 +396,15 @@ function GeralTab({
           <div className="mt-2 grid gap-2 md:grid-cols-3">
             <div>
               <span className="block text-xs font-semibold uppercase tracking-wide text-blue-700">
-                Cliente legado
+                Cliente operacional
               </span>
               <span className="font-semibold">
-                {parceiro.cliente_legado_nome ?? "Sem vínculo legado"}
+                {parceiro.cliente_legado_nome ?? "Sem vínculo operacional"}
               </span>
             </div>
             <div>
               <span className="block text-xs font-semibold uppercase tracking-wide text-blue-700">
-                Organização derivada
+                Organização vinculada
               </span>
               <span className="font-semibold">
                 {parceiro.organizacao_legada_nome ?? "Sem organização vinculada"}
@@ -258,7 +412,7 @@ function GeralTab({
             </div>
             <div>
               <span className="block text-xs font-semibold uppercase tracking-wide text-blue-700">
-                Filiais conectadas
+                Filiais vinculadas
               </span>
               <span className="font-semibold">{parceiro.filiais_count ?? 0}</span>
             </div>
@@ -267,30 +421,41 @@ function GeralTab({
       ) : null}
 
       <FormSection title="Dados cadastrais" densidade={densidade}>
-        <label className={labelClass}>
-          Tipo de parceiro
-          <select
-            name="tipo_parceiro"
-            defaultValue={parceiro?.tipo_parceiro ?? "cliente"}
-            className={classes(densidade).input}
-          >
-            {TIPOS_PARCEIRO.map((tipo) => (
-              <option key={tipo} value={tipo}>
-                {LABEL_TIPO_PARCEIRO[tipo]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <CampoSelect
+          name="tipo_pessoa"
+          label="Tipo de pessoa"
+          defaultValue={tipoPessoa}
+          densidade={densidade}
+          onChange={(event) => setTipoPessoa(event.target.value as TipoPessoa)}
+        >
+          {TIPOS_PESSOA.map((tipo) => (
+            <option key={tipo} value={tipo}>
+              {LABEL_TIPO_PESSOA[tipo]}
+            </option>
+          ))}
+        </CampoSelect>
+        <CampoSelect
+          name="tipo_parceiro"
+          label="Perfil operacional"
+          defaultValue={parceiro?.tipo_parceiro ?? "cliente"}
+          densidade={densidade}
+        >
+          {TIPOS_PARCEIRO.map((tipo) => (
+            <option key={tipo} value={tipo}>
+              {LABEL_TIPO_PARCEIRO[tipo]}
+            </option>
+          ))}
+        </CampoSelect>
         <CampoTexto
           name="razao_social"
-          label="Razão social"
+          label={pessoaFisica ? "Nome completo" : "Razão social"}
           defaultValue={parceiro?.razao_social}
           required
           densidade={densidade}
         />
         <CampoTexto
           name="nome_fantasia"
-          label="Nome fantasia"
+          label={pessoaFisica ? "Nome de exibição" : "Nome fantasia"}
           defaultValue={parceiro?.nome_fantasia}
           required
           densidade={densidade}
@@ -302,68 +467,104 @@ function GeralTab({
           densidade={densidade}
         />
         <CampoTexto
+          key={tipoPessoa}
           name="cnpj_cpf"
-          label="CNPJ / CPF"
-          defaultValue={parceiro?.cnpj_cpf}
+          label={pessoaFisica ? "CPF" : "CNPJ"}
+          defaultValue={mascararDocumento(parceiro?.cnpj_cpf, tipoPessoa)}
           densidade={densidade}
+          inputMode="numeric"
+          maxLength={pessoaFisica ? 14 : 18}
+          onInput={(event) => {
+            event.currentTarget.value = pessoaFisica
+              ? mascararCpf(event.currentTarget.value)
+              : mascararCnpj(event.currentTarget.value);
+          }}
         />
-        <CampoTexto
-          name="inscricao_estadual"
-          label="Inscrição estadual"
-          defaultValue={parceiro?.inscricao_estadual}
+        {pessoaFisica ? (
+          <>
+            <input type="hidden" name="inscricao_estadual" value={parceiro?.inscricao_estadual ?? ""} />
+            <input type="hidden" name="inscricao_municipal" value={parceiro?.inscricao_municipal ?? ""} />
+            <input type="hidden" name="crt" value={parceiro?.crt ?? ""} />
+            <input type="hidden" name="cnae" value={parceiro?.cnae ?? ""} />
+            <input type="hidden" name="suframa" value={parceiro?.suframa ?? ""} />
+          </>
+        ) : (
+          <>
+            <CampoTexto
+              name="inscricao_estadual"
+              label="Inscrição estadual"
+              defaultValue={parceiro?.inscricao_estadual}
+              densidade={densidade}
+            />
+            <CampoTexto
+              name="inscricao_municipal"
+              label="Inscrição municipal"
+              defaultValue={parceiro?.inscricao_municipal}
+              densidade={densidade}
+            />
+            <CampoSelect
+              name="crt"
+              label="CRT"
+              defaultValue={normalizarSelect(parceiro?.crt, OPCOES_CRT)}
+              densidade={densidade}
+            >
+              <option value="">Selecione</option>
+              {OPCOES_CRT.map((crt) => (
+                <option key={crt} value={crt}>
+                  {LABEL_CRT[crt]}
+                </option>
+              ))}
+            </CampoSelect>
+          </>
+        )}
+        <CampoSelect
+          name="situacao"
+          label="Situação"
+          defaultValue={parceiro?.situacao ?? "ativo"}
           densidade={densidade}
-        />
-        <CampoTexto
-          name="inscricao_municipal"
-          label="Inscrição municipal"
-          defaultValue={parceiro?.inscricao_municipal}
-          densidade={densidade}
-        />
-        <CampoTexto
-          name="crt"
-          label="CRT"
-          defaultValue={parceiro?.crt}
-          densidade={densidade}
-        />
-        <label className={labelClass}>
-          Situação
-          <select
-            name="situacao"
-            defaultValue={parceiro?.situacao ?? "ativo"}
-            className={classes(densidade).input}
-          >
-            {SITUACOES_PARCEIRO.map((situacao) => (
-              <option key={situacao} value={situacao}>
-                {situacao}
-              </option>
-            ))}
-          </select>
-        </label>
+        >
+          {SITUACOES_PARCEIRO.map((situacao) => (
+            <option key={situacao} value={situacao}>
+              {LABEL_SITUACAO_PARCEIRO[situacao]}
+            </option>
+          ))}
+        </CampoSelect>
         <CampoTexto
           name="cliente_desde"
-          label="Cliente desde"
+          label="Data de relacionamento"
           type="date"
           defaultValue={parceiro?.cliente_desde}
           densidade={densidade}
         />
-        <CampoTexto
+        <CampoSelect
           name="segmento"
           label="Segmento"
-          defaultValue={parceiro?.segmento}
+          defaultValue={normalizarSelect(parceiro?.segmento, SEGMENTOS_PARCEIRO)}
           densidade={densidade}
-        />
-        <CampoTexto
-          name="cnae"
-          label="CNAE"
-          defaultValue={parceiro?.cnae}
-          densidade={densidade}
-        />
-        <CampoTexto
-          name="suframa"
-          label="Suframa"
-          defaultValue={parceiro?.suframa}
-          densidade={densidade}
-        />
+        >
+          <option value="">Selecione</option>
+          {SEGMENTOS_PARCEIRO.map((segmento) => (
+            <option key={segmento} value={segmento}>
+              {LABEL_SEGMENTO_PARCEIRO[segmento]}
+            </option>
+          ))}
+        </CampoSelect>
+        {!pessoaFisica ? (
+          <>
+            <CampoTexto
+              name="cnae"
+              label="CNAE"
+              defaultValue={parceiro?.cnae}
+              densidade={densidade}
+            />
+            <CampoTexto
+              name="suframa"
+              label="Suframa"
+              defaultValue={parceiro?.suframa}
+              densidade={densidade}
+            />
+          </>
+        ) : null}
         <CampoTexto
           name="website"
           label="Website"
@@ -373,27 +574,176 @@ function GeralTab({
       </FormSection>
 
       <FormSection title="Contato principal" densidade={densidade}>
-        <CampoTexto name="contato_nome" label="Nome" defaultValue={contato?.nome} densidade={densidade} />
-        <CampoTexto name="contato_cargo" label="Cargo" defaultValue={contato?.cargo} densidade={densidade} />
-        <CampoTexto name="contato_telefone" label="Telefone" defaultValue={contato?.telefone} densidade={densidade} />
-        <CampoTexto name="contato_celular" label="Celular" defaultValue={contato?.celular} densidade={densidade} />
-        <CampoTexto name="contato_whatsapp" label="WhatsApp" defaultValue={contato?.whatsapp} densidade={densidade} />
-        <CampoTexto name="contato_email" label="E-mail" defaultValue={contato?.email} densidade={densidade} />
-        <CampoTexto name="contato_departamento" label="Departamento" defaultValue={contato?.departamento} densidade={densidade} />
+        <CampoTexto name="contato_nome" label="Nome do contato" defaultValue={contato?.nome} densidade={densidade} />
+        <CampoSelect
+          name="contato_tipo"
+          label="Tipo de contato"
+          defaultValue={contato?.tipo_contato ?? "operacional"}
+          densidade={densidade}
+        >
+          {TIPOS_CONTATO.map((tipo) => (
+            <option key={tipo} value={tipo}>
+              {LABEL_TIPO_CONTATO[tipo]}
+            </option>
+          ))}
+        </CampoSelect>
+        <CampoSelect
+          name="contato_departamento"
+          label="Departamento"
+          defaultValue={normalizarSelect(contato?.departamento, DEPARTAMENTOS_CONTATO)}
+          densidade={densidade}
+        >
+          <option value="">Selecione</option>
+          {DEPARTAMENTOS_CONTATO.map((departamento) => (
+            <option key={departamento} value={departamento}>
+              {LABEL_DEPARTAMENTO_CONTATO[departamento]}
+            </option>
+          ))}
+        </CampoSelect>
+        <CampoSelect
+          name="contato_cargo"
+          label="Cargo"
+          defaultValue={normalizarSelect(contato?.cargo, CARGOS_CONTATO)}
+          densidade={densidade}
+        >
+          <option value="">Selecione</option>
+          {CARGOS_CONTATO.map((cargo) => (
+            <option key={cargo} value={cargo}>
+              {LABEL_CARGO_CONTATO[cargo]}
+            </option>
+          ))}
+        </CampoSelect>
+        <CampoTexto
+          name="contato_telefone"
+          label="Telefone"
+          defaultValue={mascararTelefone(contato?.telefone ?? "")}
+          densidade={densidade}
+          inputMode="tel"
+          maxLength={14}
+          onInput={(event) => {
+            event.currentTarget.value = mascararTelefone(event.currentTarget.value);
+          }}
+        />
+        <CampoTexto
+          name="contato_celular"
+          label="Celular"
+          defaultValue={mascararCelular(contato?.celular ?? "")}
+          densidade={densidade}
+          inputMode="tel"
+          maxLength={15}
+          onInput={(event) => {
+            event.currentTarget.value = mascararCelular(event.currentTarget.value);
+          }}
+        />
+        <CampoTexto name="contato_email" label="E-mail" type="email" defaultValue={contato?.email} densidade={densidade} inputMode="email" />
+        <CampoTexto
+          name="contato_whatsapp"
+          label="WhatsApp"
+          defaultValue={mascararCelular(contato?.whatsapp ?? "")}
+          densidade={densidade}
+          inputMode="tel"
+          maxLength={15}
+          onInput={(event) => {
+            event.currentTarget.value = mascararCelular(event.currentTarget.value);
+          }}
+        />
+        <Toggle
+          name="contato_celular_whatsapp"
+          label="Celular é WhatsApp"
+          defaultChecked={Boolean(contato?.celular && contato?.celular === contato?.whatsapp)}
+        />
       </FormSection>
 
       <FormSection title="Endereço principal" densidade={densidade}>
-        <CampoTexto name="cep" label="CEP" defaultValue={endereco?.cep} densidade={densidade} />
-        <CampoTexto name="endereco" label="Endereço" defaultValue={endereco?.endereco} densidade={densidade} />
+        <CampoTexto
+          name="cep"
+          label="CEP"
+          defaultValue={mascararCep(endereco?.cep ?? "")}
+          densidade={densidade}
+          inputMode="numeric"
+          maxLength={9}
+          onInput={(event) => {
+            event.currentTarget.value = mascararCep(event.currentTarget.value);
+          }}
+        />
+        <div className="flex items-end">
+          <button
+            type="button"
+            className="min-h-9 w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-500"
+            title="Consulta real de CEP está no backlog desta entrega."
+          >
+            Buscar CEP
+          </button>
+        </div>
+        <CampoTexto name="endereco" label="Endereço / Logradouro" defaultValue={endereco?.endereco} densidade={densidade} />
         <CampoTexto name="numero" label="Número" defaultValue={endereco?.numero} densidade={densidade} />
         <CampoTexto name="complemento" label="Complemento" defaultValue={endereco?.complemento} densidade={densidade} />
         <CampoTexto name="bairro" label="Bairro" defaultValue={endereco?.bairro} densidade={densidade} />
         <CampoTexto name="cidade" label="Cidade" defaultValue={endereco?.cidade} densidade={densidade} />
-        <CampoTexto name="estado" label="Estado" defaultValue={endereco?.estado} densidade={densidade} />
-        <CampoTexto name="pais" label="País" defaultValue={endereco?.pais ?? "Brasil"} densidade={densidade} />
-        <CampoTexto name="latitude" label="Latitude" defaultValue={endereco?.latitude} densidade={densidade} />
-        <CampoTexto name="longitude" label="Longitude" defaultValue={endereco?.longitude} densidade={densidade} />
+        <CampoSelect
+          name="estado"
+          label="Estado / UF"
+          defaultValue={normalizarSelect(endereco?.estado?.toUpperCase(), UFS_BRASIL)}
+          densidade={densidade}
+        >
+          <option value="">Selecione</option>
+          {UFS_BRASIL.map((uf) => (
+            <option key={uf} value={uf}>
+              {uf}
+            </option>
+          ))}
+        </CampoSelect>
+        <CampoSelect name="pais" label="País" defaultValue={endereco?.pais ?? "Brasil"} densidade={densidade}>
+          <option value="Brasil">Brasil</option>
+        </CampoSelect>
       </FormSection>
+
+      <input type="hidden" name="latitude" value={endereco?.latitude ?? ""} />
+      <input type="hidden" name="longitude" value={endereco?.longitude ?? ""} />
+
+      <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h2 className="text-base font-bold text-gray-950">Localização</h2>
+        </div>
+        <div className={`space-y-3 ${classes(densidade).sectionPadding}`}>
+          <p className="text-sm text-gray-600">
+            A localização poderá ser definida automaticamente pelo endereço ou ajustada manualmente em versão futura.
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {mapsUrl ? (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex min-h-9 items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+              >
+                Abrir no Google Maps
+              </a>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="inline-flex min-h-9 items-center justify-center rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-400"
+              >
+                Abrir no Google Maps
+              </button>
+            )}
+            <button
+              type="button"
+              className="inline-flex min-h-9 items-center justify-center rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-500"
+              title="Seleção manual no mapa está no backlog desta entrega."
+            >
+              Selecionar no mapa
+            </button>
+          </div>
+          {densidade === "compacto" ? (
+            <div className="grid gap-3 md:grid-cols-2">
+              <CampoTexto name="latitude_tecnica" label="Latitude técnica" defaultValue={endereco?.latitude} densidade={densidade} />
+              <CampoTexto name="longitude_tecnica" label="Longitude técnica" defaultValue={endereco?.longitude} densidade={densidade} />
+            </div>
+          ) : null}
+        </div>
+      </section>
 
       <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <Link
@@ -483,12 +833,15 @@ function ContatosTab({
   return (
     <div className="space-y-4">
       <MiniTable
-        headers={["Nome", "Cargo", "Telefone", "WhatsApp", "E-mail", "Principal"]}
+        headers={["Nome", "Tipo", "Cargo", "Telefone", "WhatsApp", "E-mail", "Principal"]}
         rows={parceiro.contatos.map((contato) => [
           contato.nome,
-          contato.cargo ?? "-",
-          contato.telefone ?? contato.celular ?? "-",
-          contato.whatsapp ?? "-",
+          contato.tipo_contato ? LABEL_TIPO_CONTATO[contato.tipo_contato] : "-",
+          normalizarSelect(contato.cargo, CARGOS_CONTATO)
+            ? LABEL_CARGO_CONTATO[contato.cargo as keyof typeof LABEL_CARGO_CONTATO]
+            : contato.cargo ?? "-",
+          mascararTelefone(contato.telefone ?? contato.celular ?? ""),
+          mascararCelular(contato.whatsapp ?? ""),
           contato.email ?? "-",
           contato.principal ? "Sim" : "Não",
         ])}
@@ -497,12 +850,61 @@ function ContatosTab({
         <input type="hidden" name="parceiro_id" value={parceiro.id} />
         <div className={classes(densidade).grid}>
           <CampoTexto name="nome" label="Nome" required densidade={densidade} />
-          <CampoTexto name="cargo" label="Cargo" densidade={densidade} />
-          <CampoTexto name="telefone" label="Telefone" densidade={densidade} />
-          <CampoTexto name="celular" label="Celular" densidade={densidade} />
-          <CampoTexto name="whatsapp" label="WhatsApp" densidade={densidade} />
-          <CampoTexto name="email" label="E-mail" densidade={densidade} />
-          <CampoTexto name="departamento" label="Departamento" densidade={densidade} />
+          <CampoSelect name="tipo_contato" label="Tipo de contato" defaultValue="operacional" densidade={densidade}>
+            {TIPOS_CONTATO.map((tipo) => (
+              <option key={tipo} value={tipo}>
+                {LABEL_TIPO_CONTATO[tipo]}
+              </option>
+            ))}
+          </CampoSelect>
+          <CampoSelect name="departamento" label="Departamento" densidade={densidade}>
+            <option value="">Selecione</option>
+            {DEPARTAMENTOS_CONTATO.map((departamento) => (
+              <option key={departamento} value={departamento}>
+                {LABEL_DEPARTAMENTO_CONTATO[departamento]}
+              </option>
+            ))}
+          </CampoSelect>
+          <CampoSelect name="cargo" label="Cargo" densidade={densidade}>
+            <option value="">Selecione</option>
+            {CARGOS_CONTATO.map((cargo) => (
+              <option key={cargo} value={cargo}>
+                {LABEL_CARGO_CONTATO[cargo]}
+              </option>
+            ))}
+          </CampoSelect>
+          <CampoTexto
+            name="telefone"
+            label="Telefone"
+            densidade={densidade}
+            inputMode="tel"
+            maxLength={14}
+            onInput={(event) => {
+              event.currentTarget.value = mascararTelefone(event.currentTarget.value);
+            }}
+          />
+          <CampoTexto
+            name="celular"
+            label="Celular"
+            densidade={densidade}
+            inputMode="tel"
+            maxLength={15}
+            onInput={(event) => {
+              event.currentTarget.value = mascararCelular(event.currentTarget.value);
+            }}
+          />
+          <CampoTexto
+            name="whatsapp"
+            label="WhatsApp"
+            densidade={densidade}
+            inputMode="tel"
+            maxLength={15}
+            onInput={(event) => {
+              event.currentTarget.value = mascararCelular(event.currentTarget.value);
+            }}
+          />
+          <CampoTexto name="email" label="E-mail" type="email" densidade={densidade} inputMode="email" />
+          <Toggle name="celular_whatsapp" label="Celular é WhatsApp" />
           <Toggle name="principal" label="Principal" />
           <Toggle name="contato_financeiro" label="Financeiro" />
           <Toggle name="contato_tecnico" label="Técnico" />

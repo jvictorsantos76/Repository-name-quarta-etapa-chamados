@@ -1,16 +1,122 @@
 export const TIPOS_PARCEIRO = [
   "cliente",
   "fornecedor",
+  "parceiro",
+  "prestador",
+  "transportadora",
+  "interno",
+  "prospect",
   "fabricante",
   "terceirizado",
-  "transportadora",
+] as const;
+
+export const TIPOS_PESSOA = [
+  "juridica",
+  "fisica",
 ] as const;
 
 export const SITUACOES_PARCEIRO = [
   "ativo",
-  "inativo",
+  "implantacao",
   "prospect",
+  "suspenso",
   "bloqueado",
+  "encerrado",
+  "inativo",
+] as const;
+
+export const OPCOES_CRT = [
+  "simples_nacional",
+  "lucro_presumido",
+  "lucro_real",
+  "mei",
+  "isento",
+  "nao_informado",
+] as const;
+
+export const SEGMENTOS_PARCEIRO = [
+  "varejo",
+  "alimentacao",
+  "saude",
+  "educacao",
+  "governo",
+  "financeiro",
+  "logistica",
+  "industria",
+  "servicos",
+  "tecnologia",
+  "outro",
+] as const;
+
+export const TIPOS_CONTATO = [
+  "comercial",
+  "financeiro",
+  "tecnico",
+  "operacional",
+  "administrativo",
+  "compras",
+  "diretoria",
+  "fiscal",
+  "contratos",
+  "sla",
+] as const;
+
+export const DEPARTAMENTOS_CONTATO = [
+  "ti",
+  "financeiro",
+  "operacao",
+  "compras",
+  "fiscal",
+  "administrativo",
+  "diretoria",
+  "frente_de_loja",
+  "facilities",
+  "rh",
+  "outro",
+] as const;
+
+export const CARGOS_CONTATO = [
+  "gerente",
+  "coordenador",
+  "supervisor",
+  "analista",
+  "tecnico",
+  "responsavel_financeiro",
+  "responsavel_operacional",
+  "responsavel_ti",
+  "proprietario",
+  "diretor",
+  "outro",
+] as const;
+
+export const UFS_BRASIL = [
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO",
 ] as const;
 
 export const STATUS_FILIAL = [
@@ -28,13 +134,20 @@ export const STATUS_CONTRATO = [
 ] as const;
 
 export type TipoParceiro = (typeof TIPOS_PARCEIRO)[number];
+export type TipoPessoa = (typeof TIPOS_PESSOA)[number];
 export type SituacaoParceiro = (typeof SITUACOES_PARCEIRO)[number];
+export type OpcaoCrt = (typeof OPCOES_CRT)[number];
+export type SegmentoParceiro = (typeof SEGMENTOS_PARCEIRO)[number];
+export type TipoContato = (typeof TIPOS_CONTATO)[number];
+export type DepartamentoContato = (typeof DEPARTAMENTOS_CONTATO)[number];
+export type CargoContato = (typeof CARGOS_CONTATO)[number];
 export type StatusFilial = (typeof STATUS_FILIAL)[number];
 export type StatusContrato = (typeof STATUS_CONTRATO)[number];
 
 export type ParceiroResumo = {
   id: string;
   tipo_parceiro: TipoParceiro;
+  tipo_pessoa: TipoPessoa | null;
   razao_social: string;
   nome_fantasia: string;
   codigo_interno: string | null;
@@ -77,6 +190,7 @@ export type ParceiroContato = {
   whatsapp: string | null;
   email: string | null;
   departamento: string | null;
+  tipo_contato: TipoContato | null;
   principal: boolean;
   contato_financeiro: boolean;
   contato_tecnico: boolean;
@@ -205,16 +319,92 @@ export type ParceiroDetalhe = ParceiroResumo & {
 export const LABEL_TIPO_PARCEIRO: Record<TipoParceiro, string> = {
   cliente: "Cliente",
   fornecedor: "Fornecedor",
+  parceiro: "Parceiro",
+  prestador: "Prestador",
+  transportadora: "Transportadora",
+  interno: "Interno",
+  prospect: "Prospect",
   fabricante: "Fabricante",
   terceirizado: "Terceirizado",
-  transportadora: "Transportadora",
+};
+
+export const LABEL_TIPO_PESSOA: Record<TipoPessoa, string> = {
+  juridica: "Pessoa Jurídica",
+  fisica: "Pessoa Física",
 };
 
 export const LABEL_SITUACAO_PARCEIRO: Record<SituacaoParceiro, string> = {
   ativo: "Ativo",
-  inativo: "Inativo",
+  implantacao: "Em implantação",
   prospect: "Prospect",
+  suspenso: "Suspenso",
   bloqueado: "Bloqueado",
+  encerrado: "Encerrado",
+  inativo: "Inativo",
+};
+
+export const LABEL_CRT: Record<OpcaoCrt, string> = {
+  simples_nacional: "Simples Nacional",
+  lucro_presumido: "Lucro Presumido",
+  lucro_real: "Lucro Real",
+  mei: "MEI",
+  isento: "Isento",
+  nao_informado: "Não informado",
+};
+
+export const LABEL_SEGMENTO_PARCEIRO: Record<SegmentoParceiro, string> = {
+  varejo: "Varejo",
+  alimentacao: "Alimentação",
+  saude: "Saúde",
+  educacao: "Educação",
+  governo: "Governo",
+  financeiro: "Financeiro",
+  logistica: "Logística",
+  industria: "Indústria",
+  servicos: "Serviços",
+  tecnologia: "Tecnologia",
+  outro: "Outro",
+};
+
+export const LABEL_TIPO_CONTATO: Record<TipoContato, string> = {
+  comercial: "Comercial",
+  financeiro: "Financeiro",
+  tecnico: "Técnico",
+  operacional: "Operacional",
+  administrativo: "Administrativo",
+  compras: "Compras",
+  diretoria: "Diretoria",
+  fiscal: "Fiscal",
+  contratos: "Contratos",
+  sla: "SLA",
+};
+
+export const LABEL_DEPARTAMENTO_CONTATO: Record<DepartamentoContato, string> = {
+  ti: "TI",
+  financeiro: "Financeiro",
+  operacao: "Operação",
+  compras: "Compras",
+  fiscal: "Fiscal",
+  administrativo: "Administrativo",
+  diretoria: "Diretoria",
+  frente_de_loja: "Frente de Loja",
+  facilities: "Facilities",
+  rh: "RH",
+  outro: "Outro",
+};
+
+export const LABEL_CARGO_CONTATO: Record<CargoContato, string> = {
+  gerente: "Gerente",
+  coordenador: "Coordenador",
+  supervisor: "Supervisor",
+  analista: "Analista",
+  tecnico: "Técnico",
+  responsavel_financeiro: "Responsável financeiro",
+  responsavel_operacional: "Responsável operacional",
+  responsavel_ti: "Responsável de TI",
+  proprietario: "Proprietário",
+  diretor: "Diretor",
+  outro: "Outro",
 };
 
 export const LABEL_STATUS_FILIAL: Record<StatusFilial, string> = {
@@ -235,8 +425,32 @@ export function isTipoParceiro(value: string): value is TipoParceiro {
   return TIPOS_PARCEIRO.includes(value as TipoParceiro);
 }
 
+export function isTipoPessoa(value: string): value is TipoPessoa {
+  return TIPOS_PESSOA.includes(value as TipoPessoa);
+}
+
 export function isSituacaoParceiro(value: string): value is SituacaoParceiro {
   return SITUACOES_PARCEIRO.includes(value as SituacaoParceiro);
+}
+
+export function isOpcaoCrt(value: string): value is OpcaoCrt {
+  return OPCOES_CRT.includes(value as OpcaoCrt);
+}
+
+export function isSegmentoParceiro(value: string): value is SegmentoParceiro {
+  return SEGMENTOS_PARCEIRO.includes(value as SegmentoParceiro);
+}
+
+export function isTipoContato(value: string): value is TipoContato {
+  return TIPOS_CONTATO.includes(value as TipoContato);
+}
+
+export function isDepartamentoContato(value: string): value is DepartamentoContato {
+  return DEPARTAMENTOS_CONTATO.includes(value as DepartamentoContato);
+}
+
+export function isCargoContato(value: string): value is CargoContato {
+  return CARGOS_CONTATO.includes(value as CargoContato);
 }
 
 export function isStatusFilial(value: string): value is StatusFilial {

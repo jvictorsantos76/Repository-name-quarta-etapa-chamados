@@ -157,6 +157,13 @@ const parceirosMigration = await readFile(
   ),
   "utf8"
 );
+const parceirosAbaGeralMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260520214431_padroniza_parceiros_aba_geral.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const clientesOrganizacaoMigration = await readFile(
   new URL(
     "../supabase/migrations/20260519235405_add_organizacao_id_to_clientes.sql",
@@ -495,8 +502,14 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.0\.1"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.0\.2"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
+
+  assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
+  assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_contato text null/i);
+  assert.match(parceirosAbaGeralMigration, /tipo_parceiro in \([\s\S]*'prestador'[\s\S]*'interno'[\s\S]*'prospect'/i);
+  assert.match(parceirosAbaGeralMigration, /situacao in \([\s\S]*'implantacao'[\s\S]*'suspenso'[\s\S]*'encerrado'/i);
+  assert.doesNotMatch(parceirosAbaGeralMigration, /disable row level security|drop policy|grant .* to anon|revoke delete/i);
 });
 
 test("organizations link to clients without replacing operational ticket fields", () => {

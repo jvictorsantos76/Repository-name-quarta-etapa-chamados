@@ -45,3 +45,5 @@ supabase/.temp/
 # codex / mcp
 .codex/config.toml
 .playwright-mcp/
+
+supabase/.branches/

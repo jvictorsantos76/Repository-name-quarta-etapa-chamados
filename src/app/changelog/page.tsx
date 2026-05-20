@@ -3,6 +3,18 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.30",
+    data: "20/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.0.2 padroniza a aba Geral com tipo de pessoa, perfil operacional, máscaras brasileiras, selects de CRT, situação, segmento, UF, país e contato principal.",
+      "A visualização de Pessoa Física passa a usar CPF, Nome Completo e Nome de Exibição, ocultando campos fiscais de Pessoa Jurídica sem apagar dados legados.",
+      "Localização deixa de expor latitude e longitude como campos principais no modo confortável e registra como backlog as integrações futuras de CNPJ, CEP, Google Maps, múltiplos contatos e múltiplos endereços.",
+    ],
+    correcoes: [
+      "Migration defensiva amplia os valores aceitos em parceiros e contatos sem alterar RLS, grants, Storage, delete ou dados existentes.",
+    ],
+  },
+  {
     versao: "v0.9.29",
     data: "20/05/2026",
     alteracoes: [
