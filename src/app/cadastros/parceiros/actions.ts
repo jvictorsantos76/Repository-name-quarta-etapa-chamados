@@ -258,6 +258,45 @@ function isSchemaColumnError(
   );
 }
 
+async function salvarContatoComCompatibilidade(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  id: string,
+  payload: Record<string, unknown>,
+  criadoPor: string
+) {
+  let payloadAtual = { ...payload };
+  let resposta = id
+    ? await supabase.from("parceiros_contatos").update(payloadAtual).eq("id", id)
+    : await supabase.from("parceiros_contatos").insert({
+        ...payloadAtual,
+        criado_por: criadoPor,
+      });
+
+  if (isSchemaColumnError(resposta.error, "tipo_contato")) {
+    payloadAtual = { ...payloadAtual };
+    delete payloadAtual.tipo_contato;
+    resposta = id
+      ? await supabase.from("parceiros_contatos").update(payloadAtual).eq("id", id)
+      : await supabase.from("parceiros_contatos").insert({
+          ...payloadAtual,
+          criado_por: criadoPor,
+        });
+  }
+
+  if (isSchemaColumnError(resposta.error, "observacoes")) {
+    payloadAtual = { ...payloadAtual };
+    delete payloadAtual.observacoes;
+    resposta = id
+      ? await supabase.from("parceiros_contatos").update(payloadAtual).eq("id", id)
+      : await supabase.from("parceiros_contatos").insert({
+          ...payloadAtual,
+          criado_por: criadoPor,
+        });
+  }
+
+  return resposta;
+}
+
 async function requireGestorParceiros() {
   const perfil = await requirePerfilAutenticado();
 
@@ -720,35 +759,19 @@ export async function salvarParceiroGeral(formData: FormData) {
     whatsapp: contatoWhatsapp,
     email: contatoEmail.value,
     departamento: contatoDepartamento || null,
+    observacoes: textoOuNull(formData.get("contato_observacoes")),
     principal: true,
     contato_financeiro: false,
     contato_tecnico: false,
     contato_operacional: true,
     atualizado_por: perfil.id,
   };
-  let respostaContato = contatoId
-    ? await supabase
-        .from("parceiros_contatos")
-        .update(contatoPayload)
-        .eq("id", contatoId)
-    : await supabase.from("parceiros_contatos").insert({
-        ...contatoPayload,
-        criado_por: perfil.id,
-      });
-
-  if (isSchemaColumnError(respostaContato.error, "tipo_contato")) {
-    const contatoPayloadCompat = { ...contatoPayload };
-    delete (contatoPayloadCompat as Partial<typeof contatoPayload>).tipo_contato;
-    respostaContato = contatoId
-      ? await supabase
-          .from("parceiros_contatos")
-          .update(contatoPayloadCompat)
-          .eq("id", contatoId)
-      : await supabase.from("parceiros_contatos").insert({
-          ...contatoPayloadCompat,
-          criado_por: perfil.id,
-        });
-  }
+  const respostaContato = await salvarContatoComCompatibilidade(
+    supabase,
+    contatoId,
+    contatoPayload,
+    perfil.id
+  );
 
   if (respostaContato.error) {
     redirectComErro(detalhePath(parceiroId), "Parceiro salvo, mas o contato principal não foi gravado.");
@@ -894,6 +917,7 @@ export async function salvarParceiroContato(formData: FormData) {
     whatsapp,
     email: email.value,
     departamento: departamento || null,
+    observacoes: textoOuNull(formData.get("observacoes")),
     principal: boolForm(formData, "principal"),
     contato_financeiro: boolForm(formData, "contato_financeiro"),
     contato_tecnico: boolForm(formData, "contato_tecnico"),
@@ -903,12 +927,7 @@ export async function salvarParceiroContato(formData: FormData) {
   };
 
   const supabase = createSupabaseAdminClient();
-  const resposta = id
-    ? await supabase.from("parceiros_contatos").update(payload).eq("id", id)
-    : await supabase.from("parceiros_contatos").insert({
-        ...payload,
-        criado_por: perfil.id,
-      });
+  const resposta = await salvarContatoComCompatibilidade(supabase, id, payload, perfil.id);
 
   if (resposta.error) {
     redirectComErro(detalhePath(parceiroId), "Não foi possível salvar o contato.");

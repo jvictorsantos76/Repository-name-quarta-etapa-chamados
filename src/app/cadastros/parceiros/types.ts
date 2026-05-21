@@ -193,6 +193,7 @@ export type ParceiroContato = {
   email: string | null;
   departamento: string | null;
   tipo_contato: TipoContato | null;
+  observacoes?: string | null;
   principal: boolean;
   contato_financeiro: boolean;
   contato_tecnico: boolean;

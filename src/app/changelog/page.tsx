@@ -3,6 +3,18 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.33",
+    data: "21/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.0.5 melhora a usabilidade da aba Geral com status sem redundância, tipo/perfil mais compactos e CNPJ agrupado ao botão Consultar CNPJ.",
+      "Contatos passam a exibir ações auxiliares seguras para e-mail e WhatsApp quando houver dados válidos.",
+      "Cadastro de contatos passa a aceitar observações internas exclusivas por contato.",
+    ],
+    correcoes: [
+      "A mudança adiciona apenas a coluna nullable public.parceiros_contatos.observacoes, preservando RLS, grants, delete e Storage.",
+    ],
+  },
+  {
     versao: "v0.9.32",
     data: "21/05/2026",
     alteracoes: [
