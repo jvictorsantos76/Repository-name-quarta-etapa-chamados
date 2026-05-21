@@ -19,6 +19,7 @@ import type {
   ParceiroFinanceiro,
   ParceiroHistorico,
   ParceiroOperacional,
+  OrganizacaoParceiroOpcao,
 } from "../types";
 
 type PageProps = {
@@ -55,11 +56,12 @@ export default async function EditarParceiroPage({
     contratosResposta,
     anexosResposta,
     historicoResposta,
+    organizacoesResposta,
   ] = await Promise.all([
     supabase
       .from("parceiros")
       .select(
-        "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, inscricao_estadual, inscricao_municipal, crt, situacao, cliente_desde, segmento, cnae, suframa, website, ativo, cliente_legado_id, criado_em, atualizado_em, criado_por, atualizado_por"
+        "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, inscricao_estadual, inscricao_municipal, crt, situacao, cliente_desde, segmento, cnae, suframa, website, ativo, cliente_legado_id, organizacao_id, criado_em, atualizado_em, criado_por, atualizado_por"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -105,6 +107,11 @@ export default async function EditarParceiroPage({
       .select("*")
       .eq("parceiro_id", id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("organizacoes")
+      .select("id, nome, codigo_interno, ativo")
+      .eq("ativo", true)
+      .order("nome"),
   ]);
 
   if (parceiroResposta.error || !parceiroResposta.data) {
@@ -124,6 +131,7 @@ export default async function EditarParceiroPage({
     | "historico"
     | "cliente_legado_nome"
     | "organizacao_legada_nome"
+    | "organizacao_nome"
     | "filiais_count"
   >;
   const lojaLegadoIds =
@@ -147,6 +155,11 @@ export default async function EditarParceiroPage({
   ]);
   const enderecos = (enderecosResposta.data as ParceiroEndereco[] | null) ?? [];
   const contatos = (contatosResposta.data as ParceiroContato[] | null) ?? [];
+  const organizacoes =
+    (organizacoesResposta.data as OrganizacaoParceiroOpcao[] | null) ?? [];
+  const organizacoesPorId = new Map(
+    organizacoes.map((organizacao) => [organizacao.id, organizacao.nome])
+  );
   const lojasLegadasPorId = new Map<string, string>();
 
   if (!lojasLegadasResposta.error) {
@@ -177,6 +190,11 @@ export default async function EditarParceiroPage({
     ...parceiroBase,
     cliente_legado_nome: clienteLegado?.nome_fantasia ?? null,
     organizacao_legada_nome: clienteLegado?.organizacao?.nome ?? null,
+    organizacao_nome: parceiroBase.organizacao_id
+      ? organizacoesPorId.get(parceiroBase.organizacao_id) ??
+        clienteLegado?.organizacao?.nome ??
+        null
+      : null,
     filiais_count: filiais.length,
     endereco_principal: enderecos[0] ?? null,
     contato_principal: contatos.find((contato) => contato.principal) ?? contatos[0] ?? null,
@@ -236,7 +254,7 @@ export default async function EditarParceiroPage({
           </form>
         </div>
 
-        <ParceiroForm parceiro={parceiro} erro={erro} />
+        <ParceiroForm parceiro={parceiro} organizacoes={organizacoes} erro={erro} />
       </section>
     </main>
   );

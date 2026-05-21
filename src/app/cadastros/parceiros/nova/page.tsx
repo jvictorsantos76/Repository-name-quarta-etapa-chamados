@@ -3,8 +3,12 @@ import { notFound } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { PARCEIROS_PAGE_VERSION } from "@/config/version";
 import { podeGerenciarCatalogosChamado } from "@/lib/auth/permissions";
-import { requirePerfilAutenticado } from "@/lib/supabase/server";
+import {
+  createSupabaseAdminClient,
+  requirePerfilAutenticado,
+} from "@/lib/supabase/server";
 import { ParceiroForm } from "../ParceiroForm";
+import type { OrganizacaoParceiroOpcao } from "../types";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -25,6 +29,14 @@ export default async function NovoParceiroPage({ searchParams }: PageProps) {
   }
 
   const erro = await getErro(searchParams);
+  const supabase = createSupabaseAdminClient();
+  const { data: organizacoesData } = await supabase
+    .from("organizacoes")
+    .select("id, nome, codigo_interno, ativo")
+    .eq("ativo", true)
+    .order("nome");
+  const organizacoes =
+    (organizacoesData as OrganizacaoParceiroOpcao[] | null) ?? [];
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">
@@ -62,7 +74,7 @@ export default async function NovoParceiroPage({ searchParams }: PageProps) {
           </p>
         </div>
 
-        <ParceiroForm erro={erro} />
+        <ParceiroForm organizacoes={organizacoes} erro={erro} />
       </section>
     </main>
   );

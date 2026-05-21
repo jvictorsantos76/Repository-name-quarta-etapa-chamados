@@ -156,7 +156,9 @@ export type ParceiroResumo = {
   segmento: string | null;
   ativo: boolean;
   cliente_legado_id: string | null;
+  organizacao_id: string | null;
   cliente_legado_nome?: string | null;
+  organizacao_nome?: string | null;
   filiais_count?: number;
   criado_em: string;
   atualizado_em: string;
@@ -314,6 +316,13 @@ export type ParceiroDetalhe = ParceiroResumo & {
   contratos: ParceiroContrato[];
   anexos: ParceiroAnexo[];
   historico: ParceiroHistorico[];
+};
+
+export type OrganizacaoParceiroOpcao = {
+  id: string;
+  nome: string;
+  codigo_interno: string | null;
+  ativo: boolean;
 };
 
 export const LABEL_TIPO_PARCEIRO: Record<TipoParceiro, string> = {
