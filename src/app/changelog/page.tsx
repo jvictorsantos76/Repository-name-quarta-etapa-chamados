@@ -3,6 +3,26 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.35",
+    data: "21/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.0.7 separa visualmente os retornos das consultas de CNPJ e CEP.",
+    ],
+    correcoes: [
+      "A validação do CEP passa a aparecer junto ao botão Buscar CEP, evitando feedback distante do ponto de ação.",
+    ],
+  },
+  {
+    versao: "v0.9.34",
+    data: "21/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.0.6 aproxima o retorno da consulta de CNPJ do campo e do botão Consultar CNPJ.",
+    ],
+    correcoes: [
+      "A mensagem de sucesso, situação cadastral e ação de substituir dados deixam de aparecer distante do ponto de consulta.",
+    ],
+  },
+  {
     versao: "v0.9.33",
     data: "21/05/2026",
     alteracoes: [

@@ -533,6 +533,8 @@ function GeralTab({
   const [organizacaoAlterada, setOrganizacaoAlterada] = useState(false);
   const [mensagemConsulta, setMensagemConsulta] = useState("");
   const [situacaoCadastral, setSituacaoCadastral] = useState("");
+  const [consultaOrigem, setConsultaOrigem] =
+    useState<SubstituicaoPendente["origem"] | null>(null);
   const [consultandoCnpj, setConsultandoCnpj] = useState(false);
   const [consultandoCep, setConsultandoCep] = useState(false);
   const [substituicaoPendente, setSubstituicaoPendente] =
@@ -573,6 +575,7 @@ function GeralTab({
           ...organizacoes,
         ]
       : organizacoes;
+  const feedbackOrigem = substituicaoPendente?.origem ?? consultaOrigem;
 
   function atualizarCampo(campo: CampoGeral, valor: string) {
     setCampos((atuais) => ({ ...atuais, [campo]: valor }));
@@ -618,8 +621,11 @@ function GeralTab({
   }
 
   async function consultarCnpj() {
+    setConsultaOrigem("cnpj");
+
     if (!cnpjConsultavel) {
       setMensagemConsulta("Informe um CNPJ com 14 dígitos para consultar.");
+      setSituacaoCadastral("");
       return;
     }
 
@@ -665,6 +671,9 @@ function GeralTab({
   }
 
   async function consultarCep() {
+    setConsultaOrigem("cep");
+    setSituacaoCadastral("");
+
     if (!cepConsultavel) {
       setMensagemConsulta("Informe um CEP com 8 dígitos para consultar.");
       return;
@@ -700,6 +709,45 @@ function GeralTab({
     } finally {
       setConsultandoCep(false);
     }
+  }
+
+  function renderFeedbackConsulta(origem: SubstituicaoPendente["origem"]) {
+    if (
+      feedbackOrigem !== origem ||
+      (!mensagemConsulta && !situacaoCadastral && !substituicaoPendente)
+    ) {
+      return null;
+    }
+
+    return (
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 md:col-span-full">
+        {mensagemConsulta ? <p className="font-semibold">{mensagemConsulta}</p> : null}
+        {origem === "cnpj" && situacaoCadastral ? (
+          <p className="mt-1">
+            Situação cadastral do CNPJ:{" "}
+            <span className="font-semibold">{situacaoCadastral}</span>
+          </p>
+        ) : null}
+        {substituicaoPendente?.origem === origem ? (
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p>{substituicaoPendente.mensagem}</p>
+            <button
+              type="button"
+              onClick={() =>
+                aplicarCampos(
+                  substituicaoPendente.campos,
+                  substituicaoPendente.origem,
+                  true
+                )
+              }
+              className="inline-flex min-h-9 items-center justify-center rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
+            >
+              Substituir dados
+            </button>
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -842,6 +890,7 @@ function GeralTab({
             ) : null}
           </div>
         </label>
+        {renderFeedbackConsulta("cnpj")}
         <CampoTexto
           name="nome_fantasia"
           label={pessoaFisica ? "Nome de exibição" : "Nome fantasia"}
@@ -989,36 +1038,6 @@ function GeralTab({
         ) : null}
       </FormSection>
 
-      {mensagemConsulta || situacaoCadastral || substituicaoPendente ? (
-        <section className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-          {mensagemConsulta ? <p className="font-semibold">{mensagemConsulta}</p> : null}
-          {situacaoCadastral ? (
-            <p className="mt-1">
-              Situação cadastral do CNPJ:{" "}
-              <span className="font-semibold">{situacaoCadastral}</span>
-            </p>
-          ) : null}
-          {substituicaoPendente ? (
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p>{substituicaoPendente.mensagem}</p>
-              <button
-                type="button"
-                onClick={() =>
-                  aplicarCampos(
-                    substituicaoPendente.campos,
-                    substituicaoPendente.origem,
-                    true
-                  )
-                }
-                className="inline-flex min-h-9 items-center justify-center rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
-              >
-                Substituir dados
-              </button>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-
       <FormSection title="Contato principal" densidade={densidade}>
         <CampoTexto
           name="contato_nome"
@@ -1161,6 +1180,7 @@ function GeralTab({
             {consultandoCep ? "Buscando..." : "Buscar CEP"}
           </button>
         </div>
+        {renderFeedbackConsulta("cep")}
         <CampoTexto name="endereco" label="Endereço / Logradouro" value={campos.endereco} onChange={(event) => atualizarCampo("endereco", event.currentTarget.value)} densidade={densidade} />
         <CampoTexto name="numero" label="Número" value={campos.numero} onChange={(event) => atualizarCampo("numero", event.currentTarget.value)} densidade={densidade} />
         <CampoTexto name="complemento" label="Complemento" value={campos.complemento} onChange={(event) => atualizarCampo("complemento", event.currentTarget.value)} densidade={densidade} />
