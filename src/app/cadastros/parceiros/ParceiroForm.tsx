@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
+  consultarCepPublico,
+  consultarCnpjPublico,
   registrarParceiroAnexo,
   salvarParceiroContato,
   salvarParceiroContrato,
@@ -34,12 +36,14 @@ import {
   TIPOS_PARCEIRO,
   TIPOS_PESSOA,
   UFS_BRASIL,
+  type OrganizacaoParceiroOpcao,
   type ParceiroDetalhe,
   type TipoPessoa,
 } from "./types";
 
 type Props = {
   parceiro?: ParceiroDetalhe | null;
+  organizacoes?: OrganizacaoParceiroOpcao[];
   erro?: string | null;
 };
 
@@ -54,6 +58,25 @@ type Aba =
   | "historico";
 
 type Densidade = "confortavel" | "compacto";
+type CampoGeral =
+  | "razao_social"
+  | "nome_fantasia"
+  | "cnpj_cpf"
+  | "cnae"
+  | "cep"
+  | "endereco"
+  | "numero"
+  | "complemento"
+  | "bairro"
+  | "cidade"
+  | "estado"
+  | "pais";
+type CamposGeral = Record<CampoGeral, string>;
+type SubstituicaoPendente = {
+  origem: "cnpj" | "cep";
+  campos: Partial<CamposGeral>;
+  mensagem: string;
+};
 
 const ABAS: { id: Aba; label: string }[] = [
   { id: "geral", label: "Geral" },
@@ -179,14 +202,41 @@ function normalizarSelect(valor: string | null | undefined, permitidos: readonly
   return valor && permitidos.includes(valor) ? valor : "";
 }
 
-function enderecoGoogleMaps(endereco?: ParceiroDetalhe["endereco_principal"]) {
+function enderecoGoogleMaps({
+  endereco,
+  numero,
+  bairro,
+  cidade,
+  estado,
+  pais,
+  latitude,
+  longitude,
+}: {
+  endereco?: string | null;
+  numero?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  estado?: string | null;
+  pais?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+}) {
+  const lat = String(latitude ?? "").trim();
+  const lng = String(longitude ?? "").trim();
+
+  if (lat && lng) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+      `${lat},${lng}`
+    )}`;
+  }
+
   const partes = [
-    endereco?.endereco,
-    endereco?.numero,
-    endereco?.bairro,
-    endereco?.cidade,
-    endereco?.estado,
-    endereco?.pais,
+    endereco,
+    numero,
+    bairro,
+    cidade,
+    estado,
+    pais,
   ].filter(Boolean);
 
   return partes.length >= 3
@@ -243,6 +293,7 @@ function CampoSelect({
   name,
   label,
   defaultValue,
+  value,
   children,
   densidade,
   onChange,
@@ -250,6 +301,7 @@ function CampoSelect({
   name: string;
   label: string;
   defaultValue?: string | null;
+  value?: string;
   children: ReactNode;
   densidade: Densidade;
   onChange?: (event: ChangeEvent<HTMLSelectElement>) => void;
@@ -259,7 +311,8 @@ function CampoSelect({
       {label}
       <select
         name={name}
-        defaultValue={defaultValue ?? ""}
+        defaultValue={value === undefined ? defaultValue ?? "" : undefined}
+        value={value}
         onChange={onChange}
         className={classes(densidade).input}
       >
@@ -389,16 +442,41 @@ function MiniTable({
 
 function GeralTab({
   parceiro,
+  organizacoes,
   densidade,
 }: {
   parceiro?: ParceiroDetalhe | null;
+  organizacoes: OrganizacaoParceiroOpcao[];
   densidade: Densidade;
 }) {
   const endereco = parceiro?.endereco_principal;
   const contato = parceiro?.contato_principal;
+  const organizacaoInicial = parceiro?.organizacao_id ?? "";
   const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa>(() =>
     inferirTipoPessoa(parceiro)
   );
+  const [campos, setCampos] = useState<CamposGeral>(() => ({
+    razao_social: parceiro?.razao_social ?? "",
+    nome_fantasia: parceiro?.nome_fantasia ?? "",
+    cnpj_cpf: mascararDocumento(parceiro?.cnpj_cpf, inferirTipoPessoa(parceiro)),
+    cnae: parceiro?.cnae ?? "",
+    cep: mascararCep(endereco?.cep ?? ""),
+    endereco: endereco?.endereco ?? "",
+    numero: endereco?.numero ?? "",
+    complemento: endereco?.complemento ?? "",
+    bairro: endereco?.bairro ?? "",
+    cidade: endereco?.cidade ?? "",
+    estado: normalizarSelect(endereco?.estado?.toUpperCase(), UFS_BRASIL),
+    pais: endereco?.pais ?? "Brasil",
+  }));
+  const [organizacaoId, setOrganizacaoId] = useState(organizacaoInicial);
+  const [organizacaoAlterada, setOrganizacaoAlterada] = useState(false);
+  const [mensagemConsulta, setMensagemConsulta] = useState("");
+  const [situacaoCadastral, setSituacaoCadastral] = useState("");
+  const [consultandoCnpj, setConsultandoCnpj] = useState(false);
+  const [consultandoCep, setConsultandoCep] = useState(false);
+  const [substituicaoPendente, setSubstituicaoPendente] =
+    useState<SubstituicaoPendente | null>(null);
   const [contatoCelular, setContatoCelular] = useState(() =>
     mascararCelular(contato?.celular ?? "")
   );
@@ -409,13 +487,172 @@ function GeralTab({
     Boolean(contato?.celular && contato?.celular === contato?.whatsapp)
   );
   const pessoaFisica = tipoPessoa === "fisica";
-  const mapsUrl = enderecoGoogleMaps(endereco);
+  const mapsUrl = enderecoGoogleMaps({
+    endereco: campos.endereco,
+    numero: campos.numero,
+    bairro: campos.bairro,
+    cidade: campos.cidade,
+    estado: campos.estado,
+    pais: campos.pais,
+    latitude: endereco?.latitude,
+    longitude: endereco?.longitude,
+  });
+  const cnpjConsultavel = !pessoaFisica && somenteDigitos(campos.cnpj_cpf).length === 14;
+  const cepConsultavel = somenteDigitos(campos.cep).length === 8;
+  const organizacoesSelect =
+    organizacaoInicial &&
+    parceiro?.organizacao_nome &&
+    !organizacoes.some((organizacao) => organizacao.id === organizacaoInicial)
+      ? [
+          {
+            id: organizacaoInicial,
+            nome: parceiro.organizacao_nome,
+            codigo_interno: null,
+            ativo: true,
+          },
+          ...organizacoes,
+        ]
+      : organizacoes;
+
+  function atualizarCampo(campo: CampoGeral, valor: string) {
+    setCampos((atuais) => ({ ...atuais, [campo]: valor }));
+  }
+
+  function aplicarCampos(
+    novosCampos: Partial<CamposGeral>,
+    origem: SubstituicaoPendente["origem"],
+    substituirPreenchidos = false
+  ) {
+    const conflitos = Object.entries(novosCampos).filter(([campo, valor]) => {
+      const atual = campos[campo as CampoGeral]?.trim();
+      return Boolean(valor && atual && atual !== String(valor).trim());
+    });
+
+    if (conflitos.length > 0 && !substituirPreenchidos) {
+      setSubstituicaoPendente({
+        origem,
+        campos: novosCampos,
+        mensagem:
+          "Alguns campos já têm informação manual. Revise antes de substituir.",
+      });
+      return;
+    }
+
+    setCampos((atuais) => {
+      const atualizados = { ...atuais };
+
+      for (const [campo, valor] of Object.entries(novosCampos)) {
+        if (!valor) {
+          continue;
+        }
+
+        const chave = campo as CampoGeral;
+        if (substituirPreenchidos || !atualizados[chave]?.trim()) {
+          atualizados[chave] = String(valor);
+        }
+      }
+
+      return atualizados;
+    });
+    setSubstituicaoPendente(null);
+  }
+
+  async function consultarCnpj() {
+    if (!cnpjConsultavel) {
+      setMensagemConsulta("Informe um CNPJ com 14 dígitos para consultar.");
+      return;
+    }
+
+    setConsultandoCnpj(true);
+    setMensagemConsulta("");
+    setSubstituicaoPendente(null);
+
+    try {
+      const resultado = await consultarCnpjPublico(campos.cnpj_cpf);
+
+      if (!resultado.ok) {
+        setMensagemConsulta(resultado.mensagem);
+        setSituacaoCadastral("");
+        return;
+      }
+
+      const dados = resultado.data;
+      setMensagemConsulta(resultado.mensagem);
+      setSituacaoCadastral(dados.situacao_cadastral ?? "");
+      aplicarCampos(
+        {
+          razao_social: dados.razao_social ?? "",
+          nome_fantasia: dados.nome_fantasia ?? "",
+          cnpj_cpf: mascararCnpj(dados.cnpj ?? ""),
+          cnae: dados.cnae ?? "",
+          cep: mascararCep(dados.cep ?? ""),
+          endereco: dados.endereco ?? "",
+          numero: dados.numero ?? "",
+          complemento: dados.complemento ?? "",
+          bairro: dados.bairro ?? "",
+          cidade: dados.cidade ?? "",
+          estado: normalizarSelect(dados.estado, UFS_BRASIL),
+          pais: dados.pais ?? "Brasil",
+        },
+        "cnpj"
+      );
+    } catch {
+      setMensagemConsulta("Não foi possível consultar agora. Preencha manualmente.");
+      setSituacaoCadastral("");
+    } finally {
+      setConsultandoCnpj(false);
+    }
+  }
+
+  async function consultarCep() {
+    if (!cepConsultavel) {
+      setMensagemConsulta("Informe um CEP com 8 dígitos para consultar.");
+      return;
+    }
+
+    setConsultandoCep(true);
+    setMensagemConsulta("");
+    setSubstituicaoPendente(null);
+
+    try {
+      const resultado = await consultarCepPublico(campos.cep);
+
+      if (!resultado.ok) {
+        setMensagemConsulta(resultado.mensagem);
+        return;
+      }
+
+      const dados = resultado.data;
+      setMensagemConsulta(resultado.mensagem);
+      aplicarCampos(
+        {
+          cep: mascararCep(dados.cep ?? ""),
+          endereco: dados.endereco ?? "",
+          bairro: dados.bairro ?? "",
+          cidade: dados.cidade ?? "",
+          estado: normalizarSelect(dados.estado, UFS_BRASIL),
+          pais: dados.pais ?? "Brasil",
+        },
+        "cep"
+      );
+    } catch {
+      setMensagemConsulta("Não foi possível consultar agora. Preencha manualmente.");
+    } finally {
+      setConsultandoCep(false);
+    }
+  }
 
   return (
     <form action={salvarParceiroGeral} className="space-y-4">
       <input type="hidden" name="id" value={parceiro?.id ?? ""} />
       <input type="hidden" name="endereco_id" value={endereco?.id ?? ""} />
       <input type="hidden" name="contato_id" value={contato?.id ?? ""} />
+      <input type="hidden" name="organizacao_id_original" value={organizacaoInicial} />
+      <input
+        type="hidden"
+        name="organizacao_id_alterado"
+        value={organizacaoAlterada ? "1" : "0"}
+      />
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap gap-2">
@@ -459,8 +696,16 @@ function GeralTab({
                 Organização vinculada
               </span>
               <span className="font-semibold">
-                {parceiro.organizacao_legada_nome ?? "Sem organização vinculada"}
+                {parceiro.organizacao_nome ?? "Sem organização vinculada"}
               </span>
+              {parceiro.organizacao_id ? (
+                <Link
+                  href={`/cadastros/organizacoes/${parceiro.organizacao_id}`}
+                  className="mt-1 block text-xs font-semibold text-blue-700 underline-offset-2 hover:underline"
+                >
+                  Abrir organização
+                </Link>
+              ) : null}
             </div>
             <div>
               <span className="block text-xs font-semibold uppercase tracking-wide text-blue-700">
@@ -476,9 +721,14 @@ function GeralTab({
         <CampoSelect
           name="tipo_pessoa"
           label="Tipo de pessoa"
-          defaultValue={tipoPessoa}
+          value={tipoPessoa}
           densidade={densidade}
-          onChange={(event) => setTipoPessoa(event.target.value as TipoPessoa)}
+          onChange={(event) => {
+            const novoTipo = event.target.value as TipoPessoa;
+            setTipoPessoa(novoTipo);
+            atualizarCampo("cnpj_cpf", mascararDocumento(campos.cnpj_cpf, novoTipo));
+            setSituacaoCadastral("");
+          }}
         >
           {TIPOS_PESSOA.map((tipo) => (
             <option key={tipo} value={tipo}>
@@ -501,14 +751,16 @@ function GeralTab({
         <CampoTexto
           name="razao_social"
           label={pessoaFisica ? "Nome completo" : "Razão social"}
-          defaultValue={parceiro?.razao_social}
+          value={campos.razao_social}
+          onChange={(event) => atualizarCampo("razao_social", event.currentTarget.value)}
           required
           densidade={densidade}
         />
         <CampoTexto
           name="nome_fantasia"
           label={pessoaFisica ? "Nome de exibição" : "Nome fantasia"}
-          defaultValue={parceiro?.nome_fantasia}
+          value={campos.nome_fantasia}
+          onChange={(event) => atualizarCampo("nome_fantasia", event.currentTarget.value)}
           required
           densidade={densidade}
         />
@@ -522,16 +774,33 @@ function GeralTab({
           key={tipoPessoa}
           name="cnpj_cpf"
           label={pessoaFisica ? "CPF" : "CNPJ"}
-          defaultValue={mascararDocumento(parceiro?.cnpj_cpf, tipoPessoa)}
+          value={campos.cnpj_cpf}
+          onChange={(event) =>
+            atualizarCampo(
+              "cnpj_cpf",
+              pessoaFisica
+                ? mascararCpf(event.currentTarget.value)
+                : mascararCnpj(event.currentTarget.value)
+            )
+          }
           densidade={densidade}
           inputMode="numeric"
           maxLength={pessoaFisica ? 14 : 18}
-          onInput={(event) => {
-            event.currentTarget.value = pessoaFisica
-              ? mascararCpf(event.currentTarget.value)
-              : mascararCnpj(event.currentTarget.value);
-          }}
         />
+        {!pessoaFisica ? (
+          <div className="flex items-end">
+            <button
+              type="button"
+              disabled={!cnpjConsultavel || consultandoCnpj}
+              onClick={() => {
+                void consultarCnpj();
+              }}
+              className="min-h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400"
+            >
+              {consultandoCnpj ? "Consultando..." : "Consultar CNPJ"}
+            </button>
+          </div>
+        ) : null}
         {pessoaFisica ? (
           <>
             <input type="hidden" name="inscricao_estadual" value={parceiro?.inscricao_estadual ?? ""} />
@@ -606,7 +875,8 @@ function GeralTab({
             <CampoTexto
               name="cnae"
               label="CNAE"
-              defaultValue={parceiro?.cnae}
+              value={campos.cnae}
+              onChange={(event) => atualizarCampo("cnae", event.currentTarget.value)}
               densidade={densidade}
             />
             <CampoTexto
@@ -623,7 +893,76 @@ function GeralTab({
           defaultValue={parceiro?.website}
           densidade={densidade}
         />
+        <CampoSelect
+          name="organizacao_id"
+          label="Organização vinculada"
+          value={organizacaoId}
+          densidade={densidade}
+          onChange={(event) => {
+            setOrganizacaoId(event.currentTarget.value);
+            setOrganizacaoAlterada(event.currentTarget.value !== organizacaoInicial);
+          }}
+        >
+          <option value="">Sem organização vinculada</option>
+          {organizacoesSelect.map((organizacao) => (
+            <option key={organizacao.id} value={organizacao.id}>
+              {organizacao.codigo_interno
+                ? `${organizacao.nome} (${organizacao.codigo_interno})`
+                : organizacao.nome}
+            </option>
+          ))}
+        </CampoSelect>
+        {organizacaoId ? (
+          <div className="flex items-end">
+            <Link
+              href={`/cadastros/organizacoes/${organizacaoId}`}
+              className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+            >
+              Abrir organização
+            </Link>
+          </div>
+        ) : null}
+        {!organizacaoId ? (
+          <label className="flex min-h-9 items-center gap-2 rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700">
+            <input
+              type="checkbox"
+              name="criar_organizacao_vinculada"
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span>Criar organização a partir deste cadastro ao salvar</span>
+          </label>
+        ) : null}
       </FormSection>
+
+      {mensagemConsulta || situacaoCadastral || substituicaoPendente ? (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {mensagemConsulta ? <p className="font-semibold">{mensagemConsulta}</p> : null}
+          {situacaoCadastral ? (
+            <p className="mt-1">
+              Situação cadastral do CNPJ:{" "}
+              <span className="font-semibold">{situacaoCadastral}</span>
+            </p>
+          ) : null}
+          {substituicaoPendente ? (
+            <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p>{substituicaoPendente.mensagem}</p>
+              <button
+                type="button"
+                onClick={() =>
+                  aplicarCampos(
+                    substituicaoPendente.campos,
+                    substituicaoPendente.origem,
+                    true
+                  )
+                }
+                className="inline-flex min-h-9 items-center justify-center rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
+              >
+                Substituir dados
+              </button>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <FormSection title="Contato principal" densidade={densidade}>
         <CampoTexto
@@ -726,33 +1065,37 @@ function GeralTab({
         <CampoTexto
           name="cep"
           label="CEP"
-          defaultValue={mascararCep(endereco?.cep ?? "")}
+          value={campos.cep}
+          onChange={(event) =>
+            atualizarCampo("cep", mascararCep(event.currentTarget.value))
+          }
           densidade={densidade}
           inputMode="numeric"
           maxLength={9}
-          onInput={(event) => {
-            event.currentTarget.value = mascararCep(event.currentTarget.value);
-          }}
         />
         <div className="flex items-end">
           <button
             type="button"
-            className="min-h-9 w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-500"
-            title="Consulta real de CEP está no backlog desta entrega."
+            disabled={!cepConsultavel || consultandoCep}
+            onClick={() => {
+              void consultarCep();
+            }}
+            className="min-h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400"
           >
-            Buscar CEP
+            {consultandoCep ? "Buscando..." : "Buscar CEP"}
           </button>
         </div>
-        <CampoTexto name="endereco" label="Endereço / Logradouro" defaultValue={endereco?.endereco} densidade={densidade} />
-        <CampoTexto name="numero" label="Número" defaultValue={endereco?.numero} densidade={densidade} />
-        <CampoTexto name="complemento" label="Complemento" defaultValue={endereco?.complemento} densidade={densidade} />
-        <CampoTexto name="bairro" label="Bairro" defaultValue={endereco?.bairro} densidade={densidade} />
-        <CampoTexto name="cidade" label="Cidade" defaultValue={endereco?.cidade} densidade={densidade} />
+        <CampoTexto name="endereco" label="Endereço / Logradouro" value={campos.endereco} onChange={(event) => atualizarCampo("endereco", event.currentTarget.value)} densidade={densidade} />
+        <CampoTexto name="numero" label="Número" value={campos.numero} onChange={(event) => atualizarCampo("numero", event.currentTarget.value)} densidade={densidade} />
+        <CampoTexto name="complemento" label="Complemento" value={campos.complemento} onChange={(event) => atualizarCampo("complemento", event.currentTarget.value)} densidade={densidade} />
+        <CampoTexto name="bairro" label="Bairro" value={campos.bairro} onChange={(event) => atualizarCampo("bairro", event.currentTarget.value)} densidade={densidade} />
+        <CampoTexto name="cidade" label="Cidade" value={campos.cidade} onChange={(event) => atualizarCampo("cidade", event.currentTarget.value)} densidade={densidade} />
         <CampoSelect
           name="estado"
           label="Estado / UF"
-          defaultValue={normalizarSelect(endereco?.estado?.toUpperCase(), UFS_BRASIL)}
+          value={campos.estado}
           densidade={densidade}
+          onChange={(event) => atualizarCampo("estado", event.currentTarget.value)}
         >
           <option value="">Selecione</option>
           {UFS_BRASIL.map((uf) => (
@@ -761,7 +1104,7 @@ function GeralTab({
             </option>
           ))}
         </CampoSelect>
-        <CampoSelect name="pais" label="País" defaultValue={endereco?.pais ?? "Brasil"} densidade={densidade}>
+        <CampoSelect name="pais" label="País" value={campos.pais} densidade={densidade} onChange={(event) => atualizarCampo("pais", event.currentTarget.value)}>
           <option value="Brasil">Brasil</option>
         </CampoSelect>
       </FormSection>
@@ -775,7 +1118,7 @@ function GeralTab({
         </div>
         <div className={`space-y-3 ${classes(densidade).sectionPadding}`}>
           <p className="text-sm text-gray-600">
-            A localização poderá ser definida automaticamente pelo endereço ou ajustada manualmente em versão futura.
+            A abertura usa coordenadas quando disponíveis ou o endereço preenchido no cadastro.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             {mapsUrl ? (
@@ -796,13 +1139,6 @@ function GeralTab({
                 Abrir no Google Maps
               </button>
             )}
-            <button
-              type="button"
-              className="inline-flex min-h-9 items-center justify-center rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-500"
-              title="Seleção manual no mapa está no backlog desta entrega."
-            >
-              Selecionar no mapa
-            </button>
           </div>
           {densidade === "compacto" ? (
             <div className="grid gap-3 md:grid-cols-2">
@@ -1234,7 +1570,7 @@ function HistoricoTab({ parceiro }: { parceiro: ParceiroDetalhe }) {
   );
 }
 
-export function ParceiroForm({ parceiro, erro }: Props) {
+export function ParceiroForm({ parceiro, organizacoes = [], erro }: Props) {
   const [aba, setAba] = useState<Aba>("geral");
   const [densidade, setDensidade] = useState<Densidade>("confortavel");
   const editando = Boolean(parceiro);
@@ -1283,7 +1619,13 @@ export function ParceiroForm({ parceiro, erro }: Props) {
         </div>
       </section>
 
-      {aba === "geral" ? <GeralTab parceiro={parceiro} densidade={densidade} /> : null}
+      {aba === "geral" ? (
+        <GeralTab
+          parceiro={parceiro}
+          organizacoes={organizacoes}
+          densidade={densidade}
+        />
+      ) : null}
       {parceiro && aba === "filiais" ? <FiliaisTab parceiro={parceiro} densidade={densidade} /> : null}
       {parceiro && aba === "contatos" ? <ContatosTab parceiro={parceiro} densidade={densidade} /> : null}
       {parceiro && aba === "financeiro" ? <FinanceiroTab parceiro={parceiro} densidade={densidade} /> : null}

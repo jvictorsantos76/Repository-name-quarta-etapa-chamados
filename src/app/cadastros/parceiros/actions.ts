@@ -22,6 +22,42 @@ import {
 } from "./types";
 
 const LISTAGEM_PARCEIROS_PATH = "/cadastros/parceiros";
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CONSULTA_PUBLICA_HEADERS = {
+  accept: "application/json",
+  "user-agent": "quarta-etapa-chamados/1.0 (+https://quarta-etapa.app)",
+};
+
+type ConsultaPublicaResultado<T> =
+  | { ok: true; data: T; mensagem: string }
+  | { ok: false; tipo: "invalido" | "nao_encontrado" | "indisponivel"; mensagem: string };
+
+export type DadosCnpjPublico = {
+  razao_social: string | null;
+  nome_fantasia: string | null;
+  cnpj: string | null;
+  situacao_cadastral: string | null;
+  cnae: string | null;
+  cep: string | null;
+  endereco: string | null;
+  numero: string | null;
+  complemento: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+  pais: string | null;
+};
+
+export type DadosCepPublico = {
+  cep: string | null;
+  endereco: string | null;
+  bairro: string | null;
+  cidade: string | null;
+  estado: string | null;
+  codigo_ibge: string | null;
+  pais: string | null;
+};
 
 function normalizarTexto(valor: FormDataEntryValue | null) {
   return String(valor ?? "").trim().replace(/\s+/g, " ");
@@ -34,6 +70,10 @@ function textoOuNull(valor: FormDataEntryValue | null) {
 
 function apenasDigitos(valor: FormDataEntryValue | null) {
   return normalizarTexto(valor).replace(/\D/g, "");
+}
+
+function apenasDigitosTexto(valor: string | null | undefined) {
+  return String(valor ?? "").replace(/\D/g, "");
 }
 
 function documentoOuNull(valor: FormDataEntryValue | null, tipoPessoa: string) {
@@ -141,6 +181,33 @@ function boolForm(formData: FormData, campo: string) {
   return formData.get(campo) === "on";
 }
 
+function uuidOuNull(valor: FormDataEntryValue | null) {
+  const texto = normalizarTexto(valor);
+  return UUID_REGEX.test(texto) ? texto : null;
+}
+
+function nomeOrganizacaoPorCadastro(formData: FormData) {
+  return (
+    normalizarTexto(formData.get("nome_fantasia")) ||
+    normalizarTexto(formData.get("razao_social"))
+  );
+}
+
+function textoExternoOuNull(valor: unknown) {
+  if (typeof valor !== "string" && typeof valor !== "number") {
+    return null;
+  }
+
+  const texto = String(valor).trim().replace(/\s+/g, " ");
+  return texto || null;
+}
+
+function objetoExterno(valor: unknown): Record<string, unknown> {
+  return valor && typeof valor === "object" && !Array.isArray(valor)
+    ? (valor as Record<string, unknown>)
+    : {};
+}
+
 function redirectComErro(path: string, erro: string): never {
   redirect(`${path}?erro=${encodeURIComponent(erro)}`);
 }
@@ -199,6 +266,140 @@ async function requireGestorParceiros() {
   }
 
   return perfil;
+}
+
+export async function consultarCnpjPublico(
+  cnpj: string
+): Promise<ConsultaPublicaResultado<DadosCnpjPublico>> {
+  await requireGestorParceiros();
+
+  const cnpjNormalizado = apenasDigitosTexto(cnpj);
+
+  if (cnpjNormalizado.length !== 14) {
+    return {
+      ok: false,
+      tipo: "invalido",
+      mensagem: "Informe um CNPJ com 14 dígitos para consultar.",
+    };
+  }
+
+  try {
+    const resposta = await fetch(
+      `https://brasilapi.com.br/api/cnpj/v1/${cnpjNormalizado}`,
+      {
+        cache: "no-store",
+        headers: CONSULTA_PUBLICA_HEADERS,
+      }
+    );
+
+    if (resposta.status === 404) {
+      return {
+        ok: false,
+        tipo: "nao_encontrado",
+        mensagem: "CNPJ não encontrado na fonte pública.",
+      };
+    }
+
+    if (!resposta.ok) {
+      return {
+        ok: false,
+        tipo: "indisponivel",
+        mensagem: "Não foi possível consultar agora. Preencha manualmente.",
+      };
+    }
+
+    const dados = objetoExterno(await resposta.json());
+    const cnaeFiscal = textoExternoOuNull(dados.cnae_fiscal);
+    const cnaeDescricao = textoExternoOuNull(dados.cnae_fiscal_descricao);
+    const cnae = [cnaeFiscal, cnaeDescricao].filter(Boolean).join(" - ") || null;
+
+    return {
+      ok: true,
+      mensagem: "CNPJ consultado com sucesso. Confira os dados antes de salvar.",
+      data: {
+        razao_social: textoExternoOuNull(dados.razao_social),
+        nome_fantasia: textoExternoOuNull(dados.nome_fantasia),
+        cnpj: cnpjNormalizado,
+        situacao_cadastral: textoExternoOuNull(dados.descricao_situacao_cadastral),
+        cnae,
+        cep: textoExternoOuNull(dados.cep),
+        endereco: textoExternoOuNull(dados.logradouro),
+        numero: textoExternoOuNull(dados.numero),
+        complemento: textoExternoOuNull(dados.complemento),
+        bairro: textoExternoOuNull(dados.bairro),
+        cidade: textoExternoOuNull(dados.municipio),
+        estado: textoExternoOuNull(dados.uf)?.toUpperCase() ?? null,
+        pais: textoExternoOuNull(dados.pais) ?? "Brasil",
+      },
+    };
+  } catch {
+    return {
+      ok: false,
+      tipo: "indisponivel",
+      mensagem: "Não foi possível consultar agora. Preencha manualmente.",
+    };
+  }
+}
+
+export async function consultarCepPublico(
+  cep: string
+): Promise<ConsultaPublicaResultado<DadosCepPublico>> {
+  await requireGestorParceiros();
+
+  const cepNormalizado = apenasDigitosTexto(cep);
+
+  if (cepNormalizado.length !== 8) {
+    return {
+      ok: false,
+      tipo: "invalido",
+      mensagem: "Informe um CEP com 8 dígitos para consultar.",
+    };
+  }
+
+  try {
+    const resposta = await fetch(`https://viacep.com.br/ws/${cepNormalizado}/json/`, {
+      cache: "no-store",
+      headers: CONSULTA_PUBLICA_HEADERS,
+    });
+
+    if (!resposta.ok) {
+      return {
+        ok: false,
+        tipo: "indisponivel",
+        mensagem: "Não foi possível consultar agora. Preencha manualmente.",
+      };
+    }
+
+    const dados = objetoExterno(await resposta.json());
+
+    if (dados.erro === true) {
+      return {
+        ok: false,
+        tipo: "nao_encontrado",
+        mensagem: "CEP não encontrado. Preencha o endereço manualmente.",
+      };
+    }
+
+    return {
+      ok: true,
+      mensagem: "CEP encontrado. Endereço preenchido automaticamente.",
+      data: {
+        cep: cepNormalizado,
+        endereco: textoExternoOuNull(dados.logradouro),
+        bairro: textoExternoOuNull(dados.bairro),
+        cidade: textoExternoOuNull(dados.localidade),
+        estado: textoExternoOuNull(dados.uf)?.toUpperCase() ?? null,
+        codigo_ibge: textoExternoOuNull(dados.ibge),
+        pais: "Brasil",
+      },
+    };
+  } catch {
+    return {
+      ok: false,
+      tipo: "indisponivel",
+      mensagem: "Não foi possível consultar agora. Preencha manualmente.",
+    };
+  }
 }
 
 function montarPayloadParceiro(formData: FormData) {
@@ -270,6 +471,7 @@ function montarPayloadParceiro(formData: FormData) {
       cnae: textoOuNull(formData.get("cnae")),
       suframa: textoOuNull(formData.get("suframa")),
       website: website.value,
+      organizacao_id: uuidOuNull(formData.get("organizacao_id")),
       ativo: situacao === "ativo",
     },
   };
@@ -297,6 +499,10 @@ export async function salvarParceiroGeral(formData: FormData) {
   const id = normalizarTexto(formData.get("id"));
   const origem = id ? detalhePath(id) : `${LISTAGEM_PARCEIROS_PATH}/nova`;
   const resultado = montarPayloadParceiro(formData);
+  let organizacaoId = uuidOuNull(formData.get("organizacao_id"));
+  const organizacaoAlterada = formData.get("organizacao_id_alterado") === "1";
+  const criarOrganizacaoVinculada =
+    !organizacaoId && formData.get("criar_organizacao_vinculada") === "on";
 
   if (!resultado.ok) {
     redirectComErro(origem, resultado.error);
@@ -307,6 +513,55 @@ export async function salvarParceiroGeral(formData: FormData) {
   }
 
   const supabase = createSupabaseAdminClient();
+
+  if (criarOrganizacaoVinculada) {
+    const nomeOrganizacao = nomeOrganizacaoPorCadastro(formData);
+
+    if (!nomeOrganizacao) {
+      redirectComErro(origem, "Informe razão social ou nome fantasia para criar a organização.");
+    }
+
+    const { data: organizacaoExistente, error: erroOrganizacaoExistente } = await supabase
+      .from("organizacoes")
+      .select("id")
+      .ilike("nome", nomeOrganizacao)
+      .limit(1)
+      .maybeSingle();
+
+    if (erroOrganizacaoExistente) {
+      redirectComErro(origem, "Não foi possível verificar se a organização já existe.");
+    }
+
+    if (organizacaoExistente?.id) {
+      organizacaoId = String(organizacaoExistente.id);
+    } else {
+      const { data: organizacaoCriada, error: erroOrganizacaoCriada } = await supabase
+        .from("organizacoes")
+        .insert({
+          nome: nomeOrganizacao,
+          codigo_interno: null,
+          tipo_organizacao:
+            resultado.payload.tipo_parceiro === "cliente" ? "cliente" : "parceiro",
+          possui_filiais: false,
+          ativo: true,
+          observacoes:
+            "Organização criada automaticamente a partir do cadastro de cliente/parceiro.",
+          criado_por: perfil.id,
+          atualizado_por: perfil.id,
+        })
+        .select("id")
+        .single();
+
+      if (erroOrganizacaoCriada || !organizacaoCriada?.id) {
+        redirectComErro(origem, "Não foi possível criar a organização vinculada.");
+      }
+
+      organizacaoId = String(organizacaoCriada.id);
+    }
+
+    resultado.payload.organizacao_id = organizacaoId;
+  }
+
   const payload = {
     ...resultado.payload,
     atualizado_por: perfil.id,
@@ -317,7 +572,7 @@ export async function salvarParceiroGeral(formData: FormData) {
         .from("parceiros")
         .update(payload)
         .eq("id", id)
-        .select("id")
+        .select("id, cliente_legado_id, organizacao_id")
         .single()
     : await supabase
         .from("parceiros")
@@ -325,7 +580,7 @@ export async function salvarParceiroGeral(formData: FormData) {
           ...payload,
           criado_por: perfil.id,
         })
-        .select("id")
+        .select("id, cliente_legado_id, organizacao_id")
         .single();
 
   if (isSchemaColumnError(parceiroResposta.error, "tipo_pessoa")) {
@@ -336,7 +591,7 @@ export async function salvarParceiroGeral(formData: FormData) {
           .from("parceiros")
           .update(payloadCompat)
           .eq("id", id)
-          .select("id")
+          .select("id, cliente_legado_id, organizacao_id")
           .single()
       : await supabase
           .from("parceiros")
@@ -344,7 +599,7 @@ export async function salvarParceiroGeral(formData: FormData) {
             ...payloadCompat,
             criado_por: perfil.id,
           })
-          .select("id")
+          .select("id, cliente_legado_id, organizacao_id")
           .single();
   }
 
@@ -353,8 +608,44 @@ export async function salvarParceiroGeral(formData: FormData) {
   }
 
   const parceiroId = String(parceiroResposta.data.id);
+  const clienteLegadoId =
+    "cliente_legado_id" in parceiroResposta.data
+      ? String(parceiroResposta.data.cliente_legado_id ?? "")
+      : "";
   const enderecoId = normalizarTexto(formData.get("endereco_id"));
   const contatoId = normalizarTexto(formData.get("contato_id"));
+
+  if ((organizacaoAlterada || criarOrganizacaoVinculada) && clienteLegadoId) {
+    const { data: clienteLegado, error: erroClienteLegado } = await supabase
+      .from("clientes")
+      .select("organizacao_id")
+      .eq("id", clienteLegadoId)
+      .maybeSingle();
+
+    if (erroClienteLegado) {
+      redirectComErro(
+        detalhePath(parceiroId),
+        "Parceiro salvo, mas não foi possível verificar o vínculo do cliente legado."
+      );
+    }
+
+    const organizacaoClienteAtual =
+      (clienteLegado as { organizacao_id: string | null } | null)?.organizacao_id ?? null;
+
+    if (organizacaoClienteAtual !== organizacaoId) {
+      const { error: erroSincronizacao } = await supabase
+        .from("clientes")
+        .update({ organizacao_id: organizacaoId })
+        .eq("id", clienteLegadoId);
+
+      if (erroSincronizacao) {
+        redirectComErro(
+          detalhePath(parceiroId),
+          "Parceiro salvo, mas o vínculo do cliente legado não foi sincronizado."
+        );
+      }
+    }
+  }
 
   const enderecoPayload = {
     parceiro_id: parceiroId,

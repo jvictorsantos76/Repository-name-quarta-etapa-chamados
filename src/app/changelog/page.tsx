@@ -3,6 +3,29 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.32",
+    data: "21/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.0.4 permite criar uma organização vinculada a partir do próprio cadastro quando o agrupador ainda não existe.",
+      "O vínculo continua gravado em public.parceiros.organizacao_id, sem transformar clientes/parceiros em organizações apenas na interface.",
+    ],
+    correcoes: [
+      "A criação é explícita no salvamento e reutiliza organização existente com o mesmo nome quando encontrada, evitando duplicidade operacional simples.",
+    ],
+  },
+  {
+    versao: "v0.9.31",
+    data: "21/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.0.3 conclui a aba Geral com consulta pública de CNPJ pela BrasilAPI, busca de CEP pelo ViaCEP e abertura pública do endereço no Google Maps.",
+      "A tela passa a permitir vínculo editável com Organização, preservando cliente legado e sincronizando clientes.organizacao_id apenas quando o usuário altera explicitamente o vínculo.",
+      "A situação cadastral fiscal retornada na consulta de CNPJ fica restrita ao feedback visual, sem alterar a situação operacional do parceiro.",
+    ],
+    correcoes: [
+      "Migration defensiva adiciona parceiros.organizacao_id com FK e backfill sem sobrescrever vínculos existentes, mantendo RLS, grants e delete inalterados.",
+    ],
+  },
+  {
     versao: "v0.9.30",
     data: "20/05/2026",
     alteracoes: [

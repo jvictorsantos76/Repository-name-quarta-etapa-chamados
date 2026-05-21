@@ -164,6 +164,13 @@ const parceirosAbaGeralMigration = await readFile(
   ),
   "utf8"
 );
+const parceirosOrganizacaoMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260521011447_add_organizacao_id_to_parceiros.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const clientesOrganizacaoMigration = await readFile(
   new URL(
     "../supabase/migrations/20260519235405_add_organizacao_id_to_clientes.sql",
@@ -191,6 +198,10 @@ const parceirosPageSource = await readFile(
 );
 const parceirosActionsSource = await readFile(
   new URL("../src/app/cadastros/parceiros/actions.ts", import.meta.url),
+  "utf8"
+);
+const parceirosFormSource = await readFile(
+  new URL("../src/app/cadastros/parceiros/ParceiroForm.tsx", import.meta.url),
   "utf8"
 );
 
@@ -502,7 +513,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.0\.2"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.0\.4"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -510,6 +521,16 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosAbaGeralMigration, /tipo_parceiro in \([\s\S]*'prestador'[\s\S]*'interno'[\s\S]*'prospect'/i);
   assert.match(parceirosAbaGeralMigration, /situacao in \([\s\S]*'implantacao'[\s\S]*'suspenso'[\s\S]*'encerrado'/i);
   assert.doesNotMatch(parceirosAbaGeralMigration, /disable row level security|drop policy|grant .* to anon|revoke delete/i);
+
+  assert.match(parceirosOrganizacaoMigration, /add column if not exists organizacao_id uuid null/i);
+  assert.match(parceirosOrganizacaoMigration, /foreign key \(organizacao_id\) references public\.organizacoes\(id\)/i);
+  assert.match(parceirosOrganizacaoMigration, /where p\.organizacao_id is null[\s\S]*p\.cliente_legado_id = c\.id/i);
+  assert.doesNotMatch(parceirosOrganizacaoMigration, /disable row level security|drop policy|grant .* to anon|revoke delete/i);
+  assert.match(parceirosActionsSource, /formData\.get\("organizacao_id_alterado"\) === "1"/);
+  assert.match(parceirosFormSource, /criar_organizacao_vinculada/);
+  assert.match(parceirosActionsSource, /formData\.get\("criar_organizacao_vinculada"\) === "on"/);
+  assert.match(parceirosActionsSource, /\.from\("organizacoes"\)[\s\S]*\.insert\(\{/);
+  assert.match(parceirosActionsSource, /\.from\("clientes"\)[\s\S]*\.update\(\{ organizacao_id: organizacaoId \}\)/);
 });
 
 test("organizations link to clients without replacing operational ticket fields", () => {
