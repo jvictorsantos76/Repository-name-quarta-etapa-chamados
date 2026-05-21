@@ -47,3 +47,5 @@ supabase/.temp/
 .playwright-mcp/
 
 supabase/.branches/
+
+supabase/.branches/

@@ -85,7 +85,15 @@ function cepOuNull(valor: FormDataEntryValue | null) {
 
 function telefoneOuNull(valor: FormDataEntryValue | null) {
   const digitos = apenasDigitos(valor);
-  return digitos || null;
+  if (!digitos) {
+    return null;
+  }
+
+  if ((digitos.length === 10 || digitos.length === 11) && !digitos.startsWith("55")) {
+    return `55${digitos}`;
+  }
+
+  return digitos;
 }
 
 function normalizarWebsite(valor: FormDataEntryValue | null) {
@@ -169,6 +177,18 @@ function mensagemErroParceiro(error?: {
   }
 
   return "Não foi possível salvar o parceiro.";
+}
+
+function isSchemaColumnError(
+  error: { code?: string; message?: string; details?: string } | null | undefined,
+  column: string
+) {
+  const detalhe = `${error?.message ?? ""} ${error?.details ?? ""}`.toLowerCase();
+  return (
+    error?.code === "PGRST204" &&
+    detalhe.includes(column.toLowerCase()) &&
+    detalhe.includes("schema cache")
+  );
 }
 
 async function requireGestorParceiros() {
@@ -282,13 +302,17 @@ export async function salvarParceiroGeral(formData: FormData) {
     redirectComErro(origem, resultado.error);
   }
 
+  if (!normalizarTexto(formData.get("contato_nome"))) {
+    redirectComErro(origem, "Informe o nome do contato principal.");
+  }
+
   const supabase = createSupabaseAdminClient();
   const payload = {
     ...resultado.payload,
     atualizado_por: perfil.id,
   };
 
-  const parceiroResposta = id
+  let parceiroResposta = id
     ? await supabase
         .from("parceiros")
         .update(payload)
@@ -303,6 +327,26 @@ export async function salvarParceiroGeral(formData: FormData) {
         })
         .select("id")
         .single();
+
+  if (isSchemaColumnError(parceiroResposta.error, "tipo_pessoa")) {
+    const payloadCompat = { ...payload };
+    delete (payloadCompat as Partial<typeof payload>).tipo_pessoa;
+    parceiroResposta = id
+      ? await supabase
+          .from("parceiros")
+          .update(payloadCompat)
+          .eq("id", id)
+          .select("id")
+          .single()
+      : await supabase
+          .from("parceiros")
+          .insert({
+            ...payloadCompat,
+            criado_por: perfil.id,
+          })
+          .select("id")
+          .single();
+  }
 
   if (parceiroResposta.error || !parceiroResposta.data) {
     redirectComErro(origem, mensagemErroParceiro(parceiroResposta.error));
@@ -350,61 +394,73 @@ export async function salvarParceiroGeral(formData: FormData) {
   }
 
   const nomeContato = normalizarTexto(formData.get("contato_nome"));
-  if (nomeContato) {
-    const contatoEmail = emailOuNull(formData.get("contato_email"));
-    const contatoTipo = normalizarTexto(formData.get("contato_tipo"));
-    const contatoDepartamento = normalizarTexto(formData.get("contato_departamento"));
-    const contatoCargo = normalizarTexto(formData.get("contato_cargo"));
-    const contatoCelular = telefoneOuNull(formData.get("contato_celular"));
-    const contatoWhatsapp = boolForm(formData, "contato_celular_whatsapp")
-      ? contatoCelular
-      : telefoneOuNull(formData.get("contato_whatsapp"));
+  const contatoEmail = emailOuNull(formData.get("contato_email"));
+  const contatoTipo = normalizarTexto(formData.get("contato_tipo"));
+  const contatoDepartamento = normalizarTexto(formData.get("contato_departamento"));
+  const contatoCargo = normalizarTexto(formData.get("contato_cargo"));
+  const contatoCelular = telefoneOuNull(formData.get("contato_celular"));
+  const contatoWhatsapp = boolForm(formData, "contato_celular_whatsapp")
+    ? contatoCelular
+    : telefoneOuNull(formData.get("contato_whatsapp"));
 
-    if (!contatoEmail.ok) {
-      redirectComErro(detalhePath(parceiroId), contatoEmail.error);
-    }
+  if (!contatoEmail.ok) {
+    redirectComErro(detalhePath(parceiroId), contatoEmail.error);
+  }
 
-    if (contatoTipo && !isTipoContato(contatoTipo)) {
-      redirectComErro(detalhePath(parceiroId), "Informe um tipo de contato válido.");
-    }
+  if (contatoTipo && !isTipoContato(contatoTipo)) {
+    redirectComErro(detalhePath(parceiroId), "Informe um tipo de contato válido.");
+  }
 
-    if (contatoDepartamento && !isDepartamentoContato(contatoDepartamento)) {
-      redirectComErro(detalhePath(parceiroId), "Informe um departamento válido.");
-    }
+  if (contatoDepartamento && !isDepartamentoContato(contatoDepartamento)) {
+    redirectComErro(detalhePath(parceiroId), "Informe um departamento válido.");
+  }
 
-    if (contatoCargo && !isCargoContato(contatoCargo)) {
-      redirectComErro(detalhePath(parceiroId), "Informe um cargo válido.");
-    }
+  if (contatoCargo && !isCargoContato(contatoCargo)) {
+    redirectComErro(detalhePath(parceiroId), "Informe um cargo válido.");
+  }
 
-    const contatoPayload = {
-      parceiro_id: parceiroId,
-      nome: nomeContato,
-      tipo_contato: contatoTipo || null,
-      cargo: contatoCargo || null,
-      telefone: telefoneOuNull(formData.get("contato_telefone")),
-      celular: contatoCelular,
-      whatsapp: contatoWhatsapp,
-      email: contatoEmail.value,
-      departamento: contatoDepartamento || null,
-      principal: true,
-      contato_financeiro: false,
-      contato_tecnico: false,
-      contato_operacional: true,
-      atualizado_por: perfil.id,
-    };
-    const respostaContato = contatoId
+  const contatoPayload = {
+    parceiro_id: parceiroId,
+    nome: nomeContato,
+    tipo_contato: contatoTipo || null,
+    cargo: contatoCargo || null,
+    telefone: telefoneOuNull(formData.get("contato_telefone")),
+    celular: contatoCelular,
+    whatsapp: contatoWhatsapp,
+    email: contatoEmail.value,
+    departamento: contatoDepartamento || null,
+    principal: true,
+    contato_financeiro: false,
+    contato_tecnico: false,
+    contato_operacional: true,
+    atualizado_por: perfil.id,
+  };
+  let respostaContato = contatoId
+    ? await supabase
+        .from("parceiros_contatos")
+        .update(contatoPayload)
+        .eq("id", contatoId)
+    : await supabase.from("parceiros_contatos").insert({
+        ...contatoPayload,
+        criado_por: perfil.id,
+      });
+
+  if (isSchemaColumnError(respostaContato.error, "tipo_contato")) {
+    const contatoPayloadCompat = { ...contatoPayload };
+    delete (contatoPayloadCompat as Partial<typeof contatoPayload>).tipo_contato;
+    respostaContato = contatoId
       ? await supabase
           .from("parceiros_contatos")
-          .update(contatoPayload)
+          .update(contatoPayloadCompat)
           .eq("id", contatoId)
       : await supabase.from("parceiros_contatos").insert({
-          ...contatoPayload,
+          ...contatoPayloadCompat,
           criado_por: perfil.id,
         });
+  }
 
-    if (respostaContato.error) {
-      redirectComErro(detalhePath(parceiroId), "Parceiro salvo, mas o contato principal não foi gravado.");
-    }
+  if (respostaContato.error) {
+    redirectComErro(detalhePath(parceiroId), "Parceiro salvo, mas o contato principal não foi gravado.");
   }
 
   await registrarHistorico(

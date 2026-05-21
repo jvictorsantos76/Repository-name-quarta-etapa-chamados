@@ -147,7 +147,7 @@ export type StatusContrato = (typeof STATUS_CONTRATO)[number];
 export type ParceiroResumo = {
   id: string;
   tipo_parceiro: TipoParceiro;
-  tipo_pessoa: TipoPessoa | null;
+  tipo_pessoa?: TipoPessoa | null;
   razao_social: string;
   nome_fantasia: string;
   codigo_interno: string | null;

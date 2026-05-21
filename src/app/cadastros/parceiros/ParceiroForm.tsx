@@ -124,17 +124,47 @@ function mascararCep(valor: string) {
 }
 
 function mascararTelefone(valor: string) {
-  return somenteDigitos(valor)
-    .slice(0, 10)
-    .replace(/^(\d{2})(\d)/, "($1) $2")
-    .replace(/(\d{4})(\d)/, "$1-$2");
+  const digitos = normalizarTelefoneInternacional(valor, 12);
+  return formatarTelefoneInternacional(digitos, false);
 }
 
 function mascararCelular(valor: string) {
-  return somenteDigitos(valor)
-    .slice(0, 11)
-    .replace(/^(\d{2})(\d)/, "($1) $2")
-    .replace(/(\d{5})(\d)/, "$1-$2");
+  const digitos = normalizarTelefoneInternacional(valor, 13);
+  return formatarTelefoneInternacional(digitos, true);
+}
+
+function normalizarTelefoneInternacional(valor: string, maxLength: number) {
+  const digitos = somenteDigitos(valor);
+
+  if (!digitos) {
+    return "";
+  }
+
+  const comPais = digitos.length <= maxLength - 2 && !digitos.startsWith("55")
+    ? `55${digitos}`
+    : digitos;
+
+  return comPais.slice(0, maxLength);
+}
+
+function formatarTelefoneInternacional(digitos: string, celular: boolean) {
+  if (!digitos) {
+    return "";
+  }
+
+  const pais = digitos.slice(0, 2);
+  const ddd = digitos.slice(2, 4);
+  const numero = digitos.slice(4);
+  const prefixo = `+${pais}${ddd ? ` (${ddd})` : ""}`;
+  const corte = celular ? 5 : 4;
+
+  if (!numero) {
+    return prefixo;
+  }
+
+  return `${prefixo} ${numero.slice(0, corte)}${
+    numero.length > corte ? `-${numero.slice(corte)}` : ""
+  }`;
 }
 
 function inferirTipoPessoa(parceiro?: ParceiroDetalhe | null): TipoPessoa {
@@ -174,6 +204,8 @@ function CampoTexto({
   inputMode,
   maxLength,
   onInput,
+  value,
+  onChange,
 }: {
   name: string;
   label: string;
@@ -184,18 +216,23 @@ function CampoTexto({
   inputMode?: "text" | "search" | "email" | "tel" | "url" | "numeric" | "decimal";
   maxLength?: number;
   onInput?: (event: FormEvent<HTMLInputElement>) => void;
+  value?: string;
+  onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <label className={labelClass}>
       {label}
+      {required ? <span aria-hidden="true" className="ml-1 text-red-500">*</span> : null}
       <input
         name={name}
         type={type}
-        defaultValue={defaultValue ?? ""}
+        defaultValue={value === undefined ? defaultValue ?? "" : undefined}
+        value={value}
         required={required}
         inputMode={inputMode}
         maxLength={maxLength}
         onInput={onInput}
+        onChange={onChange}
         className={classes(densidade).input}
       />
     </label>
@@ -262,10 +299,14 @@ function Toggle({
   name,
   label,
   defaultChecked = false,
+  checked,
+  onChange,
 }: {
   name: string;
   label: string;
   defaultChecked?: boolean;
+  checked?: boolean;
+  onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <label className={toggleClass}>
@@ -273,7 +314,9 @@ function Toggle({
       <input
         type="checkbox"
         name={name}
-        defaultChecked={defaultChecked}
+        defaultChecked={checked === undefined ? defaultChecked : undefined}
+        checked={checked}
+        onChange={onChange}
         className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
       />
     </label>
@@ -355,6 +398,15 @@ function GeralTab({
   const contato = parceiro?.contato_principal;
   const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa>(() =>
     inferirTipoPessoa(parceiro)
+  );
+  const [contatoCelular, setContatoCelular] = useState(() =>
+    mascararCelular(contato?.celular ?? "")
+  );
+  const [contatoWhatsapp, setContatoWhatsapp] = useState(() =>
+    mascararCelular(contato?.whatsapp ?? "")
+  );
+  const [celularEhWhatsapp, setCelularEhWhatsapp] = useState(
+    Boolean(contato?.celular && contato?.celular === contato?.whatsapp)
   );
   const pessoaFisica = tipoPessoa === "fisica";
   const mapsUrl = enderecoGoogleMaps(endereco);
@@ -574,7 +626,13 @@ function GeralTab({
       </FormSection>
 
       <FormSection title="Contato principal" densidade={densidade}>
-        <CampoTexto name="contato_nome" label="Nome do contato" defaultValue={contato?.nome} densidade={densidade} />
+        <CampoTexto
+          name="contato_nome"
+          label="Nome do contato"
+          defaultValue={contato?.nome}
+          required
+          densidade={densidade}
+        />
         <CampoSelect
           name="contato_tipo"
           label="Tipo de contato"
@@ -615,42 +673,52 @@ function GeralTab({
         </CampoSelect>
         <CampoTexto
           name="contato_telefone"
-          label="Telefone"
+          label="Telefone internacional"
           defaultValue={mascararTelefone(contato?.telefone ?? "")}
           densidade={densidade}
           inputMode="tel"
-          maxLength={14}
+          maxLength={18}
           onInput={(event) => {
             event.currentTarget.value = mascararTelefone(event.currentTarget.value);
           }}
         />
         <CampoTexto
           name="contato_celular"
-          label="Celular"
-          defaultValue={mascararCelular(contato?.celular ?? "")}
+          label="Celular internacional"
+          value={contatoCelular}
           densidade={densidade}
           inputMode="tel"
-          maxLength={15}
-          onInput={(event) => {
-            event.currentTarget.value = mascararCelular(event.currentTarget.value);
+          maxLength={19}
+          onChange={(event) => {
+            const valor = mascararCelular(event.currentTarget.value);
+            setContatoCelular(valor);
+            if (celularEhWhatsapp) {
+              setContatoWhatsapp(valor);
+            }
           }}
         />
         <CampoTexto name="contato_email" label="E-mail" type="email" defaultValue={contato?.email} densidade={densidade} inputMode="email" />
         <CampoTexto
           name="contato_whatsapp"
           label="WhatsApp"
-          defaultValue={mascararCelular(contato?.whatsapp ?? "")}
+          value={contatoWhatsapp}
           densidade={densidade}
           inputMode="tel"
-          maxLength={15}
-          onInput={(event) => {
-            event.currentTarget.value = mascararCelular(event.currentTarget.value);
+          maxLength={19}
+          onChange={(event) => {
+            setContatoWhatsapp(mascararCelular(event.currentTarget.value));
           }}
         />
         <Toggle
           name="contato_celular_whatsapp"
           label="Celular é WhatsApp"
-          defaultChecked={Boolean(contato?.celular && contato?.celular === contato?.whatsapp)}
+          checked={celularEhWhatsapp}
+          onChange={(event) => {
+            setCelularEhWhatsapp(event.currentTarget.checked);
+            if (event.currentTarget.checked) {
+              setContatoWhatsapp(contatoCelular);
+            }
+          }}
         />
       </FormSection>
 
@@ -875,20 +943,20 @@ function ContatosTab({
           </CampoSelect>
           <CampoTexto
             name="telefone"
-            label="Telefone"
+            label="Telefone internacional"
             densidade={densidade}
             inputMode="tel"
-            maxLength={14}
+            maxLength={18}
             onInput={(event) => {
               event.currentTarget.value = mascararTelefone(event.currentTarget.value);
             }}
           />
           <CampoTexto
             name="celular"
-            label="Celular"
+            label="Celular internacional"
             densidade={densidade}
             inputMode="tel"
-            maxLength={15}
+            maxLength={19}
             onInput={(event) => {
               event.currentTarget.value = mascararCelular(event.currentTarget.value);
             }}
@@ -898,7 +966,7 @@ function ContatosTab({
             label="WhatsApp"
             densidade={densidade}
             inputMode="tel"
-            maxLength={15}
+            maxLength={19}
             onInput={(event) => {
               event.currentTarget.value = mascararCelular(event.currentTarget.value);
             }}

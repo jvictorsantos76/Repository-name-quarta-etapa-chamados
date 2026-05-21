@@ -42,7 +42,7 @@ export default async function ParceirosPage({ searchParams }: PageProps) {
     supabase
       .from("parceiros")
       .select(
-        "id, tipo_parceiro, tipo_pessoa, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, situacao, segmento, ativo, cliente_legado_id, criado_em, atualizado_em"
+        "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, situacao, segmento, ativo, cliente_legado_id, criado_em, atualizado_em"
       )
       .order("nome_fantasia"),
     supabase.from("clientes").select("id, nome_fantasia"),

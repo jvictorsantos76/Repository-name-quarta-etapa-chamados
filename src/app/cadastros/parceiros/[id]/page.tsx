@@ -59,7 +59,7 @@ export default async function EditarParceiroPage({
     supabase
       .from("parceiros")
       .select(
-        "id, tipo_parceiro, tipo_pessoa, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, inscricao_estadual, inscricao_municipal, crt, situacao, cliente_desde, segmento, cnae, suframa, website, ativo, cliente_legado_id, criado_em, atualizado_em, criado_por, atualizado_por"
+        "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, inscricao_estadual, inscricao_municipal, crt, situacao, cliente_desde, segmento, cnae, suframa, website, ativo, cliente_legado_id, criado_em, atualizado_em, criado_por, atualizado_por"
       )
       .eq("id", id)
       .maybeSingle(),
