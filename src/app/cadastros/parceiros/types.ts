@@ -133,6 +133,20 @@ export const STATUS_CONTRATO = [
   "em_negociacao",
 ] as const;
 
+export const DOCUMENTOS_ENTRADA = [
+  "RG",
+  "CPF",
+  "CNH",
+  "Crachá da empresa",
+  "Ordem de serviço",
+  "RAT",
+  "E-mail de autorização",
+  "Carta de apresentação",
+  "Comprovante de vínculo com a empresa",
+  "Nota fiscal / documento de transporte",
+  "Outro",
+] as const;
+
 export type TipoParceiro = (typeof TIPOS_PARCEIRO)[number];
 export type TipoPessoa = (typeof TIPOS_PESSOA)[number];
 export type SituacaoParceiro = (typeof SITUACOES_PARCEIRO)[number];
@@ -143,6 +157,7 @@ export type DepartamentoContato = (typeof DEPARTAMENTOS_CONTATO)[number];
 export type CargoContato = (typeof CARGOS_CONTATO)[number];
 export type StatusFilial = (typeof STATUS_FILIAL)[number];
 export type StatusContrato = (typeof STATUS_CONTRATO)[number];
+export type DocumentoEntrada = (typeof DOCUMENTOS_ENTRADA)[number];
 
 export type ParceiroResumo = {
   id: string;
@@ -166,12 +181,25 @@ export type ParceiroResumo = {
   ponto_referencia?: string | null;
   restricoes_entrada?: string | null;
   estacionamento?: string | null;
+  estacionamento_privativo?: boolean | null;
+  estacionamento_terceiros?: boolean | null;
+  estacionamento_terceiros_nome?: string | null;
+  estacionamento_terceiros_endereco?: string | null;
+  estacionamento_terceiros_valores?: string | null;
   portaria_recepcao?: string | null;
   doca_carga_descarga?: string | null;
   documento_necessario_entrada?: string | null;
   responsavel_local?: string | null;
   telefone_responsavel_local?: string | null;
+  responsavel_local_nome?: string | null;
+  responsavel_local_contato_id?: string | null;
+  responsavel_local_telefone?: string | null;
+  responsavel_local_whatsapp?: boolean | null;
   necessita_autorizacao_previa?: boolean | null;
+  possui_portaria_recepcao?: boolean | null;
+  possui_doca_carga_descarga?: boolean | null;
+  identificacao_doca?: string | null;
+  documentos_entrada?: string[] | null;
   horario_funcionamento?: string | null;
   horario_atendimento_tecnico?: string | null;
   horario_coleta_entrega?: string | null;

@@ -10,6 +10,7 @@ import {
 import {
   isCargoContato,
   isDepartamentoContato,
+  DOCUMENTOS_ENTRADA,
   isOpcaoCrt,
   isSegmentoParceiro,
   isSituacaoParceiro,
@@ -205,6 +206,38 @@ function boolForm(formData: FormData, campo: string) {
 function uuidOuNull(valor: FormDataEntryValue | null) {
   const texto = normalizarTexto(valor);
   return UUID_REGEX.test(texto) ? texto : null;
+}
+
+function montarDocumentosEntrada(formData: FormData) {
+  const selecionados = formData
+    .getAll("documentos_entrada")
+    .map((valor) => normalizarTexto(valor))
+    .filter(Boolean);
+  const permitidos = new Set<string>(DOCUMENTOS_ENTRADA);
+  const documentos: string[] = [];
+
+  for (const documento of selecionados) {
+    if (!permitidos.has(documento)) {
+      return {
+        ok: false as const,
+        error: "Informe documentos de entrada válidos.",
+      };
+    }
+
+    if (documento !== "Outro" && !documentos.includes(documento)) {
+      documentos.push(documento);
+    }
+  }
+
+  if (selecionados.includes("Outro")) {
+    const descricaoOutro = textoOuNull(formData.get("documentos_entrada_outro"));
+    documentos.push(descricaoOutro ? `Outro: ${descricaoOutro}` : "Outro");
+  }
+
+  return {
+    ok: true as const,
+    value: documentos.length > 0 ? documentos : null,
+  };
 }
 
 function nomeOrganizacaoPorCadastro(formData: FormData) {
@@ -472,6 +505,7 @@ function montarPayloadParceiro(formData: FormData) {
   const segmento = normalizarTexto(formData.get("segmento"));
   const latitude = coordenadaOuNull(formData.get("latitude"), -90, 90, "Latitude");
   const longitude = coordenadaOuNull(formData.get("longitude"), -180, 180, "Longitude");
+  const documentosEntrada = montarDocumentosEntrada(formData);
 
   if (!isTipoPessoa(tipoPessoa)) {
     return { ok: false as const, error: "Informe um tipo de pessoa válido." };
@@ -523,6 +557,10 @@ function montarPayloadParceiro(formData: FormData) {
     return longitude;
   }
 
+  if (!documentosEntrada.ok) {
+    return documentosEntrada;
+  }
+
   return {
     ok: true as const,
     payload: {
@@ -549,14 +587,28 @@ function montarPayloadParceiro(formData: FormData) {
       localizacao_referencia: textoOuNull(formData.get("localizacao_referencia")),
       observacoes_acesso: textoOuNull(formData.get("observacoes_acesso")),
       ponto_referencia: textoOuNull(formData.get("ponto_referencia")),
-      restricoes_entrada: textoOuNull(formData.get("restricoes_entrada")),
-      estacionamento: textoOuNull(formData.get("estacionamento")),
-      portaria_recepcao: textoOuNull(formData.get("portaria_recepcao")),
-      doca_carga_descarga: textoOuNull(formData.get("doca_carga_descarga")),
-      documento_necessario_entrada: textoOuNull(formData.get("documento_necessario_entrada")),
-      responsavel_local: textoOuNull(formData.get("responsavel_local")),
-      telefone_responsavel_local: telefoneOuNull(formData.get("telefone_responsavel_local")),
+      estacionamento_privativo: boolForm(formData, "estacionamento_privativo"),
+      estacionamento_terceiros: boolForm(formData, "estacionamento_terceiros"),
+      estacionamento_terceiros_nome: boolForm(formData, "estacionamento_terceiros")
+        ? textoOuNull(formData.get("estacionamento_terceiros_nome"))
+        : null,
+      estacionamento_terceiros_endereco: boolForm(formData, "estacionamento_terceiros")
+        ? textoOuNull(formData.get("estacionamento_terceiros_endereco"))
+        : null,
+      estacionamento_terceiros_valores: boolForm(formData, "estacionamento_terceiros")
+        ? textoOuNull(formData.get("estacionamento_terceiros_valores"))
+        : null,
+      responsavel_local_nome: textoOuNull(formData.get("responsavel_local_nome")),
+      responsavel_local_contato_id: uuidOuNull(formData.get("responsavel_local_contato_id")),
+      responsavel_local_telefone: telefoneOuNull(formData.get("responsavel_local_telefone")),
+      responsavel_local_whatsapp: boolForm(formData, "responsavel_local_whatsapp"),
       necessita_autorizacao_previa: boolForm(formData, "necessita_autorizacao_previa"),
+      possui_portaria_recepcao: boolForm(formData, "possui_portaria_recepcao"),
+      possui_doca_carga_descarga: boolForm(formData, "possui_doca_carga_descarga"),
+      identificacao_doca: boolForm(formData, "possui_doca_carga_descarga")
+        ? textoOuNull(formData.get("identificacao_doca"))
+        : null,
+      documentos_entrada: documentosEntrada.value,
       horario_funcionamento: textoOuNull(formData.get("horario_funcionamento")),
       horario_atendimento_tecnico: textoOuNull(formData.get("horario_atendimento_tecnico")),
       horario_coleta_entrega: textoOuNull(formData.get("horario_coleta_entrega")),
@@ -607,6 +659,24 @@ export async function salvarParceiroGeral(formData: FormData) {
   }
 
   const supabase = createSupabaseAdminClient();
+  const responsavelContatoId = uuidOuNull(formData.get("responsavel_local_contato_id"));
+
+  if (responsavelContatoId) {
+    if (!id) {
+      redirectComErro(origem, "Selecione um contato vinculado somente após salvar o cliente.");
+    }
+
+    const { data: responsavelContato, error: erroResponsavelContato } = await supabase
+      .from("parceiros_contatos")
+      .select("id")
+      .eq("id", responsavelContatoId)
+      .eq("parceiro_id", id)
+      .maybeSingle();
+
+    if (erroResponsavelContato || !responsavelContato?.id) {
+      redirectComErro(origem, "Selecione um responsável no local vinculado a este cliente.");
+    }
+  }
 
   if (criarOrganizacaoVinculada) {
     const nomeOrganizacao = nomeOrganizacaoPorCadastro(formData);

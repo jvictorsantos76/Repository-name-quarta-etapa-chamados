@@ -25,6 +25,7 @@ import {
 import {
   CARGOS_CONTATO,
   DEPARTAMENTOS_CONTATO,
+  DOCUMENTOS_ENTRADA,
   LABEL_CARGO_CONTATO,
   LABEL_CRT,
   LABEL_DEPARTAMENTO_CONTATO,
@@ -565,6 +566,46 @@ function GeralTab({
   const [celularEhWhatsapp, setCelularEhWhatsapp] = useState(
     Boolean(contato?.celular && contato?.celular === contato?.whatsapp)
   );
+  const [responsavelContatoId, setResponsavelContatoId] = useState(
+    parceiro?.responsavel_local_contato_id ?? ""
+  );
+  const [responsavelLocalNome, setResponsavelLocalNome] = useState(
+    parceiro?.responsavel_local_nome ?? parceiro?.responsavel_local ?? ""
+  );
+  const [responsavelLocalTelefone, setResponsavelLocalTelefone] = useState(() =>
+    mascararCelular(
+      parceiro?.responsavel_local_telefone ??
+        parceiro?.telefone_responsavel_local ??
+        ""
+    )
+  );
+  const [responsavelLocalWhatsapp, setResponsavelLocalWhatsapp] = useState(
+    parceiro?.responsavel_local_whatsapp ?? false
+  );
+  const [possuiDoca, setPossuiDoca] = useState(
+    parceiro?.possui_doca_carga_descarga ??
+      Boolean(parceiro?.doca_carga_descarga?.trim())
+  );
+  const [estacionamentoTerceiros, setEstacionamentoTerceiros] = useState(
+    parceiro?.estacionamento_terceiros ?? false
+  );
+  const documentosEntradaIniciais =
+    parceiro?.documentos_entrada && parceiro.documentos_entrada.length > 0
+      ? parceiro.documentos_entrada
+      : parceiro?.documento_necessario_entrada
+        ? [parceiro.documento_necessario_entrada]
+        : [];
+  const [documentosEntrada, setDocumentosEntrada] = useState<string[]>(() =>
+    DOCUMENTOS_ENTRADA.filter((documento) =>
+      documento === "Outro"
+        ? documentosEntradaIniciais.some((item) => item === "Outro" || item.startsWith("Outro:"))
+        : documentosEntradaIniciais.includes(documento)
+    )
+  );
+  const [documentoOutro, setDocumentoOutro] = useState(() => {
+    const outro = documentosEntradaIniciais.find((item) => item.startsWith("Outro:"));
+    return outro ? outro.replace(/^Outro:\s*/, "") : "";
+  });
   const pessoaFisica = tipoPessoa === "fisica";
   const enderecoFormatado = montarEnderecoFormatado(campos);
   const latitudeNumero = normalizarNumeroCoordenada(localizacao.latitude);
@@ -596,6 +637,13 @@ function GeralTab({
   });
   const cnpjConsultavel = !pessoaFisica && somenteDigitos(campos.cnpj_cpf).length === 14;
   const cepConsultavel = somenteDigitos(campos.cep).length === 8;
+  const contatosResponsavel = (parceiro?.contatos ?? []).filter(
+    (item) => item.ativo
+  );
+  const responsavelWhatsappLink =
+    responsavelLocalWhatsapp && responsavelLocalTelefone
+      ? whatsappUrl(responsavelLocalTelefone)
+      : null;
   const organizacoesSelect =
     organizacaoInicial &&
     parceiro?.organizacao_nome &&
@@ -682,6 +730,43 @@ function GeralTab({
 
     setLocalizacao((atuais) => ({ ...atuais, [campo]: valor }));
     setMensagemLocalizacao("");
+  }
+
+  function selecionarResponsavelContato(contatoId: string) {
+    setResponsavelContatoId(contatoId);
+
+    if (!contatoId) {
+      return;
+    }
+
+    const contatoSelecionado = contatosResponsavel.find(
+      (item) => item.id === contatoId
+    );
+
+    if (!contatoSelecionado) {
+      return;
+    }
+
+    setResponsavelLocalNome(contatoSelecionado.nome);
+    setResponsavelLocalTelefone(
+      mascararCelular(
+        contatoSelecionado.whatsapp ??
+          contatoSelecionado.celular ??
+          contatoSelecionado.telefone ??
+          ""
+      )
+    );
+    setResponsavelLocalWhatsapp(Boolean(contatoSelecionado.whatsapp));
+  }
+
+  function atualizarDocumentoEntrada(documento: string, selecionado: boolean) {
+    setDocumentosEntrada((atuais) => {
+      if (selecionado) {
+        return atuais.includes(documento) ? atuais : [...atuais, documento];
+      }
+
+      return atuais.filter((item) => item !== documento);
+    });
   }
 
   function atualizarPreviewMapa() {
@@ -1513,30 +1598,154 @@ function GeralTab({
 
       <FormSection title="Informações de acesso" densidade={densidade}>
         <CampoTexto name="ponto_referencia" label="Ponto de referência" defaultValue={parceiro?.ponto_referencia} densidade={densidade} />
-        <CampoTexto name="responsavel_local" label="Responsável no local" defaultValue={parceiro?.responsavel_local} densidade={densidade} />
+        <CampoSelect
+          name="responsavel_local_contato_id"
+          label="Responsável cadastrado"
+          value={responsavelContatoId}
+          densidade={densidade}
+          onChange={(event) => selecionarResponsavelContato(event.currentTarget.value)}
+        >
+          <option value="">Digitar manualmente</option>
+          {contatosResponsavel.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.nome}
+            </option>
+          ))}
+        </CampoSelect>
         <CampoTexto
-          name="telefone_responsavel_local"
+          name="responsavel_local_nome"
+          label="Responsável no local"
+          value={responsavelLocalNome}
+          onChange={(event) => {
+            setResponsavelContatoId("");
+            setResponsavelLocalNome(event.currentTarget.value);
+          }}
+          densidade={densidade}
+        />
+        <CampoTexto
+          name="responsavel_local_telefone"
           label="Telefone do responsável no local"
-          defaultValue={mascararTelefone(parceiro?.telefone_responsavel_local ?? "")}
+          value={responsavelLocalTelefone}
+          onChange={(event) => {
+            setResponsavelLocalTelefone(mascararCelular(event.currentTarget.value));
+          }}
           densidade={densidade}
           inputMode="tel"
-          maxLength={18}
-          onInput={(event) => {
-            event.currentTarget.value = mascararTelefone(event.currentTarget.value);
-          }}
+          maxLength={19}
         />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Toggle
+            name="responsavel_local_whatsapp"
+            label="É WhatsApp?"
+            checked={responsavelLocalWhatsapp}
+            onChange={(event) => setResponsavelLocalWhatsapp(event.currentTarget.checked)}
+          />
+          {responsavelWhatsappLink ? (
+            <a
+              href={responsavelWhatsappLink}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex text-xs font-semibold text-emerald-700 underline-offset-2 hover:underline"
+            >
+              Abrir WhatsApp
+            </a>
+          ) : null}
+        </div>
         <Toggle
           name="necessita_autorizacao_previa"
           label="Necessita autorização prévia"
           defaultChecked={parceiro?.necessita_autorizacao_previa ?? false}
         />
-        <CampoTexto name="estacionamento" label="Estacionamento" defaultValue={parceiro?.estacionamento} densidade={densidade} />
-        <CampoTexto name="portaria_recepcao" label="Portaria / recepção" defaultValue={parceiro?.portaria_recepcao} densidade={densidade} />
-        <CampoTexto name="doca_carga_descarga" label="Doca / carga e descarga" defaultValue={parceiro?.doca_carga_descarga} densidade={densidade} />
-        <CampoTexto name="documento_necessario_entrada" label="Documento necessário para entrada" defaultValue={parceiro?.documento_necessario_entrada} densidade={densidade} />
+        <Toggle
+          name="estacionamento_privativo"
+          label="Estacionamento privativo"
+          defaultChecked={
+            parceiro?.estacionamento_privativo ??
+            Boolean(parceiro?.estacionamento?.trim())
+          }
+        />
+        <Toggle
+          name="estacionamento_terceiros"
+          label="Estacionamento de terceiros"
+          checked={estacionamentoTerceiros}
+          onChange={(event) => setEstacionamentoTerceiros(event.currentTarget.checked)}
+        />
+        {estacionamentoTerceiros ? (
+          <>
+            <CampoTexto
+              name="estacionamento_terceiros_nome"
+              label="Nome do estacionamento"
+              defaultValue={parceiro?.estacionamento_terceiros_nome}
+              densidade={densidade}
+            />
+            <CampoTexto
+              name="estacionamento_terceiros_endereco"
+              label="Endereço do estacionamento"
+              defaultValue={parceiro?.estacionamento_terceiros_endereco}
+              densidade={densidade}
+            />
+            <CampoTexto
+              name="estacionamento_terceiros_valores"
+              label="Valores"
+              defaultValue={parceiro?.estacionamento_terceiros_valores}
+              densidade={densidade}
+            />
+          </>
+        ) : null}
+        <Toggle
+          name="possui_portaria_recepcao"
+          label="Portaria / recepção"
+          defaultChecked={
+            parceiro?.possui_portaria_recepcao ??
+            Boolean(parceiro?.portaria_recepcao?.trim())
+          }
+        />
+        <Toggle
+          name="possui_doca_carga_descarga"
+          label="Doca / carga e descarga"
+          checked={possuiDoca}
+          onChange={(event) => setPossuiDoca(event.currentTarget.checked)}
+        />
+        {possuiDoca ? (
+          <CampoTexto
+            name="identificacao_doca"
+            label="Identificação da doca"
+            defaultValue={parceiro?.identificacao_doca ?? parceiro?.doca_carga_descarga}
+            densidade={densidade}
+          />
+        ) : null}
         <div className="md:col-span-2">
-          <CampoTextarea name="restricoes_entrada" label="Restrições de entrada" rows={densidade === "compacto" ? 3 : 4} defaultValue={parceiro?.restricoes_entrada} densidade={densidade} />
+          <span className={labelClass}>Documento necessário para entrada</span>
+          <div className="mt-2 grid gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
+            {DOCUMENTOS_ENTRADA.map((documento) => (
+              <label
+                key={documento}
+                className="flex min-h-8 items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs font-semibold text-gray-700"
+              >
+                <input
+                  type="checkbox"
+                  name="documentos_entrada"
+                  value={documento}
+                  checked={documentosEntrada.includes(documento)}
+                  onChange={(event) =>
+                    atualizarDocumentoEntrada(documento, event.currentTarget.checked)
+                  }
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>{documento}</span>
+              </label>
+            ))}
+          </div>
         </div>
+        {documentosEntrada.includes("Outro") ? (
+          <CampoTexto
+            name="documentos_entrada_outro"
+            label="Descrição de outro documento"
+            value={documentoOutro}
+            onChange={(event) => setDocumentoOutro(event.currentTarget.value)}
+            densidade={densidade}
+          />
+        ) : null}
         <div className="md:col-span-2">
           <CampoTextarea name="observacoes_acesso" label="Observações de acesso" rows={densidade === "compacto" ? 3 : 4} defaultValue={parceiro?.observacoes_acesso} densidade={densidade} />
         </div>

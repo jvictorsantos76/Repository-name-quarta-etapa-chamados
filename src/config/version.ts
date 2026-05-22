@@ -1,4 +1,4 @@
-export const APP_VERSION = "v0.9.40";
+export const APP_VERSION = "v0.9.42";
 export const APP_UPDATED_AT = "2026-05-22";
 
 export const DASHBOARD_PAGE_VERSION = "v0.1.0";
@@ -16,5 +16,5 @@ export const TIPOS_CHAMADO_PAGE_VERSION = "v1.0.0";
 export const ORIGENS_CHAMADO_PAGE_VERSION = "v1.0.0";
 export const GRUPOS_ATENDIMENTO_PAGE_VERSION = "v1.0.0";
 export const ORGANIZACOES_PAGE_VERSION = "v1.1.1";
-export const PARCEIROS_PAGE_VERSION = "v1.1.4";
+export const PARCEIROS_PAGE_VERSION = "v1.1.6";
 export const LEGAL_DOCUMENTS_VERSION = "v0.7.0";

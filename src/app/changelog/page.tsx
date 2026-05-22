@@ -3,6 +3,28 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.42",
+    data: "22/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.1.6 transforma estacionamento em controles objetivos para estacionamento privativo e estacionamento de terceiros.",
+      "Quando Estacionamento de terceiros é marcado, o bloco passa a registrar nome, endereço e valores do estacionamento.",
+    ],
+    correcoes: [
+      "Migration defensiva preserva a coluna legada estacionamento e não altera RLS, grants, delete ou Storage.",
+    ],
+  },
+  {
+    versao: "v0.9.41",
+    data: "22/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.1.5 reestrutura Informações de acesso para uso operacional em campo, com responsável no local selecionável a partir de contatos ou digitado manualmente.",
+      "O bloco passa a registrar WhatsApp do responsável, portaria, doca, identificação da doca e múltiplos documentos necessários para entrada.",
+    ],
+    correcoes: [
+      "Migration defensiva preserva colunas e dados legados de acesso, sem remover restrições antigas, sem alterar RLS, grants, delete ou Storage.",
+    ],
+  },
+  {
     versao: "v0.9.40",
     data: "22/05/2026",
     alteracoes: [

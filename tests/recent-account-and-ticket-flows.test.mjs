@@ -178,6 +178,20 @@ const parceirosLocalizacaoMigration = await readFile(
   ),
   "utf8"
 );
+const parceirosAcessoOperacionalMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260522161651_add_parceiros_informacoes_acesso_operacional.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const parceirosEstacionamentoMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260522163904_add_parceiros_estacionamento_terceiros.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const clientesOrganizacaoMigration = await readFile(
   new URL(
     "../supabase/migrations/20260519235405_add_organizacao_id_to_clientes.sql",
@@ -524,7 +538,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.4"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.6"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -599,6 +613,16 @@ test("partner operational location keeps address independent and route links ext
   assert.match(parceirosFormSource, /<iframe/);
   assert.match(parceirosFormSource, /Conferir/);
   assert.match(parceirosFormSource, /Informações de acesso/);
+  assert.match(parceirosFormSource, /responsavel_local_contato_id/);
+  assert.match(parceirosFormSource, /Estacionamento privativo/);
+  assert.match(parceirosFormSource, /Estacionamento de terceiros/);
+  assert.match(parceirosFormSource, /estacionamento_terceiros_nome/);
+  assert.match(parceirosFormSource, /estacionamento_terceiros_endereco/);
+  assert.match(parceirosFormSource, /estacionamento_terceiros_valores/);
+  assert.match(parceirosFormSource, /DOCUMENTOS_ENTRADA\.map/);
+  assert.match(parceirosFormSource, /Abrir WhatsApp/);
+  assert.match(parceirosFormSource, /Identificação da doca/);
+  assert.doesNotMatch(parceirosFormSource, /name="restricoes_entrada"/);
   assert.match(parceirosFormSource, /Horários de atendimento/);
   assert.match(parceirosFormSource, /maps\.app\.goo\.gl/);
   assert.match(parceirosFormSource, /parceiro\?\.link_maps \?\?[\s\S]*parceiro\?\.localizacao_referencia \?\?/);
@@ -610,7 +634,47 @@ test("partner operational location keeps address independent and route links ext
   assert.match(parceirosFormSource, /inline-flex min-h-7 max-w-full/);
   assert.doesNotMatch(parceirosFormSource, /Copiar coordenadas/);
   assert.doesNotMatch(parceirosFormSource, /Interpretar localização/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.4"/);
+  for (const column of [
+    "responsavel_local_nome",
+    "responsavel_local_contato_id",
+    "responsavel_local_telefone",
+    "responsavel_local_whatsapp",
+    "possui_portaria_recepcao",
+    "possui_doca_carga_descarga",
+    "identificacao_doca",
+    "documentos_entrada",
+  ]) {
+    assert.match(
+      parceirosAcessoOperacionalMigration,
+      new RegExp(`add column if not exists ${column}`, "i")
+    );
+  }
+
+  assert.match(parceirosAcessoOperacionalMigration, /on delete set null/i);
+  assert.match(parceirosAcessoOperacionalMigration, /set responsavel_local_nome = responsavel_local/i);
+  assert.doesNotMatch(
+    parceirosAcessoOperacionalMigration,
+    /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
+  );
+  for (const column of [
+    "estacionamento_privativo",
+    "estacionamento_terceiros",
+    "estacionamento_terceiros_nome",
+    "estacionamento_terceiros_endereco",
+    "estacionamento_terceiros_valores",
+  ]) {
+    assert.match(
+      parceirosEstacionamentoMigration,
+      new RegExp(`add column if not exists ${column}`, "i")
+    );
+  }
+
+  assert.match(parceirosEstacionamentoMigration, /set estacionamento_privativo = true/i);
+  assert.doesNotMatch(
+    parceirosEstacionamentoMigration,
+    /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
+  );
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.6"/);
 });
 
 test("organizations link to clients without replacing operational ticket fields", () => {
