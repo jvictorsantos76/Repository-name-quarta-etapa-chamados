@@ -524,7 +524,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.3"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.4"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -590,10 +590,14 @@ test("partner operational location keeps address independent and route links ext
   assert.match(parceirosLocationUtilsSource, /GOOGLE_AT_COORDENADA_REGEX/);
   assert.match(parceirosLocationUtilsSource, /if \(!texto\) \{\s*return null;\s*\}/);
   assert.match(parceirosLocationUtilsSource, /https:\/\/www\.google\.com\/maps\/dir\/\?api=1&destination=/);
+  assert.match(parceirosLocationUtilsSource, /https:\/\/maps\.google\.com\/maps\?q=/);
+  assert.match(parceirosLocationUtilsSource, /output=embed/);
   assert.match(parceirosFormSource, /Preview do mapa operacional/);
   assert.match(parceirosFormSource, /atualizarPreviewMapa/);
   assert.match(parceirosFormSource, /Iniciar rota/);
-  assert.match(parceirosFormSource, /Conferir no Google Maps/);
+  assert.match(parceirosFormSource, /montarMapaEmbed/);
+  assert.match(parceirosFormSource, /<iframe/);
+  assert.match(parceirosFormSource, /Conferir/);
   assert.match(parceirosFormSource, /Informações de acesso/);
   assert.match(parceirosFormSource, /Horários de atendimento/);
   assert.match(parceirosFormSource, /maps\.app\.goo\.gl/);
@@ -603,10 +607,10 @@ test("partner operational location keeps address independent and route links ext
   assert.match(parceirosFormSource, /type="hidden" name="latitude" value=\{latitudeDerivada\}/);
   assert.match(parceirosFormSource, /type="hidden" name="longitude" value=\{longitudeDerivada\}/);
   assert.match(parceirosFormSource, /Latitude derivada/);
-  assert.doesNotMatch(parceirosFormSource, /<iframe/);
+  assert.match(parceirosFormSource, /inline-flex min-h-7 max-w-full/);
   assert.doesNotMatch(parceirosFormSource, /Copiar coordenadas/);
   assert.doesNotMatch(parceirosFormSource, /Interpretar localização/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.3"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.4"/);
 });
 
 test("organizations link to clients without replacing operational ticket fields", () => {

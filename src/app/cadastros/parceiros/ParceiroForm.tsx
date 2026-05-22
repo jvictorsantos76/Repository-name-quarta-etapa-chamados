@@ -7,6 +7,7 @@ import {
   coordenadasValidas,
   interpretarCoordenadasMaps,
   montarDestinoRota,
+  montarMapaEmbed,
   montarMapaPreview,
   normalizarNumeroCoordenada,
 } from "./location-utils";
@@ -579,6 +580,11 @@ function GeralTab({
     localizacao.localizacao_referencia ||
     enderecoFormatado;
   const mapaPreviewUrl = montarMapaPreview({
+    latitude: localizacao.latitude,
+    longitude: localizacao.longitude,
+    endereco: referenciaMapa,
+  });
+  const mapaEmbedUrl = montarMapaEmbed({
     latitude: localizacao.latitude,
     longitude: localizacao.longitude,
     endereco: referenciaMapa,
@@ -1365,7 +1371,7 @@ function GeralTab({
               Latitude
               <div
                 aria-label="Latitude derivada"
-                className={`${classes(densidade).input} flex items-center bg-gray-100 text-xs text-gray-700`}
+                className="mt-1 inline-flex min-h-7 max-w-full items-center rounded border border-gray-200 bg-gray-100 px-2 text-[11px] font-semibold normal-case tracking-normal text-gray-700"
               >
                 {latitudeDerivada || "Gerada pelo link/endereço"}
               </div>
@@ -1374,7 +1380,7 @@ function GeralTab({
               Longitude
               <div
                 aria-label="Longitude derivada"
-                className={`${classes(densidade).input} flex items-center bg-gray-100 text-xs text-gray-700`}
+                className="mt-1 inline-flex min-h-7 max-w-full items-center rounded border border-gray-200 bg-gray-100 px-2 text-[11px] font-semibold normal-case tracking-normal text-gray-700"
               >
                 {longitudeDerivada || "Gerada pelo link/endereço"}
               </div>
@@ -1410,7 +1416,7 @@ function GeralTab({
           <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <button
               type="button"
-              disabled={!mapaPreviewUrl}
+              disabled={!mapaEmbedUrl}
               onClick={() => {
                 atualizarPreviewMapa();
                 const preview = document.getElementById("preview-mapa-operacional");
@@ -1451,45 +1457,49 @@ function GeralTab({
             className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
             aria-label="Preview do mapa operacional"
           >
-            {mapaPreviewUrl ? (
-              <div className="relative min-h-64 overflow-hidden bg-slate-100 p-4 sm:min-h-80">
-                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(148,163,184,0.2)_1px,transparent_1px),linear-gradient(0deg,rgba(148,163,184,0.2)_1px,transparent_1px)] bg-[size:48px_48px]" />
-                <div className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 bg-white/70 shadow-sm" />
-                <div className="absolute inset-y-0 left-1/2 w-8 -translate-x-1/2 bg-white/70 shadow-sm" />
-                <div className="relative flex min-h-56 items-center justify-center sm:min-h-72">
-                  <div className="w-full max-w-xl rounded-lg border border-gray-200 bg-white p-4 text-gray-900 shadow-sm">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                      Preview de referência
-                    </p>
-                    <p className="mt-2 text-base font-bold text-gray-950">
-                      {temCoordenadasValidas ? "Ponto por coordenadas" : "Endereço de chegada"}
-                    </p>
-                    <p className="mt-2 break-words text-sm text-gray-700">
-                      {temCoordenadasValidas
-                        ? `${latitudeDerivada}, ${longitudeDerivada}`
-                        : referenciaMapa}
-                    </p>
-                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                      <a
-                        href={mapaPreviewUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex min-h-9 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
-                      >
-                        Conferir no Google Maps
-                      </a>
-                      {rotaUrl ? (
-                        <a
-                          href={rotaUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex min-h-9 items-center justify-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
-                        >
-                          Iniciar rota
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
+            {mapaEmbedUrl ? (
+              <div className="relative min-h-64 overflow-hidden bg-gray-100 sm:min-h-80">
+                <iframe
+                  title="Preview do mapa operacional"
+                  src={mapaEmbedUrl}
+                  className="h-64 w-full border-0 sm:h-80"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+                <div className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-md border border-gray-200 bg-white/95 px-3 py-2 text-gray-900 shadow-sm sm:max-w-md">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700">
+                    Preview de referência
+                  </p>
+                  <p className="mt-1 text-sm font-bold text-gray-950">
+                    {temCoordenadasValidas ? "Ponto por coordenadas" : "Endereço de chegada"}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-gray-600">
+                    {temCoordenadasValidas
+                      ? `${latitudeDerivada}, ${longitudeDerivada}`
+                      : referenciaMapa}
+                  </p>
+                </div>
+                <div className="absolute right-3 top-3 flex flex-col gap-2 sm:flex-row">
+                  {mapaPreviewUrl ? (
+                    <a
+                      href={mapaPreviewUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-8 items-center justify-center rounded-md border border-gray-300 bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-gray-800 shadow-sm transition hover:bg-white"
+                    >
+                      Conferir
+                    </a>
+                  ) : null}
+                  {rotaUrl ? (
+                    <a
+                      href={rotaUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-8 items-center justify-center rounded-md bg-gray-900/95 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-gray-800"
+                    >
+                      Rota
+                    </a>
+                  ) : null}
                 </div>
               </div>
             ) : (

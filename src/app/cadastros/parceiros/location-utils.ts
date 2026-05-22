@@ -83,3 +83,21 @@ export function montarMapaPreview({
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
     : null;
 }
+
+export function montarMapaEmbed({
+  latitude,
+  longitude,
+  endereco,
+}: {
+  latitude: string;
+  longitude: string;
+  endereco: string;
+}) {
+  const lat = normalizarNumeroCoordenada(latitude);
+  const lng = normalizarNumeroCoordenada(longitude);
+  const query = coordenadasValidas(lat, lng) ? `${lat},${lng}` : endereco.trim();
+
+  return query
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=16&output=embed`
+    : null;
+}

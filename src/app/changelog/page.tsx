@@ -3,6 +3,17 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.40",
+    data: "22/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.1.4 implementa preview real de mapa embutido sem API Key para a Localização operacional.",
+      "Latitude e longitude derivadas passam a ter visual compacto, sem aparência de campo editável.",
+    ],
+    correcoes: [
+      "As ações do preview ficam menores e posicionadas no canto superior direito, preservando o mapa como elemento principal.",
+    ],
+  },
+  {
     versao: "v0.9.39",
     data: "22/05/2026",
     alteracoes: [
