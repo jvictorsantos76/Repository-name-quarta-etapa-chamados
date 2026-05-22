@@ -3,6 +3,17 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.43",
+    data: "22/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.1.7 simplifica Horários de atendimento com agenda semanal estruturada por dia e múltiplos intervalos.",
+      "O bloco mantém Necessita agendamento e Atendimento em feriados como regras globais e remove campos soltos de horário da interface.",
+    ],
+    correcoes: [
+      "Nova tabela versionada preserva campos legados, mantém RLS, revoga anon, não libera delete para authenticated e prepara o dado para validação futura de SLA/agendamento.",
+    ],
+  },
+  {
     versao: "v0.9.42",
     data: "22/05/2026",
     alteracoes: [

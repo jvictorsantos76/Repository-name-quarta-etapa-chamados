@@ -315,6 +315,16 @@ export type ParceiroOperacional = {
   observacoes_operacionais: string | null;
 };
 
+export type ParceiroHorarioAtendimento = {
+  id: string;
+  parceiro_id: string;
+  dia_semana: number;
+  fechado: boolean;
+  abre_as: string | null;
+  fecha_as: string | null;
+  ordem: number;
+};
+
 export type ParceiroContrato = {
   id: string;
   parceiro_id: string;
@@ -366,6 +376,7 @@ export type ParceiroDetalhe = ParceiroResumo & {
   contatos: ParceiroContato[];
   financeiro: ParceiroFinanceiro | null;
   operacional: ParceiroOperacional | null;
+  horarios_atendimento: ParceiroHorarioAtendimento[];
   contratos: ParceiroContrato[];
   anexos: ParceiroAnexo[];
   historico: ParceiroHistorico[];

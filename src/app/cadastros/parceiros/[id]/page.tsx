@@ -17,6 +17,7 @@ import type {
   ParceiroEndereco,
   ParceiroFilial,
   ParceiroFinanceiro,
+  ParceiroHorarioAtendimento,
   ParceiroHistorico,
   ParceiroOperacional,
   OrganizacaoParceiroOpcao,
@@ -53,6 +54,7 @@ export default async function EditarParceiroPage({
     filiaisResposta,
     financeiroResposta,
     operacionalResposta,
+    horariosAtendimentoResposta,
     contratosResposta,
     anexosResposta,
     historicoResposta,
@@ -93,6 +95,12 @@ export default async function EditarParceiroPage({
       .eq("parceiro_id", id)
       .maybeSingle(),
     supabase
+      .from("parceiro_horarios_atendimento")
+      .select("*")
+      .eq("parceiro_id", id)
+      .order("dia_semana")
+      .order("ordem"),
+    supabase
       .from("parceiros_contratos")
       .select("*")
       .eq("parceiro_id", id)
@@ -126,6 +134,7 @@ export default async function EditarParceiroPage({
     | "contatos"
     | "financeiro"
     | "operacional"
+    | "horarios_atendimento"
     | "contratos"
     | "anexos"
     | "historico"
@@ -202,6 +211,8 @@ export default async function EditarParceiroPage({
     contatos,
     financeiro: (financeiroResposta.data as ParceiroFinanceiro | null) ?? null,
     operacional: (operacionalResposta.data as ParceiroOperacional | null) ?? null,
+    horarios_atendimento:
+      (horariosAtendimentoResposta.data as ParceiroHorarioAtendimento[] | null) ?? [],
     contratos: (contratosResposta.data as ParceiroContrato[] | null) ?? [],
     anexos: (anexosResposta.data as ParceiroAnexo[] | null) ?? [],
     historico: (historicoResposta.data as ParceiroHistorico[] | null) ?? [],

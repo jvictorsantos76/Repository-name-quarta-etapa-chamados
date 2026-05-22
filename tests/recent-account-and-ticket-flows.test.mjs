@@ -192,6 +192,13 @@ const parceirosEstacionamentoMigration = await readFile(
   ),
   "utf8"
 );
+const parceirosHorariosAtendimentoMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260522192857_create_parceiro_horarios_atendimento.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const clientesOrganizacaoMigration = await readFile(
   new URL(
     "../supabase/migrations/20260519235405_add_organizacao_id_to_clientes.sql",
@@ -538,7 +545,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.6"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.7"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -674,7 +681,70 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.6"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.7"/);
+});
+
+test("partner service hours use weekly structured agenda without deleting legacy columns", () => {
+  assert.match(
+    parceirosHorariosAtendimentoMigration,
+    /create table if not exists public\.parceiro_horarios_atendimento/i
+  );
+  assert.match(
+    parceirosHorariosAtendimentoMigration,
+    /parceiro_id uuid not null references public\.parceiros\(id\) on delete cascade/i
+  );
+  assert.match(parceirosHorariosAtendimentoMigration, /dia_semana smallint not null/i);
+  assert.match(parceirosHorariosAtendimentoMigration, /fechado boolean not null default false/i);
+  assert.match(parceirosHorariosAtendimentoMigration, /abre_as time null/i);
+  assert.match(parceirosHorariosAtendimentoMigration, /fecha_as time null/i);
+  assert.match(parceirosHorariosAtendimentoMigration, /ordem smallint not null default 1/i);
+  assert.match(parceirosHorariosAtendimentoMigration, /dia_semana between 0 and 6/i);
+  assert.match(parceirosHorariosAtendimentoMigration, /fecha_as > abre_as/i);
+  assert.match(
+    parceirosHorariosAtendimentoMigration,
+    /unique \(\s*parceiro_id,\s*dia_semana,\s*ordem\s*\)/i
+  );
+  assert.match(
+    parceirosHorariosAtendimentoMigration,
+    /alter table public\.parceiro_horarios_atendimento enable row level security/i
+  );
+  assert.match(
+    parceirosHorariosAtendimentoMigration,
+    /grant select, insert, update on table public\.parceiro_horarios_atendimento to authenticated/i
+  );
+  assert.match(
+    parceirosHorariosAtendimentoMigration,
+    /revoke all on table public\.parceiro_horarios_atendimento from anon/i
+  );
+  assert.match(
+    parceirosHorariosAtendimentoMigration,
+    /revoke delete on table public\.parceiro_horarios_atendimento from authenticated/i
+  );
+  assert.match(
+    parceirosHorariosAtendimentoMigration,
+    /public\.usuario_catalogo_chamados_ativo\(\)/
+  );
+  assert.match(
+    parceirosHorariosAtendimentoMigration,
+    /public\.usuario_acesso_chamados_ativo\(\)/
+  );
+
+  assert.match(parceirosFormSource, /AgendaSemanalAtendimento/);
+  assert.match(parceirosFormSource, /DIAS_ATENDIMENTO/);
+  assert.match(parceirosFormSource, /horarios_atendimento_json/);
+  assert.match(parceirosFormSource, /"09:00"/);
+  assert.match(parceirosFormSource, /"17:00"/);
+  assert.match(parceirosFormSource, /Não é permitido|não podem se sobrepor/);
+  assert.match(parceirosActionsSource, /montarHorariosAtendimento/);
+  assert.match(parceirosActionsSource, /salvarHorariosAtendimento/);
+  assert.match(parceirosActionsSource, /\.from\("parceiro_horarios_atendimento"\)[\s\S]*\.delete\(\)/);
+  assert.match(parceirosActionsSource, /\.from\("parceiro_horarios_atendimento"\)[\s\S]*\.insert\(/);
+  assert.doesNotMatch(parceirosFormSource, /name="horario_funcionamento"/);
+  assert.doesNotMatch(parceirosFormSource, /name="horario_atendimento_tecnico"/);
+  assert.doesNotMatch(parceirosFormSource, /name="horario_coleta_entrega"/);
+  assert.doesNotMatch(parceirosFormSource, /name="prazo_minimo_agendamento"/);
+  assert.doesNotMatch(parceirosFormSource, /name="atendimento_sabado"/);
+  assert.doesNotMatch(parceirosFormSource, /name="atendimento_domingo"/);
 });
 
 test("organizations link to clients without replacing operational ticket fields", () => {
