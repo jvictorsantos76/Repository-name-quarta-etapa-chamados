@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import { useSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
+  coordenadasValidas,
+  interpretarCoordenadasMaps,
+  montarDestinoRota,
+  montarMapaPreview,
+  normalizarNumeroCoordenada,
+} from "./location-utils";
+import {
   consultarCepPublico,
   consultarCnpjPublico,
   registrarParceiroAnexo,
@@ -72,6 +79,13 @@ type CampoGeral =
   | "estado"
   | "pais";
 type CamposGeral = Record<CampoGeral, string>;
+type CampoLocalizacao =
+  | "link_maps"
+  | "latitude"
+  | "longitude"
+  | "origem_geolocalizacao"
+  | "localizacao_referencia";
+type CamposLocalizacao = Record<CampoLocalizacao, string>;
 type SubstituicaoPendente = {
   origem: "cnpj" | "cep";
   campos: Partial<CamposGeral>;
@@ -90,6 +104,16 @@ const ABAS: { id: Aba; label: string }[] = [
 ];
 
 const PARCEIROS_BUCKET = "parceiros-anexos";
+const ORIGENS_GEOLOCALIZACAO = [
+  "",
+  "Endereço cadastral",
+  "CEP",
+  "CNPJ",
+  "Google Maps",
+  "Manual",
+  "Técnico em campo",
+  "Cliente informou",
+] as const;
 
 function normalizarNomeArquivo(nomeArquivo: string) {
   return nomeArquivo
@@ -202,46 +226,17 @@ function normalizarSelect(valor: string | null | undefined, permitidos: readonly
   return valor && permitidos.includes(valor) ? valor : "";
 }
 
-function enderecoGoogleMaps({
-  endereco,
-  numero,
-  bairro,
-  cidade,
-  estado,
-  pais,
-  latitude,
-  longitude,
-}: {
-  endereco?: string | null;
-  numero?: string | null;
-  bairro?: string | null;
-  cidade?: string | null;
-  estado?: string | null;
-  pais?: string | null;
-  latitude?: number | string | null;
-  longitude?: number | string | null;
-}) {
-  const lat = String(latitude ?? "").trim();
-  const lng = String(longitude ?? "").trim();
-
-  if (lat && lng) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      `${lat},${lng}`
-    )}`;
-  }
-
-  const partes = [
-    endereco,
-    numero,
-    bairro,
-    cidade,
-    estado,
-    pais,
-  ].filter(Boolean);
-
-  return partes.length >= 3
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(partes.join(", "))}`
-    : null;
+function montarEnderecoFormatado(campos: CamposGeral) {
+  return [
+    campos.endereco,
+    campos.numero,
+    campos.bairro,
+    campos.cidade,
+    campos.estado,
+    campos.pais,
+  ]
+    .filter((parte) => parte.trim())
+    .join(", ");
 }
 
 function emailValido(email: string | null | undefined) {
@@ -529,6 +524,27 @@ function GeralTab({
     estado: normalizarSelect(endereco?.estado?.toUpperCase(), UFS_BRASIL),
     pais: endereco?.pais ?? "Brasil",
   }));
+  const [localizacao, setLocalizacao] = useState<CamposLocalizacao>(() => ({
+    link_maps:
+      parceiro?.link_maps ??
+      parceiro?.localizacao_referencia ??
+      [
+        endereco?.endereco,
+        endereco?.numero,
+        endereco?.bairro,
+        endereco?.cidade,
+        endereco?.estado,
+        endereco?.pais ?? "Brasil",
+      ]
+        .filter((parte) => String(parte ?? "").trim())
+        .join(", "),
+    latitude: parceiro?.latitude?.toString() ?? "",
+    longitude: parceiro?.longitude?.toString() ?? "",
+    origem_geolocalizacao: parceiro?.origem_geolocalizacao ?? "",
+    localizacao_referencia: parceiro?.localizacao_referencia ?? "",
+  }));
+  const [mensagemLocalizacao, setMensagemLocalizacao] = useState("");
+  const [previewReferencia, setPreviewReferencia] = useState("");
   const [organizacaoId, setOrganizacaoId] = useState(organizacaoInicial);
   const [organizacaoAlterada, setOrganizacaoAlterada] = useState(false);
   const [mensagemConsulta, setMensagemConsulta] = useState("");
@@ -549,15 +565,28 @@ function GeralTab({
     Boolean(contato?.celular && contato?.celular === contato?.whatsapp)
   );
   const pessoaFisica = tipoPessoa === "fisica";
-  const mapsUrl = enderecoGoogleMaps({
-    endereco: campos.endereco,
-    numero: campos.numero,
-    bairro: campos.bairro,
-    cidade: campos.cidade,
-    estado: campos.estado,
-    pais: campos.pais,
-    latitude: endereco?.latitude,
-    longitude: endereco?.longitude,
+  const enderecoFormatado = montarEnderecoFormatado(campos);
+  const latitudeNumero = normalizarNumeroCoordenada(localizacao.latitude);
+  const longitudeNumero = normalizarNumeroCoordenada(localizacao.longitude);
+  const temCoordenadasValidas = coordenadasValidas(latitudeNumero, longitudeNumero);
+  const latitudeDerivada = temCoordenadasValidas ? localizacao.latitude : "";
+  const longitudeDerivada = temCoordenadasValidas ? localizacao.longitude : "";
+  const textoLocalizacao = localizacao.link_maps.trim();
+  const entradaEhLinkCurtoMaps = /maps\.app\.goo\.gl/i.test(textoLocalizacao);
+  const referenciaMapa =
+    previewReferencia ||
+    (entradaEhLinkCurtoMaps ? enderecoFormatado : textoLocalizacao) ||
+    localizacao.localizacao_referencia ||
+    enderecoFormatado;
+  const mapaPreviewUrl = montarMapaPreview({
+    latitude: localizacao.latitude,
+    longitude: localizacao.longitude,
+    endereco: referenciaMapa,
+  });
+  const rotaUrl = montarDestinoRota({
+    latitude: localizacao.latitude,
+    longitude: localizacao.longitude,
+    endereco: referenciaMapa,
   });
   const cnpjConsultavel = !pessoaFisica && somenteDigitos(campos.cnpj_cpf).length === 14;
   const cepConsultavel = somenteDigitos(campos.cep).length === 8;
@@ -577,8 +606,115 @@ function GeralTab({
       : organizacoes;
   const feedbackOrigem = substituicaoPendente?.origem ?? consultaOrigem;
 
+  function sincronizarLocalizacaoComEndereco(
+    enderecoAnterior: CamposGeral,
+    proximoEndereco: CamposGeral
+  ) {
+    const enderecoAnteriorFormatado = montarEnderecoFormatado(enderecoAnterior);
+    const proximoEnderecoFormatado = montarEnderecoFormatado(proximoEndereco);
+
+    if (!proximoEnderecoFormatado) {
+      return;
+    }
+
+    setLocalizacao((atuais) => {
+      const valorAtual = atuais.link_maps.trim();
+      const podeAtualizar =
+        !valorAtual ||
+        valorAtual === enderecoAnteriorFormatado ||
+        valorAtual === atuais.localizacao_referencia;
+
+      return podeAtualizar
+        ? {
+            ...atuais,
+            link_maps: proximoEnderecoFormatado,
+            localizacao_referencia: atuais.localizacao_referencia || proximoEnderecoFormatado,
+          }
+        : atuais;
+    });
+    setPreviewReferencia("");
+  }
+
   function atualizarCampo(campo: CampoGeral, valor: string) {
-    setCampos((atuais) => ({ ...atuais, [campo]: valor }));
+    const atualizados = { ...campos, [campo]: valor };
+
+    setCampos(atualizados);
+
+    if (
+      ["cep", "endereco", "numero", "complemento", "bairro", "cidade", "estado", "pais"].includes(campo)
+    ) {
+      sincronizarLocalizacaoComEndereco(campos, atualizados);
+    }
+  }
+
+  function atualizarLocalizacao(campo: CampoLocalizacao, valor: string) {
+    if (campo === "link_maps") {
+      const coordenadas = interpretarCoordenadasMaps(valor);
+      const valorReferencia = valor.trim();
+      setLocalizacao((atuais) => ({
+        ...atuais,
+        link_maps: valor,
+        latitude: coordenadas ? String(coordenadas.latitude) : "",
+        longitude: coordenadas ? String(coordenadas.longitude) : "",
+        origem_geolocalizacao: coordenadas
+          ? "Google Maps"
+          : atuais.origem_geolocalizacao,
+        localizacao_referencia: coordenadas
+          ? atuais.localizacao_referencia
+          : valorReferencia,
+      }));
+      setPreviewReferencia("");
+      setMensagemLocalizacao(
+        coordenadas
+          ? "Coordenadas extraídas do endereço do Google Maps."
+          : /maps\.app\.goo\.gl/i.test(valor)
+            ? "Link curto salvo. O preview usa o endereço cadastral até uma URL longa ou coordenadas serem informadas."
+            : ""
+      );
+      return;
+    }
+
+    setLocalizacao((atuais) => ({ ...atuais, [campo]: valor }));
+    setMensagemLocalizacao("");
+  }
+
+  function atualizarPreviewMapa() {
+    const entrada = localizacao.link_maps.trim();
+    const coordenadas = interpretarCoordenadasMaps(entrada);
+
+    if (coordenadas) {
+      setLocalizacao((atuais) => ({
+        ...atuais,
+        latitude: String(coordenadas.latitude),
+        longitude: String(coordenadas.longitude),
+        origem_geolocalizacao: "Google Maps",
+      }));
+      setPreviewReferencia("");
+      setMensagemLocalizacao("Preview atualizado com coordenadas extraídas do Google Maps.");
+      return;
+    }
+
+    if (entrada) {
+      setLocalizacao((atuais) => ({
+        ...atuais,
+        latitude: "",
+        longitude: "",
+        localizacao_referencia: entrada,
+      }));
+    } else {
+      setLocalizacao((atuais) => ({
+        ...atuais,
+        latitude: "",
+        longitude: "",
+      }));
+    }
+
+    setPreviewReferencia(entradaEhLinkCurtoMaps ? enderecoFormatado : entrada || enderecoFormatado);
+    setMensagemLocalizacao(
+      entrada.includes("maps.app.goo.gl")
+        ? "Preview atualizado com o endereço cadastral. Link curto salvo sem resolução automática."
+        : "Preview atualizado com a referência informada."
+    );
   }
 
   function aplicarCampos(
@@ -601,22 +737,21 @@ function GeralTab({
       return;
     }
 
-    setCampos((atuais) => {
-      const atualizados = { ...atuais };
+    const atualizados = { ...campos };
 
-      for (const [campo, valor] of Object.entries(novosCampos)) {
-        if (!valor) {
-          continue;
-        }
-
-        const chave = campo as CampoGeral;
-        if (substituirPreenchidos || !atualizados[chave]?.trim()) {
-          atualizados[chave] = String(valor);
-        }
+    for (const [campo, valor] of Object.entries(novosCampos)) {
+      if (!valor) {
+        continue;
       }
 
-      return atualizados;
-    });
+      const chave = campo as CampoGeral;
+      if (substituirPreenchidos || !atualizados[chave]?.trim()) {
+        atualizados[chave] = String(valor);
+      }
+    }
+
+    setCampos(atualizados);
+    sincronizarLocalizacaoComEndereco(campos, atualizados);
     setSubstituicaoPendente(null);
   }
 
@@ -1205,45 +1340,211 @@ function GeralTab({
         </CampoSelect>
       </FormSection>
 
-      <input type="hidden" name="latitude" value={endereco?.latitude ?? ""} />
-      <input type="hidden" name="longitude" value={endereco?.longitude ?? ""} />
-
       <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-100 px-4 py-3">
-          <h2 className="text-base font-bold text-gray-950">Localização</h2>
+          <h2 className="text-base font-bold text-gray-950">Localização operacional</h2>
+          {densidade === "confortavel" ? (
+            <p className="mt-1 text-sm text-gray-600">
+              Ponto real de chegada do técnico, independente do endereço cadastral.
+            </p>
+          ) : null}
         </div>
-        <div className={`space-y-3 ${classes(densidade).sectionPadding}`}>
-          <p className="text-sm text-gray-600">
-            A abertura usa coordenadas quando disponíveis ou o endereço preenchido no cadastro.
-          </p>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            {mapsUrl ? (
+        <div className={`space-y-4 ${classes(densidade).sectionPadding}`}>
+          <div className={classes(densidade).grid}>
+            <div className="md:col-span-2">
+              <CampoTexto
+              name="link_maps"
+              label="Link ou endereço do Google Maps"
+              value={localizacao.link_maps}
+              onChange={(event) => atualizarLocalizacao("link_maps", event.currentTarget.value)}
+              densidade={densidade}
+              inputMode="url"
+            />
+          </div>
+            <div className={labelClass}>
+              Latitude
+              <div
+                aria-label="Latitude derivada"
+                className={`${classes(densidade).input} flex items-center bg-gray-100 text-xs text-gray-700`}
+              >
+                {latitudeDerivada || "Gerada pelo link/endereço"}
+              </div>
+            </div>
+            <div className={labelClass}>
+              Longitude
+              <div
+                aria-label="Longitude derivada"
+                className={`${classes(densidade).input} flex items-center bg-gray-100 text-xs text-gray-700`}
+              >
+                {longitudeDerivada || "Gerada pelo link/endereço"}
+              </div>
+            </div>
+            <CampoSelect
+              name="origem_geolocalizacao"
+              label="Origem da geolocalização"
+              value={localizacao.origem_geolocalizacao}
+              densidade={densidade}
+              onChange={(event) =>
+                atualizarLocalizacao("origem_geolocalizacao", event.currentTarget.value)
+              }
+            >
+              {ORIGENS_GEOLOCALIZACAO.map((origem) => (
+                <option key={origem || "nao-informado"} value={origem}>
+                  {origem || "Não informado"}
+                </option>
+              ))}
+            </CampoSelect>
+            <CampoTexto
+              name="localizacao_referencia"
+              label="Localização de referência"
+              value={localizacao.localizacao_referencia}
+              onChange={(event) =>
+                atualizarLocalizacao("localizacao_referencia", event.currentTarget.value)
+              }
+              densidade={densidade}
+            />
+          </div>
+          <input type="hidden" name="latitude" value={latitudeDerivada} />
+          <input type="hidden" name="longitude" value={longitudeDerivada} />
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <button
+              type="button"
+              disabled={!mapaPreviewUrl}
+              onClick={() => {
+                atualizarPreviewMapa();
+                const preview = document.getElementById("preview-mapa-operacional");
+                preview?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+              }}
+              className="inline-flex min-h-9 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400"
+            >
+              Visualizar no mapa
+            </button>
+            {rotaUrl ? (
               <a
-                href={mapsUrl}
+                href={rotaUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-9 items-center justify-center rounded-md border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+                className="inline-flex min-h-9 items-center justify-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
               >
-                Abrir no Google Maps
+                Iniciar rota
               </a>
             ) : (
               <button
                 type="button"
                 disabled
-                className="inline-flex min-h-9 items-center justify-center rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-400"
+                className="inline-flex min-h-9 items-center justify-center rounded-md bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-400"
               >
-                Abrir no Google Maps
+                Iniciar rota
               </button>
             )}
           </div>
-          {densidade === "compacto" ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              <CampoTexto name="latitude_tecnica" label="Latitude técnica" defaultValue={endereco?.latitude} densidade={densidade} />
-              <CampoTexto name="longitude_tecnica" label="Longitude técnica" defaultValue={endereco?.longitude} densidade={densidade} />
-            </div>
+
+          {mensagemLocalizacao ? (
+            <p className="text-sm font-semibold text-gray-700">
+              {mensagemLocalizacao}
+            </p>
           ) : null}
+
+          <div
+            id="preview-mapa-operacional"
+            className="overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+            aria-label="Preview do mapa operacional"
+          >
+            {mapaPreviewUrl ? (
+              <div className="relative min-h-64 overflow-hidden bg-slate-100 p-4 sm:min-h-80">
+                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(148,163,184,0.2)_1px,transparent_1px),linear-gradient(0deg,rgba(148,163,184,0.2)_1px,transparent_1px)] bg-[size:48px_48px]" />
+                <div className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 bg-white/70 shadow-sm" />
+                <div className="absolute inset-y-0 left-1/2 w-8 -translate-x-1/2 bg-white/70 shadow-sm" />
+                <div className="relative flex min-h-56 items-center justify-center sm:min-h-72">
+                  <div className="w-full max-w-xl rounded-lg border border-gray-200 bg-white p-4 text-gray-900 shadow-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                      Preview de referência
+                    </p>
+                    <p className="mt-2 text-base font-bold text-gray-950">
+                      {temCoordenadasValidas ? "Ponto por coordenadas" : "Endereço de chegada"}
+                    </p>
+                    <p className="mt-2 break-words text-sm text-gray-700">
+                      {temCoordenadasValidas
+                        ? `${latitudeDerivada}, ${longitudeDerivada}`
+                        : referenciaMapa}
+                    </p>
+                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                      <a
+                        href={mapaPreviewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-9 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+                      >
+                        Conferir no Google Maps
+                      </a>
+                      {rotaUrl ? (
+                        <a
+                          href={rotaUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex min-h-9 items-center justify-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+                        >
+                          Iniciar rota
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex min-h-40 items-center justify-center p-4 text-center text-sm font-semibold text-gray-500">
+                Informe coordenadas ou uma referência de localização para visualizar o mapa.
+              </div>
+            )}
+          </div>
         </div>
       </section>
+
+      <FormSection title="Informações de acesso" densidade={densidade}>
+        <CampoTexto name="ponto_referencia" label="Ponto de referência" defaultValue={parceiro?.ponto_referencia} densidade={densidade} />
+        <CampoTexto name="responsavel_local" label="Responsável no local" defaultValue={parceiro?.responsavel_local} densidade={densidade} />
+        <CampoTexto
+          name="telefone_responsavel_local"
+          label="Telefone do responsável no local"
+          defaultValue={mascararTelefone(parceiro?.telefone_responsavel_local ?? "")}
+          densidade={densidade}
+          inputMode="tel"
+          maxLength={18}
+          onInput={(event) => {
+            event.currentTarget.value = mascararTelefone(event.currentTarget.value);
+          }}
+        />
+        <Toggle
+          name="necessita_autorizacao_previa"
+          label="Necessita autorização prévia"
+          defaultChecked={parceiro?.necessita_autorizacao_previa ?? false}
+        />
+        <CampoTexto name="estacionamento" label="Estacionamento" defaultValue={parceiro?.estacionamento} densidade={densidade} />
+        <CampoTexto name="portaria_recepcao" label="Portaria / recepção" defaultValue={parceiro?.portaria_recepcao} densidade={densidade} />
+        <CampoTexto name="doca_carga_descarga" label="Doca / carga e descarga" defaultValue={parceiro?.doca_carga_descarga} densidade={densidade} />
+        <CampoTexto name="documento_necessario_entrada" label="Documento necessário para entrada" defaultValue={parceiro?.documento_necessario_entrada} densidade={densidade} />
+        <div className="md:col-span-2">
+          <CampoTextarea name="restricoes_entrada" label="Restrições de entrada" rows={densidade === "compacto" ? 3 : 4} defaultValue={parceiro?.restricoes_entrada} densidade={densidade} />
+        </div>
+        <div className="md:col-span-2">
+          <CampoTextarea name="observacoes_acesso" label="Observações de acesso" rows={densidade === "compacto" ? 3 : 4} defaultValue={parceiro?.observacoes_acesso} densidade={densidade} />
+        </div>
+      </FormSection>
+
+      <FormSection title="Horários de atendimento" densidade={densidade}>
+        <CampoTexto name="horario_funcionamento" label="Horário de funcionamento" defaultValue={parceiro?.horario_funcionamento} densidade={densidade} />
+        <CampoTexto name="horario_atendimento_tecnico" label="Horário permitido para atendimento técnico" defaultValue={parceiro?.horario_atendimento_tecnico} densidade={densidade} />
+        <CampoTexto name="horario_coleta_entrega" label="Horário de coleta/entrega" defaultValue={parceiro?.horario_coleta_entrega} densidade={densidade} />
+        <CampoTexto name="prazo_minimo_agendamento" label="Prazo mínimo para agendamento" defaultValue={parceiro?.prazo_minimo_agendamento} densidade={densidade} />
+        <Toggle name="atendimento_sabado" label="Atendimento aos sábados" defaultChecked={parceiro?.atendimento_sabado ?? false} />
+        <Toggle name="atendimento_domingo" label="Atendimento aos domingos" defaultChecked={parceiro?.atendimento_domingo ?? false} />
+        <Toggle name="atendimento_feriado" label="Atendimento em feriados" defaultChecked={parceiro?.atendimento_feriado ?? false} />
+        <Toggle name="necessita_agendamento" label="Necessita agendamento" defaultChecked={parceiro?.necessita_agendamento ?? false} />
+        <div className="md:col-span-2">
+          <CampoTextarea name="observacoes_operacionais" label="Observações operacionais" rows={densidade === "compacto" ? 3 : 5} defaultValue={parceiro?.observacoes_operacionais} densidade={densidade} />
+        </div>
+      </FormSection>
 
       <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <Link

@@ -171,6 +171,13 @@ const parceirosOrganizacaoMigration = await readFile(
   ),
   "utf8"
 );
+const parceirosLocalizacaoMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260521230941_add_parceiros_localizacao_operacional.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const clientesOrganizacaoMigration = await readFile(
   new URL(
     "../supabase/migrations/20260519235405_add_organizacao_id_to_clientes.sql",
@@ -202,6 +209,10 @@ const parceirosActionsSource = await readFile(
 );
 const parceirosFormSource = await readFile(
   new URL("../src/app/cadastros/parceiros/ParceiroForm.tsx", import.meta.url),
+  "utf8"
+);
+const parceirosLocationUtilsSource = await readFile(
+  new URL("../src/app/cadastros/parceiros/location-utils.ts", import.meta.url),
   "utf8"
 );
 
@@ -513,7 +524,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.0\.7"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.3"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -531,6 +542,71 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosActionsSource, /formData\.get\("criar_organizacao_vinculada"\) === "on"/);
   assert.match(parceirosActionsSource, /\.from\("organizacoes"\)[\s\S]*\.insert\(\{/);
   assert.match(parceirosActionsSource, /\.from\("clientes"\)[\s\S]*\.update\(\{ organizacao_id: organizacaoId \}\)/);
+});
+
+test("partner operational location keeps address independent and route links external", () => {
+  for (const column of [
+    "latitude",
+    "longitude",
+    "origem_geolocalizacao",
+    "link_maps",
+    "localizacao_referencia",
+    "observacoes_acesso",
+    "ponto_referencia",
+    "restricoes_entrada",
+    "estacionamento",
+    "portaria_recepcao",
+    "doca_carga_descarga",
+    "documento_necessario_entrada",
+    "responsavel_local",
+    "telefone_responsavel_local",
+    "necessita_autorizacao_previa",
+    "horario_funcionamento",
+    "horario_atendimento_tecnico",
+    "horario_coleta_entrega",
+    "atendimento_sabado",
+    "atendimento_domingo",
+    "atendimento_feriado",
+    "necessita_agendamento",
+    "prazo_minimo_agendamento",
+    "observacoes_operacionais",
+  ]) {
+    assert.match(
+      parceirosLocalizacaoMigration,
+      new RegExp(`add column if not exists ${column}`, "i")
+    );
+  }
+
+  assert.doesNotMatch(
+    parceirosLocalizacaoMigration,
+    /not null|default|disable row level security|drop policy|grant|revoke|create table|create trigger/i
+  );
+  assert.match(parceirosActionsSource, /coordenadaOuNull\(formData\.get\("latitude"\), -90, 90, "Latitude"\)/);
+  assert.match(parceirosActionsSource, /coordenadaOuNull\(formData\.get\("longitude"\), -180, 180, "Longitude"\)/);
+  assert.doesNotMatch(
+    parceirosActionsSource,
+    /const enderecoPayload = \{[\s\S]*latitude: numeroOuNull\(formData\.get\("latitude"\)\)[\s\S]*\};/
+  );
+  assert.match(parceirosLocationUtilsSource, /GOOGLE_AT_COORDENADA_REGEX/);
+  assert.match(parceirosLocationUtilsSource, /if \(!texto\) \{\s*return null;\s*\}/);
+  assert.match(parceirosLocationUtilsSource, /https:\/\/www\.google\.com\/maps\/dir\/\?api=1&destination=/);
+  assert.match(parceirosFormSource, /Preview do mapa operacional/);
+  assert.match(parceirosFormSource, /atualizarPreviewMapa/);
+  assert.match(parceirosFormSource, /Iniciar rota/);
+  assert.match(parceirosFormSource, /Conferir no Google Maps/);
+  assert.match(parceirosFormSource, /Informações de acesso/);
+  assert.match(parceirosFormSource, /Horários de atendimento/);
+  assert.match(parceirosFormSource, /maps\.app\.goo\.gl/);
+  assert.match(parceirosFormSource, /parceiro\?\.link_maps \?\?[\s\S]*parceiro\?\.localizacao_referencia \?\?/);
+  assert.match(parceirosFormSource, /latitude: coordenadas \? String\(coordenadas\.latitude\) : ""/);
+  assert.match(parceirosFormSource, /longitude: coordenadas \? String\(coordenadas\.longitude\) : ""/);
+  assert.match(parceirosFormSource, /type="hidden" name="latitude" value=\{latitudeDerivada\}/);
+  assert.match(parceirosFormSource, /type="hidden" name="longitude" value=\{longitudeDerivada\}/);
+  assert.match(parceirosFormSource, /Latitude derivada/);
+  assert.doesNotMatch(parceirosFormSource, /<iframe/);
+  assert.doesNotMatch(parceirosFormSource, /Copiar coordenadas/);
+  assert.doesNotMatch(parceirosFormSource, /Interpretar localização/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.3"/);
 });
 
 test("organizations link to clients without replacing operational ticket fields", () => {

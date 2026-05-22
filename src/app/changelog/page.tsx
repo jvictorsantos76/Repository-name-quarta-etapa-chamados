@@ -3,6 +3,53 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.39",
+    data: "22/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.1.3 corrige a regra funcional da Localização operacional para tratar latitude e longitude como campos derivados do link ou endereço informado.",
+      "O preview interno passa a usar coordenadas somente quando elas forem válidas; caso contrário, usa o endereço cadastral ou textual como referência.",
+    ],
+    correcoes: [
+      "Campos vazios de coordenadas deixam de ser interpretados como 0,0, evitando preview e rota para um ponto inválido.",
+      "Links curtos do Google Maps continuam salvos, mas usam o endereço cadastral como fallback sem resolução automática.",
+    ],
+  },
+  {
+    versao: "v0.9.38",
+    data: "21/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.1.2 troca o iframe do preview por uma visualização interna estável, evitando área em branco quando o provedor externo não renderiza embutido.",
+      "O preview passa a priorizar o endereço exibido no campo de Google Maps antes da localização de referência salva anteriormente.",
+    ],
+    correcoes: [
+      "A ação Visualizar no mapa deixa de depender de carregamento em iframe e mantém Conferir no Google Maps e Iniciar rota como ações externas.",
+    ],
+  },
+  {
+    versao: "v0.9.37",
+    data: "21/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.1.1 simplifica Localização operacional usando o endereço cadastral como referência inicial para preview.",
+      "Latitude e longitude passam a aparecer como campos compactos gerados a partir do link, endereço ou coordenadas informadas.",
+      "A ação Visualizar no mapa passa a atualizar o preview interno, removendo botões auxiliares desnecessários.",
+    ],
+    correcoes: [
+      "Links curtos do Google Maps continuam salvos, mas o preview usa o endereço cadastral como fallback sem tentar resolver URL curta no servidor.",
+    ],
+  },
+  {
+    versao: "v0.9.36",
+    data: "21/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.1.0 adiciona localização operacional separada do endereço cadastral, com interpretação de coordenadas ou URL longa do Google Maps.",
+      "A aba Geral passa a exibir preview interno de mapa sem API Key, botão Iniciar rota e ação para copiar coordenadas.",
+      "Cadastro passa a persistir informações de acesso e horários operacionais para uso em Field Service.",
+    ],
+    correcoes: [
+      "Migration defensiva adiciona apenas colunas nullable em public.parceiros, preservando RLS, grants, delete, Storage e autenticação.",
+    ],
+  },
+  {
     versao: "v0.9.35",
     data: "21/05/2026",
     alteracoes: [

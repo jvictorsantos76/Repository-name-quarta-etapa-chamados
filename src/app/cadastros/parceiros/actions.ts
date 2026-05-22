@@ -172,6 +172,27 @@ function numeroOuNull(valor: FormDataEntryValue | null) {
   return Number.isFinite(numero) ? numero : null;
 }
 
+function coordenadaOuNull(
+  valor: FormDataEntryValue | null,
+  limiteMinimo: number,
+  limiteMaximo: number,
+  label: string
+) {
+  const texto = normalizarTexto(valor).replace(",", ".");
+
+  if (!texto) {
+    return { ok: true as const, value: null };
+  }
+
+  const numero = Number(texto);
+
+  if (!Number.isFinite(numero) || numero < limiteMinimo || numero > limiteMaximo) {
+    return { ok: false as const, error: `${label} deve estar entre ${limiteMinimo} e ${limiteMaximo}.` };
+  }
+
+  return { ok: true as const, value: numero };
+}
+
 function inteiroOuNull(valor: FormDataEntryValue | null) {
   const numero = numeroOuNull(valor);
   return numero === null ? null : Math.trunc(numero);
@@ -449,6 +470,8 @@ function montarPayloadParceiro(formData: FormData) {
   const nomeFantasia = normalizarTexto(formData.get("nome_fantasia"));
   const crt = normalizarTexto(formData.get("crt"));
   const segmento = normalizarTexto(formData.get("segmento"));
+  const latitude = coordenadaOuNull(formData.get("latitude"), -90, 90, "Latitude");
+  const longitude = coordenadaOuNull(formData.get("longitude"), -180, 180, "Longitude");
 
   if (!isTipoPessoa(tipoPessoa)) {
     return { ok: false as const, error: "Informe um tipo de pessoa válido." };
@@ -492,6 +515,14 @@ function montarPayloadParceiro(formData: FormData) {
     return { ok: false as const, error: "Informe um segmento válido." };
   }
 
+  if (!latitude.ok) {
+    return latitude;
+  }
+
+  if (!longitude.ok) {
+    return longitude;
+  }
+
   return {
     ok: true as const,
     payload: {
@@ -511,6 +542,30 @@ function montarPayloadParceiro(formData: FormData) {
       suframa: textoOuNull(formData.get("suframa")),
       website: website.value,
       organizacao_id: uuidOuNull(formData.get("organizacao_id")),
+      latitude: latitude.value,
+      longitude: longitude.value,
+      origem_geolocalizacao: textoOuNull(formData.get("origem_geolocalizacao")),
+      link_maps: textoOuNull(formData.get("link_maps")),
+      localizacao_referencia: textoOuNull(formData.get("localizacao_referencia")),
+      observacoes_acesso: textoOuNull(formData.get("observacoes_acesso")),
+      ponto_referencia: textoOuNull(formData.get("ponto_referencia")),
+      restricoes_entrada: textoOuNull(formData.get("restricoes_entrada")),
+      estacionamento: textoOuNull(formData.get("estacionamento")),
+      portaria_recepcao: textoOuNull(formData.get("portaria_recepcao")),
+      doca_carga_descarga: textoOuNull(formData.get("doca_carga_descarga")),
+      documento_necessario_entrada: textoOuNull(formData.get("documento_necessario_entrada")),
+      responsavel_local: textoOuNull(formData.get("responsavel_local")),
+      telefone_responsavel_local: telefoneOuNull(formData.get("telefone_responsavel_local")),
+      necessita_autorizacao_previa: boolForm(formData, "necessita_autorizacao_previa"),
+      horario_funcionamento: textoOuNull(formData.get("horario_funcionamento")),
+      horario_atendimento_tecnico: textoOuNull(formData.get("horario_atendimento_tecnico")),
+      horario_coleta_entrega: textoOuNull(formData.get("horario_coleta_entrega")),
+      atendimento_sabado: boolForm(formData, "atendimento_sabado"),
+      atendimento_domingo: boolForm(formData, "atendimento_domingo"),
+      atendimento_feriado: boolForm(formData, "atendimento_feriado"),
+      necessita_agendamento: boolForm(formData, "necessita_agendamento"),
+      prazo_minimo_agendamento: textoOuNull(formData.get("prazo_minimo_agendamento")),
+      observacoes_operacionais: textoOuNull(formData.get("observacoes_operacionais")),
       ativo: situacao === "ativo",
     },
   };
@@ -698,8 +753,6 @@ export async function salvarParceiroGeral(formData: FormData) {
     cidade: textoOuNull(formData.get("cidade")),
     estado: ufOuNull(formData.get("estado")),
     pais: textoOuNull(formData.get("pais")) ?? "Brasil",
-    latitude: numeroOuNull(formData.get("latitude")),
-    longitude: numeroOuNull(formData.get("longitude")),
     atualizado_por: perfil.id,
   };
 
