@@ -551,7 +551,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.11"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.12"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -687,7 +687,17 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.11"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.12"/);
+});
+
+test("partner general tab keeps compact canonical large-form layout", () => {
+  assert.doesNotMatch(parceirosFormSource, /min-h-\[5\.75rem\]/);
+  assert.match(parceirosFormSource, /feedbackConsultaClass/);
+  assert.match(parceirosFormSource, /htmlFor="cnpj_cpf"[\s\S]*id="cnpj_cpf"[\s\S]*Consultar CNPJ/);
+  assert.match(parceirosFormSource, /htmlFor="cep"[\s\S]*id="cep"[\s\S]*Buscar CEP/);
+  assert.match(parceirosFormSource, /name="contato_whatsapp"[\s\S]*name="contato_celular_whatsapp"/);
+  assert.match(parceirosFormSource, /grid gap-x-3 gap-y-2 md:grid-cols-3/);
+  assert.match(parceirosFormSource, /rows = 3/);
 });
 
 test("partner service hours use weekly structured agenda without deleting legacy columns", () => {

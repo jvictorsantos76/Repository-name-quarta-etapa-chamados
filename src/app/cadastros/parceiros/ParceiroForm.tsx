@@ -314,20 +314,26 @@ function validarAgendaAtendimento(agenda: DiaAtendimento[]) {
 function classes(densidade: Densidade) {
   return {
     input: `mt-1 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 ${
-      densidade === "compacto" ? "min-h-8 py-1" : "min-h-9 py-2"
+      densidade === "compacto" ? "min-h-8 py-1" : "min-h-10 py-2"
     }`,
-    grid: densidade === "compacto" ? "grid gap-3 md:grid-cols-3" : "grid gap-4 md:grid-cols-2",
+    button: `inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 ${
+      densidade === "compacto" ? "min-h-8 py-1" : "min-h-10 py-2"
+    }`,
+    grid:
+      densidade === "compacto"
+        ? "grid gap-x-3 gap-y-2 md:grid-cols-3"
+        : "grid gap-x-4 gap-y-3 md:grid-cols-2",
     sectionPadding: densidade === "compacto" ? "p-3" : "p-4",
   };
 }
 
-const labelClass = "flex min-h-[5.75rem] flex-col text-[11px] font-semibold text-gray-500";
+const labelClass = "flex flex-col text-[11px] font-semibold text-gray-500";
 const longFieldLabelClass = "block text-[11px] font-semibold text-gray-500";
 const labelTextClass = "uppercase tracking-wide";
 const auxiliaryTextClass =
-  "mt-1 min-h-4 text-xs font-semibold normal-case tracking-normal text-gray-700";
+  "mt-1 text-xs font-semibold normal-case tracking-normal text-gray-700";
 const toggleClass =
-  "flex min-h-9 items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 text-xs font-semibold uppercase tracking-wide text-gray-700";
+  "flex min-h-10 items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-700";
 const metaBadgeClass =
   "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide";
 
@@ -456,6 +462,25 @@ function resumoObservacao(valor: string | null | undefined) {
   return texto.length > 56 ? `${texto.slice(0, 56)}...` : texto;
 }
 
+function feedbackConsultaClass(
+  origem: SubstituicaoPendente["origem"],
+  mensagem: string,
+  substituicaoPendente: SubstituicaoPendente | null
+) {
+  if (substituicaoPendente?.origem === origem) {
+    return "border-amber-200 bg-amber-50 text-amber-900";
+  }
+
+  if (
+    mensagem.startsWith("CNPJ consultado") ||
+    mensagem.startsWith("CEP encontrado")
+  ) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+
+  return "border-red-200 bg-red-50 text-red-700";
+}
+
 function AcoesContato({
   email,
   telefone,
@@ -546,7 +571,7 @@ function CampoTexto({
         onChange={onChange}
         className={classes(densidade).input}
       />
-      <span aria-hidden="true" className={auxiliaryTextClass} />
+      <span aria-hidden="true" className={`${auxiliaryTextClass} hidden`} />
     </label>
   );
 }
@@ -580,7 +605,7 @@ function CampoSelect({
       >
         {children}
       </select>
-      <span aria-hidden="true" className={auxiliaryTextClass} />
+      <span aria-hidden="true" className={`${auxiliaryTextClass} hidden`} />
     </label>
   );
 }
@@ -589,7 +614,7 @@ function CampoTextarea({
   name,
   label,
   defaultValue,
-  rows = 4,
+  rows = 3,
   densidade,
 }: {
   name: string;
@@ -1352,7 +1377,13 @@ function GeralTab({
     }
 
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 md:col-span-full">
+      <div
+        className={`rounded-md border p-3 text-sm font-medium md:col-span-full ${feedbackConsultaClass(
+          origem,
+          mensagemConsulta,
+          substituicaoPendente
+        )}`}
+      >
         {mensagemConsulta ? <p className="font-semibold">{mensagemConsulta}</p> : null}
         {origem === "cnpj" && situacaoCadastral ? (
           <p className="mt-1">
@@ -1372,7 +1403,7 @@ function GeralTab({
                   true
                 )
               }
-              className="inline-flex min-h-9 items-center justify-center rounded-md border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900 transition hover:bg-amber-100"
+              className={`${classes(densidade).button} border-amber-300 text-amber-900 hover:bg-amber-100 sm:w-auto`}
             >
               Substituir dados
             </button>
@@ -1504,10 +1535,13 @@ function GeralTab({
           required
           densidade={densidade}
         />
-        <label className={labelClass}>
-          <span className={labelTextClass}>{pessoaFisica ? "CPF" : "CNPJ"}</span>
-          <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+        <div className={labelClass}>
+          <label htmlFor="cnpj_cpf" className={labelTextClass}>
+            {pessoaFisica ? "CPF" : "CNPJ"}
+          </label>
+          <div className="mt-1 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
             <input
+              id="cnpj_cpf"
               key={tipoPessoa}
               name="cnpj_cpf"
               value={campos.cnpj_cpf}
@@ -1521,7 +1555,7 @@ function GeralTab({
               }
               inputMode="numeric"
               maxLength={pessoaFisica ? 14 : 18}
-              className={`${classes(densidade).input} mt-0 flex-1`}
+              className={`${classes(densidade).input} mt-0`}
             />
             {!pessoaFisica ? (
               <button
@@ -1530,14 +1564,13 @@ function GeralTab({
                 onClick={() => {
                   void consultarCnpj();
                 }}
-                className="min-h-9 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 sm:w-40"
+                className={`${classes(densidade).button} sm:w-40`}
               >
                 {consultandoCnpj ? "Consultando..." : "Consultar CNPJ"}
               </button>
             ) : null}
           </div>
-          <span aria-hidden="true" className={auxiliaryTextClass} />
-        </label>
+        </div>
         {renderFeedbackConsulta("cnpj")}
         <CampoTexto
           name="nome_fantasia"
@@ -1782,7 +1815,7 @@ function GeralTab({
           />
           <AcoesContato email={contato?.email} />
         </div>
-        <div>
+        <div className="grid gap-2">
           <CampoTexto
             name="contato_whatsapp"
             label="WhatsApp"
@@ -1795,18 +1828,18 @@ function GeralTab({
             }}
           />
           <AcoesContato telefone={contato?.whatsapp ?? contato?.celular} />
+          <Toggle
+            name="contato_celular_whatsapp"
+            label="Celular é WhatsApp"
+            checked={celularEhWhatsapp}
+            onChange={(event) => {
+              setCelularEhWhatsapp(event.currentTarget.checked);
+              if (event.currentTarget.checked) {
+                setContatoWhatsapp(contatoCelular);
+              }
+            }}
+          />
         </div>
-        <Toggle
-          name="contato_celular_whatsapp"
-          label="Celular é WhatsApp"
-          checked={celularEhWhatsapp}
-          onChange={(event) => {
-            setCelularEhWhatsapp(event.currentTarget.checked);
-            if (event.currentTarget.checked) {
-              setContatoWhatsapp(contatoCelular);
-            }
-          }}
-        />
         <div className="md:col-span-2">
           <CampoTextarea
             name="contato_observacoes"
@@ -1823,28 +1856,33 @@ function GeralTab({
         description="Base cadastral usada para identificação, cobrança e referência inicial de deslocamento."
         densidade={densidade}
       >
-        <CampoTexto
-          name="cep"
-          label="CEP"
-          value={campos.cep}
-          onChange={(event) =>
-            atualizarCampo("cep", mascararCep(event.currentTarget.value))
-          }
-          densidade={densidade}
-          inputMode="numeric"
-          maxLength={9}
-        />
-        <div className="flex items-end">
-          <button
-            type="button"
-            disabled={!cepConsultavel || consultandoCep}
-            onClick={() => {
-              void consultarCep();
-            }}
-            className="min-h-9 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400"
-          >
-            {consultandoCep ? "Buscando..." : "Buscar CEP"}
-          </button>
+        <div className={labelClass}>
+          <label htmlFor="cep" className={labelTextClass}>
+            CEP
+          </label>
+          <div className="mt-1 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+            <input
+              id="cep"
+              name="cep"
+              value={campos.cep}
+              onChange={(event) =>
+                atualizarCampo("cep", mascararCep(event.currentTarget.value))
+              }
+              inputMode="numeric"
+              maxLength={9}
+              className={`${classes(densidade).input} mt-0`}
+            />
+            <button
+              type="button"
+              disabled={!cepConsultavel || consultandoCep}
+              onClick={() => {
+                void consultarCep();
+              }}
+              className={`${classes(densidade).button} sm:w-36`}
+            >
+              {consultandoCep ? "Buscando..." : "Buscar CEP"}
+            </button>
+          </div>
         </div>
         {renderFeedbackConsulta("cep")}
         <CampoTexto name="endereco" label="Endereço / Logradouro" value={campos.endereco} onChange={(event) => atualizarCampo("endereco", event.currentTarget.value)} densidade={densidade} />

@@ -6,6 +6,8 @@ const versoes = [
     versao: "v0.9.47",
     data: "22/05/2026",
     alteracoes: [
+      "Clientes / Parceiros v1.1.12 ajusta a aba Geral como padrão visual de grandes cadastros, reduzindo vazios verticais e padronizando altura de campos e ações.",
+      "CNPJ, CEP e Celular é WhatsApp passam a ficar visualmente associados aos respectivos campos, com feedback operacional no próprio bloco.",
       "Clientes / Parceiros v1.1.11 padroniza a aba Geral como base de grandes cadastros com blocos numerados e legenda de obrigatoriedade.",
       "Indicadores de tipo, legenda, vínculo operacional e campos automáticos passam a usar esquema visual neutro para melhorar contraste e legibilidade.",
       "Dropdowns da aba Geral ficam mais compactos também no modo confortável, reduzindo altura desnecessária em desktop.",
