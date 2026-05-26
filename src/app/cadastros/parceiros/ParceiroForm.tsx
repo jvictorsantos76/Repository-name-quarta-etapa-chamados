@@ -321,10 +321,15 @@ function classes(densidade: Densidade) {
   };
 }
 
-const labelClass =
-  "block text-[11px] font-semibold uppercase tracking-wide text-gray-500";
+const labelClass = "flex min-h-[5.75rem] flex-col text-[11px] font-semibold text-gray-500";
+const longFieldLabelClass = "block text-[11px] font-semibold text-gray-500";
+const labelTextClass = "uppercase tracking-wide";
+const auxiliaryTextClass =
+  "mt-1 min-h-4 text-xs font-semibold normal-case tracking-normal text-gray-700";
 const toggleClass =
   "flex min-h-9 items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 text-xs font-semibold uppercase tracking-wide text-gray-700";
+const metaBadgeClass =
+  "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide";
 
 function somenteDigitos(valor: string) {
   return valor.replace(/\D/g, "");
@@ -486,6 +491,18 @@ function AcoesContato({
   );
 }
 
+function FieldMetaBadge({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <span className={`${metaBadgeClass} border-gray-300 bg-white text-gray-700`}>
+      {children}
+    </span>
+  );
+}
+
 function CampoTexto({
   name,
   label,
@@ -513,8 +530,10 @@ function CampoTexto({
 }) {
   return (
     <label className={labelClass}>
-      {label}
-      {required ? <span aria-hidden="true" className="ml-1 text-red-500">*</span> : null}
+      <span className={labelTextClass}>
+        {label}
+        {required ? <span aria-hidden="true" className="ml-1 text-red-500">*</span> : null}
+      </span>
       <input
         name={name}
         type={type}
@@ -527,6 +546,7 @@ function CampoTexto({
         onChange={onChange}
         className={classes(densidade).input}
       />
+      <span aria-hidden="true" className={auxiliaryTextClass} />
     </label>
   );
 }
@@ -550,16 +570,17 @@ function CampoSelect({
 }) {
   return (
     <label className={labelClass}>
-      {label}
+      <span className={labelTextClass}>{label}</span>
       <select
         name={name}
         defaultValue={value === undefined ? defaultValue ?? "" : undefined}
         value={value}
         onChange={onChange}
-        className={classes(densidade).input}
+        className={classes(densidade === "confortavel" ? "compacto" : densidade).input}
       >
         {children}
       </select>
+      <span aria-hidden="true" className={auxiliaryTextClass} />
     </label>
   );
 }
@@ -578,8 +599,8 @@ function CampoTextarea({
   densidade: Densidade;
 }) {
   return (
-    <label className={labelClass}>
-      {label}
+    <label className={longFieldLabelClass}>
+      <span className={labelTextClass}>{label}</span>
       <textarea
         name={name}
         defaultValue={defaultValue ?? ""}
@@ -682,7 +703,9 @@ function AgendaSemanalAtendimento({
                           className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
                         >
                           <label className={labelClass}>
-                            {index === 0 ? "Abre às" : `${index + 1}º intervalo abre`}
+                            <span className={labelTextClass}>
+                              {index === 0 ? "Abre às" : `${index + 1}º intervalo abre`}
+                            </span>
                             <input
                               type="time"
                               value={intervalo.abre_as}
@@ -698,9 +721,12 @@ function AgendaSemanalAtendimento({
                               }
                               className={classes("compacto").input}
                             />
+                            <span aria-hidden="true" className={auxiliaryTextClass} />
                           </label>
                           <label className={labelClass}>
-                            {index === 0 ? "Fecha às" : `${index + 1}º intervalo fecha`}
+                            <span className={labelTextClass}>
+                              {index === 0 ? "Fecha às" : `${index + 1}º intervalo fecha`}
+                            </span>
                             <input
                               type="time"
                               value={intervalo.fecha_as}
@@ -716,6 +742,7 @@ function AgendaSemanalAtendimento({
                               }
                               className={classes("compacto").input}
                             />
+                            <span aria-hidden="true" className={auxiliaryTextClass} />
                           </label>
                           <button
                             type="button"
@@ -768,21 +795,50 @@ function AgendaSemanalAtendimento({
 }
 
 function FormSection({
+  step,
   title,
+  description,
   children,
   densidade,
 }: {
+  step?: number;
   title: string;
+  description?: string;
   children: ReactNode;
   densidade: Densidade;
 }) {
   return (
     <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
       <div className="border-b border-gray-100 px-4 py-3">
-        <h2 className="text-base font-bold text-gray-950">{title}</h2>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-base font-bold text-gray-950">
+            {step ? `${step}. ` : ""}
+            {title}
+          </h2>
+        </div>
+        {description ? (
+          <p className="mt-1 max-w-3xl text-sm text-gray-600">{description}</p>
+        ) : null}
       </div>
       <div className={`${classes(densidade).grid} ${classes(densidade).sectionPadding}`}>
         {children}
+      </div>
+    </section>
+  );
+}
+
+function FieldMetaLegend() {
+  return (
+    <section
+      aria-label="Legenda dos campos do cadastro"
+      className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700 shadow-sm"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold text-slate-900">Legenda dos campos:</span>
+        <FieldMetaBadge>* obrigatório</FieldMetaBadge>
+        <FieldMetaBadge>sem marca: opcional</FieldMetaBadge>
+        <FieldMetaBadge>automático</FieldMetaBadge>
+        <FieldMetaBadge>somente leitura</FieldMetaBadge>
       </div>
     </section>
   );
@@ -1345,26 +1401,31 @@ function GeralTab({
 
       <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-full border border-sky-100 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700">
+          <span className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-800">
             {LABEL_TIPO_PESSOA[tipoPessoa]}
           </span>
-          <span className="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+          <span className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-800">
             {LABEL_TIPO_PARCEIRO[parceiro?.tipo_parceiro ?? "cliente"]}
           </span>
-          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+          <span className="rounded-full border border-gray-300 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-800">
             {LABEL_SITUACAO_PARCEIRO[parceiro?.situacao ?? "ativo"]}
           </span>
         </div>
       </section>
 
+      <FieldMetaLegend />
+
       {parceiro ? (
-        <section className="rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-          <h2 className="text-base font-bold text-blue-950">
-            Vínculo usado nos chamados
-          </h2>
+        <section className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-900 shadow-sm">
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base font-bold text-gray-950">
+              Vínculo usado nos chamados
+            </h2>
+            <FieldMetaBadge>Somente leitura</FieldMetaBadge>
+          </div>
           <div className="mt-2 grid gap-2 md:grid-cols-3">
             <div>
-              <span className="block text-xs font-semibold uppercase tracking-wide text-blue-700">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Cliente operacional
               </span>
               <span className="font-semibold">
@@ -1372,7 +1433,7 @@ function GeralTab({
               </span>
             </div>
             <div>
-              <span className="block text-xs font-semibold uppercase tracking-wide text-blue-700">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Organização vinculada
               </span>
               <span className="font-semibold">
@@ -1381,14 +1442,14 @@ function GeralTab({
               {parceiro.organizacao_id ? (
                 <Link
                   href={`/cadastros/organizacoes/${parceiro.organizacao_id}`}
-                  className="mt-1 block text-xs font-semibold text-blue-700 underline-offset-2 hover:underline"
+                  className="mt-1 block text-xs font-semibold text-gray-700 underline-offset-2 hover:underline"
                 >
                   Abrir organização
                 </Link>
               ) : null}
             </div>
             <div>
-              <span className="block text-xs font-semibold uppercase tracking-wide text-blue-700">
+              <span className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Filiais vinculadas
               </span>
               <span className="font-semibold">{parceiro.filiais_count ?? 0}</span>
@@ -1397,7 +1458,12 @@ function GeralTab({
         </section>
       ) : null}
 
-      <FormSection title="Dados cadastrais" densidade={densidade}>
+      <FormSection
+        step={1}
+        title="Dados cadastrais"
+        description="Identificação fiscal, operacional e vínculo de organização."
+        densidade={densidade}
+      >
         <div className="grid gap-2 sm:grid-cols-2">
           <CampoSelect
             name="tipo_pessoa"
@@ -1439,7 +1505,7 @@ function GeralTab({
           densidade={densidade}
         />
         <label className={labelClass}>
-          {pessoaFisica ? "CPF" : "CNPJ"}
+          <span className={labelTextClass}>{pessoaFisica ? "CPF" : "CNPJ"}</span>
           <div className="mt-1 flex flex-col gap-2 sm:flex-row">
             <input
               key={tipoPessoa}
@@ -1470,6 +1536,7 @@ function GeralTab({
               </button>
             ) : null}
           </div>
+          <span aria-hidden="true" className={auxiliaryTextClass} />
         </label>
         {renderFeedbackConsulta("cnpj")}
         <CampoTexto
@@ -1578,34 +1645,42 @@ function GeralTab({
           defaultValue={parceiro?.website}
           densidade={densidade}
         />
-        <CampoSelect
-          name="organizacao_id"
-          label="Organização vinculada"
-          value={organizacaoId}
-          densidade={densidade}
-          onChange={(event) => {
-            setOrganizacaoId(event.currentTarget.value);
-            setOrganizacaoAlterada(event.currentTarget.value !== organizacaoInicial);
-          }}
-        >
-          <option value="">Sem organização vinculada</option>
-          {organizacoesSelect.map((organizacao) => (
-            <option key={organizacao.id} value={organizacao.id}>
-              {organizacao.codigo_interno
-                ? `${organizacao.nome} (${organizacao.codigo_interno})`
-                : organizacao.nome}
-            </option>
-          ))}
-        </CampoSelect>
-        {organizacaoId ? (
-          <div className="flex items-end">
+        <div className={labelClass}>
+          <label htmlFor="organizacao_id" className={labelTextClass}>
+            Organização vinculada
+          </label>
+          <select
+            id="organizacao_id"
+            name="organizacao_id"
+            value={organizacaoId}
+            onChange={(event) => {
+              setOrganizacaoId(event.currentTarget.value);
+              setOrganizacaoAlterada(event.currentTarget.value !== organizacaoInicial);
+            }}
+            className={classes(densidade === "confortavel" ? "compacto" : densidade).input}
+          >
+            <option value="">Sem organização vinculada</option>
+            {organizacoesSelect.map((organizacao) => (
+              <option key={organizacao.id} value={organizacao.id}>
+                {organizacao.codigo_interno
+                  ? `${organizacao.nome} (${organizacao.codigo_interno})`
+                  : organizacao.nome}
+              </option>
+            ))}
+          </select>
+          {organizacaoId ? (
             <Link
               href={`/cadastros/organizacoes/${organizacaoId}`}
-              className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+              className={`${auxiliaryTextClass} inline-flex w-fit underline-offset-2 hover:underline`}
             >
               Abrir organização
             </Link>
-          </div>
+          ) : (
+            <span aria-hidden="true" className={auxiliaryTextClass} />
+          )}
+        </div>
+        {organizacaoId ? (
+          <div aria-hidden="true" className="hidden lg:block" />
         ) : null}
         {!organizacaoId ? (
           <label className="flex min-h-9 items-center gap-2 rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700">
@@ -1619,7 +1694,12 @@ function GeralTab({
         ) : null}
       </FormSection>
 
-      <FormSection title="Contato principal" densidade={densidade}>
+      <FormSection
+        step={2}
+        title="Contato principal"
+        description="Pessoa de referência para atendimento, validação e comunicação inicial."
+        densidade={densidade}
+      >
         <CampoTexto
           name="contato_nome"
           label="Nome do contato"
@@ -1737,7 +1817,12 @@ function GeralTab({
         </div>
       </FormSection>
 
-      <FormSection title="Endereço principal" densidade={densidade}>
+      <FormSection
+        step={3}
+        title="Endereço principal"
+        description="Base cadastral usada para identificação, cobrança e referência inicial de deslocamento."
+        densidade={densidade}
+      >
         <CampoTexto
           name="cep"
           label="CEP"
@@ -1788,12 +1873,15 @@ function GeralTab({
 
       <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
         <div className="border-b border-gray-100 px-4 py-3">
-          <h2 className="text-base font-bold text-gray-950">Localização operacional</h2>
-          {densidade === "confortavel" ? (
-            <p className="mt-1 text-sm text-gray-600">
-              Ponto real de chegada do técnico, independente do endereço cadastral.
-            </p>
-          ) : null}
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-base font-bold text-gray-950">
+              4. Localização operacional
+            </h2>
+            <FieldMetaBadge>Mapa derivado</FieldMetaBadge>
+          </div>
+          <p className="mt-1 text-sm text-gray-600">
+            Ponto real de chegada do técnico, independente do endereço cadastral.
+          </p>
         </div>
         <div className={`space-y-4 ${classes(densidade).sectionPadding}`}>
           <div className={classes(densidade).grid}>
@@ -1808,22 +1896,30 @@ function GeralTab({
             />
           </div>
             <div className={labelClass}>
-              Latitude
+              <div className="flex items-center gap-2">
+                <span className={labelTextClass}>Latitude</span>
+                <FieldMetaBadge>Automático</FieldMetaBadge>
+              </div>
               <div
                 aria-label="Latitude derivada"
                 className="mt-1 inline-flex min-h-7 max-w-full items-center rounded border border-gray-200 bg-gray-100 px-2 text-[11px] font-semibold normal-case tracking-normal text-gray-700"
               >
                 {latitudeDerivada || "Gerada pelo link/endereço"}
               </div>
+              <span aria-hidden="true" className={auxiliaryTextClass} />
             </div>
             <div className={labelClass}>
-              Longitude
+              <div className="flex items-center gap-2">
+                <span className={labelTextClass}>Longitude</span>
+                <FieldMetaBadge>Automático</FieldMetaBadge>
+              </div>
               <div
                 aria-label="Longitude derivada"
                 className="mt-1 inline-flex min-h-7 max-w-full items-center rounded border border-gray-200 bg-gray-100 px-2 text-[11px] font-semibold normal-case tracking-normal text-gray-700"
               >
                 {longitudeDerivada || "Gerada pelo link/endereço"}
               </div>
+              <span aria-hidden="true" className={auxiliaryTextClass} />
             </div>
             <CampoSelect
               name="origem_geolocalizacao"
@@ -1951,7 +2047,12 @@ function GeralTab({
         </div>
       </section>
 
-      <FormSection title="Informações de acesso" densidade={densidade}>
+      <FormSection
+        step={5}
+        title="Informações de acesso"
+        description="Regras práticas para entrada, autorização, estacionamento, portaria e documentos."
+        densidade={densidade}
+      >
         <CampoTexto name="ponto_referencia" label="Ponto de referência" defaultValue={parceiro?.ponto_referencia} densidade={densidade} />
         <CampoSelect
           name="responsavel_local_contato_id"
@@ -2070,7 +2171,9 @@ function GeralTab({
           />
         ) : null}
         <div className="md:col-span-2">
-          <span className={labelClass}>Documento necessário para entrada</span>
+          <span className={`${longFieldLabelClass} ${labelTextClass}`}>
+            Documento necessário para entrada
+          </span>
           <div className="mt-2 grid gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
             {DOCUMENTOS_ENTRADA.map((documento) => (
               <label
@@ -2106,7 +2209,12 @@ function GeralTab({
         </div>
       </FormSection>
 
-      <FormSection title="Horários de atendimento" densidade={densidade}>
+      <FormSection
+        step={6}
+        title="Horários de atendimento"
+        description="Agenda semanal usada como referência para atendimento técnico e agendamento."
+        densidade={densidade}
+      >
         <Toggle name="atendimento_feriado" label="Atendimento em feriados" defaultChecked={parceiro?.atendimento_feriado ?? false} />
         <Toggle name="necessita_agendamento" label="Necessita agendamento" defaultChecked={parceiro?.necessita_agendamento ?? false} />
         <AgendaSemanalAtendimento
@@ -2176,7 +2284,7 @@ function FiliaisTab({
           <CampoTexto name="sla_padrao" label="SLA" densidade={densidade} />
           <CampoTexto name="horario_atendimento" label="Horários" densidade={densidade} />
           <label className={labelClass}>
-            Status
+            <span className={labelTextClass}>Status</span>
             <select name="status" defaultValue="ativa" className={classes(densidade).input}>
               {STATUS_FILIAL.map((status) => (
                 <option key={status} value={status}>
@@ -2184,6 +2292,7 @@ function FiliaisTab({
                 </option>
               ))}
             </select>
+            <span aria-hidden="true" className={auxiliaryTextClass} />
           </label>
           <div className="md:col-span-2">
             <CampoTextarea name="observacoes_operacionais" label="Observações operacionais" densidade={densidade} />
@@ -2491,7 +2600,7 @@ function ContratosTab({
           <CampoTexto name="vigencia_fim" label="Vigência fim" type="date" densidade={densidade} />
           <CampoTexto name="sla" label="SLA" densidade={densidade} />
           <label className={labelClass}>
-            Status
+            <span className={labelTextClass}>Status</span>
             <select name="status" defaultValue="ativo" className={classes(densidade).input}>
               {STATUS_CONTRATO.map((status) => (
                 <option key={status} value={status}>
@@ -2499,6 +2608,7 @@ function ContratosTab({
                 </option>
               ))}
             </select>
+            <span aria-hidden="true" className={auxiliaryTextClass} />
           </label>
           <div className="md:col-span-2">
             <CampoTextarea name="observacoes" label="Observações" densidade={densidade} />
@@ -2583,8 +2693,9 @@ function AnexosTab({
         <input type="hidden" name="tamanho_bytes" value={tamanhoBytes} />
         <div className={classes(densidade).grid}>
           <label className={labelClass}>
-            Arquivo
+            <span className={labelTextClass}>Arquivo</span>
             <input name="arquivo" type="file" className={classes(densidade).input} />
+            <span aria-hidden="true" className={auxiliaryTextClass} />
           </label>
           <CampoTexto name="observacao" label="Observação" densidade={densidade} />
         </div>
@@ -2641,8 +2752,12 @@ export function ParceiroForm({ parceiro, organizacoes = [], erro }: Props) {
   return (
     <div className="space-y-4">
       {erro ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
-          {erro}
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+        >
+          <p className="font-bold">Revise a aba Geral antes de salvar.</p>
+          <p className="mt-1 font-semibold">{erro}</p>
         </div>
       ) : null}
 

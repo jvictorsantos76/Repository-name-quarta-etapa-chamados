@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { fetchAccessStatus } from "@/lib/auth/access-status-client";
 import {
   clearInvalidSupabaseBrowserSession,
   syncSupabaseSessionCookies,
@@ -61,28 +62,22 @@ export default function LoginPage() {
 
     syncSupabaseSessionCookies(session);
 
-    const resposta = await fetch("/auth/access-status", {
-      method: "GET",
-      credentials: "same-origin",
-      cache: "no-store",
-    });
-    const acesso = (await resposta.json()) as {
-      kind: string;
-      redirectTo: string;
-      message?: string;
-    };
+    const acesso = await fetchAccessStatus();
 
-    if (!resposta.ok) {
-      setErro("Não foi possível validar o acesso após o login.");
+    if (!acesso.ok) {
+      setErro(acesso.message);
       return;
     }
 
-    if (acesso.kind === "inconsistent" || acesso.kind === "blocked") {
+    if (
+      acesso.data.kind === "inconsistent" ||
+      acesso.data.kind === "blocked"
+    ) {
       setAviso("");
-      setErro(acesso.message ?? "");
+      setErro(acesso.data.message ?? "");
     }
 
-    router.replace(acesso.redirectTo);
+    router.replace(acesso.data.redirectTo);
     router.refresh();
   }, [router, supabase]);
 

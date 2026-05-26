@@ -3,6 +3,20 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.47",
+    data: "22/05/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.1.11 padroniza a aba Geral como base de grandes cadastros com blocos numerados e legenda de obrigatoriedade.",
+      "Indicadores de tipo, legenda, vínculo operacional e campos automáticos passam a usar esquema visual neutro para melhorar contraste e legibilidade.",
+      "Dropdowns da aba Geral ficam mais compactos também no modo confortável, reduzindo altura desnecessária em desktop.",
+      "A ação Abrir organização passa a aparecer como link auxiliar abaixo do campo Organização vinculada, sem ocupar uma coluna própria no formulário.",
+      "Campos simples da aba Geral passam a reservar a mesma altura para rótulo, controle e texto auxiliar, mantendo caixa alta apenas nos nomes dos campos.",
+    ],
+    correcoes: [
+      "Mensagem de erro da aba Geral passa a orientar a revisão antes de salvar, sem alterar Server Actions, banco, RLS ou permissões.",
+    ],
+  },
+  {
     versao: "v0.9.43",
     data: "22/05/2026",
     alteracoes: [

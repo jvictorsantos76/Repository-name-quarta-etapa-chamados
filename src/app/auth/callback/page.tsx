@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { fetchAccessStatus } from "@/lib/auth/access-status-client";
 import {
   syncSupabaseSessionCookies,
   useSupabaseBrowserClient,
@@ -51,25 +52,18 @@ function AuthCallbackContent() {
         }
 
         syncSupabaseSessionCookies(session);
-        const resposta = await fetch("/auth/access-status", {
-          method: "GET",
-          credentials: "same-origin",
-          cache: "no-store",
-        });
-        const acesso = (await resposta.json()) as {
-          kind: string;
-          redirectTo: string;
-          message?: string;
-        };
+        const acesso = await fetchAccessStatus();
 
-        if (!resposta.ok) {
+        if (!acesso.ok) {
           if (ativo) {
-            setMensagem("Não foi possível validar o acesso após a autenticação.");
+            setMensagem(acesso.message);
           }
           return;
         }
 
-        router.replace(acesso.kind === "operational" ? nextPath : acesso.redirectTo);
+        router.replace(
+          acesso.data.kind === "operational" ? nextPath : acesso.data.redirectTo
+        );
         router.refresh();
       } catch {
         if (ativo) {

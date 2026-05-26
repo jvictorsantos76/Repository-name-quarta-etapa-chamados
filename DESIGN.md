@@ -206,6 +206,8 @@ Este sistema de design foi extraído e consolidado a partir da análise das inte
 
 \- Agrupamento de campos em blocos numerados (ex: "1. Identificação do chamado").
 
+\- Grandes cadastros devem exibir legenda discreta para diferenciar campos obrigatórios, opcionais, automáticos e somente leitura.
+
 \- Botões de ação primária em azul (`primary`) e secundários em contorno.
 
 

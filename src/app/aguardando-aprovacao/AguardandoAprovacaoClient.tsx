@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { fetchAccessStatus } from "@/lib/auth/access-status-client";
 import {
   syncSupabaseSessionCookies,
   useSupabaseBrowserClient,
@@ -25,32 +26,25 @@ export function AguardandoAprovacaoClient() {
       }
 
       syncSupabaseSessionCookies(session);
-      const resposta = await fetch("/auth/access-status", {
-        method: "GET",
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      const acesso = (await resposta.json()) as {
-        kind: string;
-        redirectTo: string;
-        message?: string;
-      };
+      const acesso = await fetchAccessStatus();
 
       if (!ativo) {
         return;
       }
 
-      if (!resposta.ok) {
-        setMensagem("Não foi possível verificar a sessão automaticamente.");
+      if (!acesso.ok) {
+        setMensagem(acesso.message);
         return;
       }
 
-      if (acesso.kind !== "operational") {
-        setMensagem(acesso.message ?? "Sessão encontrada, mas sem acesso ativo.");
+      if (acesso.data.kind !== "operational") {
+        setMensagem(
+          acesso.data.message ?? "Sessão encontrada, mas sem acesso ativo."
+        );
         return;
       }
 
-      router.replace(acesso.redirectTo);
+      router.replace(acesso.data.redirectTo);
       router.refresh();
     }
 

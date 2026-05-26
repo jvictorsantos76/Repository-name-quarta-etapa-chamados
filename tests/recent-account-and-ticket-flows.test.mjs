@@ -99,6 +99,10 @@ const accessStatusRouteSource = await readFile(
   new URL("../src/app/auth/access-status/route.ts", import.meta.url),
   "utf8"
 );
+const accessStatusClientSource = await readFile(
+  new URL("../src/lib/auth/access-status-client.ts", import.meta.url),
+  "utf8"
+);
 const adminApprovalOnlyMigration = await readFile(
   new URL(
     "../supabase/migrations/20260512021648_restore_admin_approval_only_flow.sql",
@@ -440,8 +444,10 @@ test("awaiting approval page keeps logout path and only redirects operational us
   assert.match(aguardandoAprovacaoSource, /acesso\.message/);
   assert.match(aguardandoAprovacaoSource, /AguardandoAprovacaoClient/);
   assert.match(aguardandoAprovacaoClientSource, /syncSupabaseSessionCookies\(session\)/);
-  assert.match(aguardandoAprovacaoClientSource, /fetch\("\/auth\/access-status"/);
-  assert.match(aguardandoAprovacaoClientSource, /router\.replace\(acesso\.redirectTo\)/);
+  assert.match(aguardandoAprovacaoClientSource, /fetchAccessStatus/);
+  assert.match(accessStatusClientSource, /fetch\("\/auth\/access-status"/);
+  assert.match(accessStatusClientSource, /content-type/);
+  assert.match(aguardandoAprovacaoClientSource, /router\.replace\(acesso\.data\.redirectTo\)/);
   assert.doesNotMatch(aguardandoAprovacaoClientSource, /temporary/);
   assert.match(aguardandoAprovacaoSource, /href="\/auth\/logout"/);
 });
@@ -545,7 +551,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.7"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.11"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -681,7 +687,7 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.7"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.11"/);
 });
 
 test("partner service hours use weekly structured agenda without deleting legacy columns", () => {
