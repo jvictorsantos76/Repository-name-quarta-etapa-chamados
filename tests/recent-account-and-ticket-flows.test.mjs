@@ -232,6 +232,10 @@ const parceirosFormSource = await readFile(
   new URL("../src/app/cadastros/parceiros/ParceiroForm.tsx", import.meta.url),
   "utf8"
 );
+const parceirosDetalhePageSource = await readFile(
+  new URL("../src/app/cadastros/parceiros/[id]/page.tsx", import.meta.url),
+  "utf8"
+);
 const parceirosLocationUtilsSource = await readFile(
   new URL("../src/app/cadastros/parceiros/location-utils.ts", import.meta.url),
   "utf8"
@@ -731,14 +735,23 @@ test("partner service hours use weekly structured agenda without deleting legacy
 
   assert.match(parceirosFormSource, /AgendaSemanalAtendimento/);
   assert.match(parceirosFormSource, /DIAS_ATENDIMENTO/);
+  assert.match(parceirosFormSource, /onSubmit=\{validarFormulario\}/);
   assert.match(parceirosFormSource, /horarios_atendimento_json/);
+  assert.match(parceirosFormSource, /value=\{horariosAtendimentoJson\}/);
   assert.match(parceirosFormSource, /"09:00"/);
   assert.match(parceirosFormSource, /"17:00"/);
   assert.match(parceirosFormSource, /Não é permitido|não podem se sobrepor/);
+  assert.match(parceirosFormSource, /event\.preventDefault\(\)/);
   assert.match(parceirosActionsSource, /montarHorariosAtendimento/);
+  assert.match(parceirosActionsSource, /Informe a agenda de todos os dias da semana\./);
+  assert.match(parceirosActionsSource, /Dia fechado não pode ter intervalos de atendimento\./);
   assert.match(parceirosActionsSource, /salvarHorariosAtendimento/);
   assert.match(parceirosActionsSource, /\.from\("parceiro_horarios_atendimento"\)[\s\S]*\.delete\(\)/);
   assert.match(parceirosActionsSource, /\.from\("parceiro_horarios_atendimento"\)[\s\S]*\.insert\(/);
+  assert.match(parceirosDetalhePageSource, /\.from\("parceiro_horarios_atendimento"\)/);
+  assert.match(parceirosDetalhePageSource, /\.eq\("parceiro_id", id\)/);
+  assert.match(parceirosDetalhePageSource, /\.order\("dia_semana"\)[\s\S]*\.order\("ordem"\)/);
+  assert.match(parceirosDetalhePageSource, /horarios_atendimento:[\s\S]*horariosAtendimentoResposta\.data/);
   assert.doesNotMatch(parceirosFormSource, /name="horario_funcionamento"/);
   assert.doesNotMatch(parceirosFormSource, /name="horario_atendimento_tecnico"/);
   assert.doesNotMatch(parceirosFormSource, /name="horario_coleta_entrega"/);
