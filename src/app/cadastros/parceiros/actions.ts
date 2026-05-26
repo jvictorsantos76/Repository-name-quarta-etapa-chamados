@@ -485,6 +485,30 @@ function mensagemErroParceiro(error?: {
   return "Não foi possível salvar o parceiro.";
 }
 
+function valorContatoEditavel(
+  formData: FormData,
+  name: string,
+  isValid: (value: string) => boolean,
+  mensagemErro: string
+) {
+  const valor = normalizarTexto(formData.get(name));
+  const opcao = normalizarTexto(formData.get(`${name}_opcao`));
+
+  if (!valor) {
+    return { ok: true as const, value: "" };
+  }
+
+  if (opcao === "outro") {
+    return { ok: true as const, value: valor };
+  }
+
+  if (!isValid(valor)) {
+    return { ok: false as const, error: mensagemErro };
+  }
+
+  return { ok: true as const, value: valor };
+}
+
 function isSchemaColumnError(
   error: { code?: string; message?: string; details?: string } | null | undefined,
   column: string
@@ -1073,9 +1097,24 @@ export async function salvarParceiroGeral(formData: FormData) {
 
   const nomeContato = normalizarTexto(formData.get("contato_nome"));
   const contatoEmail = emailOuNull(formData.get("contato_email"));
-  const contatoTipo = normalizarTexto(formData.get("contato_tipo"));
-  const contatoDepartamento = normalizarTexto(formData.get("contato_departamento"));
-  const contatoCargo = normalizarTexto(formData.get("contato_cargo"));
+  const contatoTipo = valorContatoEditavel(
+    formData,
+    "contato_tipo",
+    isTipoContato,
+    "Informe um tipo de contato válido."
+  );
+  const contatoDepartamento = valorContatoEditavel(
+    formData,
+    "contato_departamento",
+    isDepartamentoContato,
+    "Informe um departamento válido."
+  );
+  const contatoCargo = valorContatoEditavel(
+    formData,
+    "contato_cargo",
+    isCargoContato,
+    "Informe um cargo válido."
+  );
   const contatoCelular = telefoneOuNull(formData.get("contato_celular"));
   const contatoWhatsapp = boolForm(formData, "contato_celular_whatsapp")
     ? contatoCelular
@@ -1085,28 +1124,28 @@ export async function salvarParceiroGeral(formData: FormData) {
     redirectComErro(detalhePath(parceiroId), contatoEmail.error);
   }
 
-  if (contatoTipo && !isTipoContato(contatoTipo)) {
-    redirectComErro(detalhePath(parceiroId), "Informe um tipo de contato válido.");
+  if (!contatoTipo.ok) {
+    redirectComErro(detalhePath(parceiroId), contatoTipo.error);
   }
 
-  if (contatoDepartamento && !isDepartamentoContato(contatoDepartamento)) {
-    redirectComErro(detalhePath(parceiroId), "Informe um departamento válido.");
+  if (!contatoDepartamento.ok) {
+    redirectComErro(detalhePath(parceiroId), contatoDepartamento.error);
   }
 
-  if (contatoCargo && !isCargoContato(contatoCargo)) {
-    redirectComErro(detalhePath(parceiroId), "Informe um cargo válido.");
+  if (!contatoCargo.ok) {
+    redirectComErro(detalhePath(parceiroId), contatoCargo.error);
   }
 
   const contatoPayload = {
     parceiro_id: parceiroId,
     nome: nomeContato,
-    tipo_contato: contatoTipo || null,
-    cargo: contatoCargo || null,
+    tipo_contato: contatoTipo.value || null,
+    cargo: contatoCargo.value || null,
     telefone: telefoneOuNull(formData.get("contato_telefone")),
     celular: contatoCelular,
     whatsapp: contatoWhatsapp,
     email: contatoEmail.value,
-    departamento: contatoDepartamento || null,
+    departamento: contatoDepartamento.value || null,
     observacoes: textoOuNull(formData.get("contato_observacoes")),
     principal: true,
     contato_financeiro: false,

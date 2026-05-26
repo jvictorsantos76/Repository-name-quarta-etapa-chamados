@@ -55,6 +55,7 @@ type Props = {
   parceiro?: ParceiroDetalhe | null;
   organizacoes?: OrganizacaoParceiroOpcao[];
   erro?: string | null;
+  sucesso?: string | null;
 };
 
 type Aba =
@@ -481,6 +482,33 @@ function feedbackConsultaClass(
   return "border-red-200 bg-red-50 text-red-700";
 }
 
+function valorSelectEditavel(
+  valor: string | null | undefined,
+  opcoes: readonly string[],
+  fallback = ""
+) {
+  const normalizado = String(valor ?? "").trim();
+
+  if (!normalizado) {
+    return fallback;
+  }
+
+  return opcoes.includes(normalizado) ? normalizado : "outro";
+}
+
+function labelContatoCatalogo(
+  valor: string | null | undefined,
+  labels: Record<string, string>
+) {
+  const normalizado = String(valor ?? "").trim();
+
+  if (!normalizado) {
+    return "-";
+  }
+
+  return labels[normalizado] ?? normalizado;
+}
+
 function AcoesContato({
   email,
   telefone,
@@ -607,6 +635,69 @@ function CampoSelect({
       </select>
       <span aria-hidden="true" className={`${auxiliaryTextClass} hidden`} />
     </label>
+  );
+}
+
+function CampoSelectEditavel({
+  name,
+  label,
+  options,
+  labels,
+  defaultValue,
+  defaultOption = "",
+  placeholder = "Selecione",
+  densidade,
+}: {
+  name: string;
+  label: string;
+  options: readonly string[];
+  labels: Record<string, string>;
+  defaultValue?: string | null;
+  defaultOption?: string;
+  placeholder?: string | null;
+  densidade: Densidade;
+}) {
+  const opcaoInicial = valorSelectEditavel(defaultValue, options, defaultOption);
+  const [opcao, setOpcao] = useState(opcaoInicial);
+  const [outro, setOutro] = useState(
+    opcaoInicial === "outro" ? String(defaultValue ?? "") : ""
+  );
+  const opcoes = options.includes("outro") ? options : [...options, "outro"];
+
+  return (
+    <div className="grid gap-2">
+      <label className={labelClass}>
+        <span className={labelTextClass}>{label}</span>
+        <select
+          name={`${name}_opcao`}
+          value={opcao}
+          onChange={(event) => setOpcao(event.currentTarget.value)}
+          className={classes(densidade === "confortavel" ? "compacto" : densidade).input}
+        >
+          {placeholder !== null ? <option value="">{placeholder}</option> : null}
+          {opcoes.map((opcaoItem) => (
+            <option key={opcaoItem} value={opcaoItem}>
+              {opcaoItem === "outro" ? "Outro" : labels[opcaoItem] ?? opcaoItem}
+            </option>
+          ))}
+        </select>
+      </label>
+      {opcao === "outro" ? (
+        <label className={labelClass}>
+          <span className={labelTextClass}>{label} personalizado</span>
+          <input
+            name={name}
+            value={outro}
+            onChange={(event) => setOutro(event.currentTarget.value)}
+            maxLength={80}
+            placeholder={`Informe ${label.toLowerCase()}`}
+            className={classes(densidade).input}
+          />
+        </label>
+      ) : (
+        <input type="hidden" name={name} value={opcao} />
+      )}
+    </div>
   );
 }
 
@@ -916,10 +1007,14 @@ function GeralTab({
   parceiro,
   organizacoes,
   densidade,
+  erro,
+  sucesso,
 }: {
   parceiro?: ParceiroDetalhe | null;
   organizacoes: OrganizacaoParceiroOpcao[];
   densidade: Densidade;
+  erro?: string | null;
+  sucesso?: string | null;
 }) {
   const endereco = parceiro?.endereco_principal;
   const contato = parceiro?.contato_principal;
@@ -1708,23 +1803,18 @@ function GeralTab({
             >
               Abrir organização
             </Link>
-          ) : (
-            <span aria-hidden="true" className={auxiliaryTextClass} />
-          )}
+          ) : null}
+          {!organizacaoId ? (
+            <label className="mt-1 flex w-fit items-center gap-2 text-xs font-semibold normal-case tracking-normal text-gray-700">
+              <input
+                type="checkbox"
+                name="criar_organizacao_vinculada"
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span>Criar organização ao salvar</span>
+            </label>
+          ) : null}
         </div>
-        {organizacaoId ? (
-          <div aria-hidden="true" className="hidden lg:block" />
-        ) : null}
-        {!organizacaoId ? (
-          <label className="flex min-h-9 items-center gap-2 rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700">
-            <input
-              type="checkbox"
-              name="criar_organizacao_vinculada"
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span>Criar organização a partir deste cadastro ao salvar</span>
-          </label>
-        ) : null}
       </FormSection>
 
       <FormSection
@@ -1740,44 +1830,32 @@ function GeralTab({
           required
           densidade={densidade}
         />
-        <CampoSelect
+        <CampoSelectEditavel
           name="contato_tipo"
           label="Tipo de contato"
           defaultValue={contato?.tipo_contato ?? "operacional"}
           densidade={densidade}
-        >
-          {TIPOS_CONTATO.map((tipo) => (
-            <option key={tipo} value={tipo}>
-              {LABEL_TIPO_CONTATO[tipo]}
-            </option>
-          ))}
-        </CampoSelect>
-        <CampoSelect
+          options={TIPOS_CONTATO}
+          labels={LABEL_TIPO_CONTATO}
+          defaultOption="operacional"
+          placeholder={null}
+        />
+        <CampoSelectEditavel
           name="contato_departamento"
           label="Departamento"
-          defaultValue={normalizarSelect(contato?.departamento, DEPARTAMENTOS_CONTATO)}
+          defaultValue={contato?.departamento}
           densidade={densidade}
-        >
-          <option value="">Selecione</option>
-          {DEPARTAMENTOS_CONTATO.map((departamento) => (
-            <option key={departamento} value={departamento}>
-              {LABEL_DEPARTAMENTO_CONTATO[departamento]}
-            </option>
-          ))}
-        </CampoSelect>
-        <CampoSelect
+          options={DEPARTAMENTOS_CONTATO}
+          labels={LABEL_DEPARTAMENTO_CONTATO}
+        />
+        <CampoSelectEditavel
           name="contato_cargo"
           label="Cargo"
-          defaultValue={normalizarSelect(contato?.cargo, CARGOS_CONTATO)}
+          defaultValue={contato?.cargo}
           densidade={densidade}
-        >
-          <option value="">Selecione</option>
-          {CARGOS_CONTATO.map((cargo) => (
-            <option key={cargo} value={cargo}>
-              {LABEL_CARGO_CONTATO[cargo]}
-            </option>
-          ))}
-        </CampoSelect>
+          options={CARGOS_CONTATO}
+          labels={LABEL_CARGO_CONTATO}
+        />
         <CampoTexto
           name="contato_telefone"
           label="Telefone internacional"
@@ -1789,21 +1867,34 @@ function GeralTab({
             event.currentTarget.value = mascararTelefone(event.currentTarget.value);
           }}
         />
-        <CampoTexto
-          name="contato_celular"
-          label="Celular internacional"
-          value={contatoCelular}
-          densidade={densidade}
-          inputMode="tel"
-          maxLength={19}
-          onChange={(event) => {
-            const valor = mascararCelular(event.currentTarget.value);
-            setContatoCelular(valor);
-            if (celularEhWhatsapp) {
-              setContatoWhatsapp(valor);
-            }
-          }}
-        />
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end md:col-span-2">
+          <CampoTexto
+            name="contato_celular"
+            label="Celular internacional"
+            value={contatoCelular}
+            densidade={densidade}
+            inputMode="tel"
+            maxLength={19}
+            onChange={(event) => {
+              const valor = mascararCelular(event.currentTarget.value);
+              setContatoCelular(valor);
+              if (celularEhWhatsapp) {
+                setContatoWhatsapp(valor);
+              }
+            }}
+          />
+          <Toggle
+            name="contato_celular_whatsapp"
+            label="Celular é WhatsApp"
+            checked={celularEhWhatsapp}
+            onChange={(event) => {
+              setCelularEhWhatsapp(event.currentTarget.checked);
+              if (event.currentTarget.checked) {
+                setContatoWhatsapp(contatoCelular);
+              }
+            }}
+          />
+        </div>
         <div>
           <CampoTexto
             name="contato_email"
@@ -1815,7 +1906,7 @@ function GeralTab({
           />
           <AcoesContato email={contato?.email} />
         </div>
-        <div className="grid gap-2">
+        <div>
           <CampoTexto
             name="contato_whatsapp"
             label="WhatsApp"
@@ -1828,17 +1919,6 @@ function GeralTab({
             }}
           />
           <AcoesContato telefone={contato?.whatsapp ?? contato?.celular} />
-          <Toggle
-            name="contato_celular_whatsapp"
-            label="Celular é WhatsApp"
-            checked={celularEhWhatsapp}
-            onChange={(event) => {
-              setCelularEhWhatsapp(event.currentTarget.checked);
-              if (event.currentTarget.checked) {
-                setContatoWhatsapp(contatoCelular);
-              }
-            }}
-          />
         </div>
         <div className="md:col-span-2">
           <CampoTextarea
@@ -2116,24 +2196,26 @@ function GeralTab({
           }}
           densidade={densidade}
         />
-        <CampoTexto
-          name="responsavel_local_telefone"
-          label="Telefone do responsável no local"
-          value={responsavelLocalTelefone}
-          onChange={(event) => {
-            setResponsavelLocalTelefone(mascararCelular(event.currentTarget.value));
-          }}
-          densidade={densidade}
-          inputMode="tel"
-          maxLength={19}
-        />
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end md:col-span-2">
+          <CampoTexto
+            name="responsavel_local_telefone"
+            label="Telefone do responsável no local"
+            value={responsavelLocalTelefone}
+            onChange={(event) => {
+              setResponsavelLocalTelefone(mascararCelular(event.currentTarget.value));
+            }}
+            densidade={densidade}
+            inputMode="tel"
+            maxLength={19}
+          />
           <Toggle
             name="responsavel_local_whatsapp"
-            label="É WhatsApp?"
+            label="Celular é WhatsApp"
             checked={responsavelLocalWhatsapp}
             onChange={(event) => setResponsavelLocalWhatsapp(event.currentTarget.checked)}
           />
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {responsavelWhatsappLink ? (
             <a
               href={responsavelWhatsappLink}
@@ -2265,19 +2347,36 @@ function GeralTab({
         />
       </FormSection>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <Link
-          href="/cadastros/parceiros"
-          className="inline-flex min-h-10 items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
-        >
-          Cancelar
-        </Link>
-        <button
-          type="submit"
-          className="inline-flex min-h-10 items-center justify-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
-        >
-          Salvar parceiro
-        </button>
+      <div className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 text-sm font-semibold">
+          {erro ? (
+            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700">
+              {erro}
+            </p>
+          ) : sucesso ? (
+            <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
+              {sucesso}
+            </p>
+          ) : (
+            <p className="text-gray-600">
+              Salve para registrar as alterações da aba Geral.
+            </p>
+          )}
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Link
+            href="/cadastros/parceiros"
+            className="inline-flex min-h-10 items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
+          >
+            Cancelar
+          </Link>
+          <button
+            type="submit"
+            className="inline-flex min-h-10 items-center justify-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+          >
+            Salvar parceiro
+          </button>
+        </div>
       </div>
     </form>
   );
@@ -2361,10 +2460,8 @@ function ContatosTab({
         headers={["Nome", "Tipo", "Cargo", "Telefone", "WhatsApp", "E-mail", "Obs.", "Ações"]}
         rows={parceiro.contatos.map((contato) => [
           contato.nome,
-          contato.tipo_contato ? LABEL_TIPO_CONTATO[contato.tipo_contato] : "-",
-          normalizarSelect(contato.cargo, CARGOS_CONTATO)
-            ? LABEL_CARGO_CONTATO[contato.cargo as keyof typeof LABEL_CARGO_CONTATO]
-            : contato.cargo ?? "-",
+          labelContatoCatalogo(contato.tipo_contato, LABEL_TIPO_CONTATO),
+          labelContatoCatalogo(contato.cargo, LABEL_CARGO_CONTATO),
           mascararTelefone(contato.telefone ?? contato.celular ?? ""),
           mascararCelular(contato.whatsapp ?? ""),
           contato.email ?? "-",
@@ -2782,7 +2879,12 @@ function HistoricoTab({ parceiro }: { parceiro: ParceiroDetalhe }) {
   );
 }
 
-export function ParceiroForm({ parceiro, organizacoes = [], erro }: Props) {
+export function ParceiroForm({
+  parceiro,
+  organizacoes = [],
+  erro,
+  sucesso,
+}: Props) {
   const [aba, setAba] = useState<Aba>("geral");
   const [densidade, setDensidade] = useState<Densidade>("confortavel");
   const editando = Boolean(parceiro);
@@ -2796,6 +2898,15 @@ export function ParceiroForm({ parceiro, organizacoes = [], erro }: Props) {
         >
           <p className="font-bold">Revise a aba Geral antes de salvar.</p>
           <p className="mt-1 font-semibold">{erro}</p>
+        </div>
+      ) : null}
+      {sucesso ? (
+        <div
+          role="status"
+          className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+        >
+          <p className="font-bold">Cadastro salvo com sucesso.</p>
+          <p className="mt-1 font-semibold">{sucesso}</p>
         </div>
       ) : null}
 
@@ -2840,6 +2951,8 @@ export function ParceiroForm({ parceiro, organizacoes = [], erro }: Props) {
           parceiro={parceiro}
           organizacoes={organizacoes}
           densidade={densidade}
+          erro={erro}
+          sucesso={sucesso}
         />
       ) : null}
       {parceiro && aba === "filiais" ? <FiliaisTab parceiro={parceiro} densidade={densidade} /> : null}

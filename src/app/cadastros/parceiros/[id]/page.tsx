@@ -35,6 +35,13 @@ async function getErro(searchParams: PageProps["searchParams"]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+async function getSalvo(searchParams: PageProps["searchParams"]) {
+  const params = searchParams ? await searchParams : {};
+  const value = params.salvo;
+
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default async function EditarParceiroPage({
   params,
   searchParams,
@@ -218,6 +225,8 @@ export default async function EditarParceiroPage({
     historico: (historicoResposta.data as ParceiroHistorico[] | null) ?? [],
   } satisfies ParceiroDetalhe;
   const erro = await getErro(searchParams);
+  const salvo = await getSalvo(searchParams);
+  const sucesso = salvo ? "As alterações foram gravadas e o cadastro já está atualizado." : null;
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">
@@ -265,7 +274,12 @@ export default async function EditarParceiroPage({
           </form>
         </div>
 
-        <ParceiroForm parceiro={parceiro} organizacoes={organizacoes} erro={erro} />
+        <ParceiroForm
+          parceiro={parceiro}
+          organizacoes={organizacoes}
+          erro={erro}
+          sucesso={sucesso}
+        />
       </section>
     </main>
   );

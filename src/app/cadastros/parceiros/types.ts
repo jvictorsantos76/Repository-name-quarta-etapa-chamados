@@ -244,7 +244,7 @@ export type ParceiroContato = {
   whatsapp: string | null;
   email: string | null;
   departamento: string | null;
-  tipo_contato: TipoContato | null;
+  tipo_contato: string | null;
   observacoes?: string | null;
   principal: boolean;
   contato_financeiro: boolean;
