@@ -317,7 +317,7 @@ function classes(densidade: Densidade) {
     input: `mt-1 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 ${
       densidade === "compacto" ? "min-h-8 py-1" : "min-h-10 py-2"
     }`,
-    button: `inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 ${
+    button: `inline-flex items-center justify-center whitespace-nowrap rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 ${
       densidade === "compacto" ? "min-h-8 py-1" : "min-h-10 py-2"
     }`,
     grid:
@@ -629,7 +629,7 @@ function CampoSelect({
         defaultValue={value === undefined ? defaultValue ?? "" : undefined}
         value={value}
         onChange={onChange}
-        className={classes(densidade === "confortavel" ? "compacto" : densidade).input}
+        className={classes(densidade).input}
       >
         {children}
       </select>
@@ -672,7 +672,7 @@ function CampoSelectEditavel({
           name={`${name}_opcao`}
           value={opcao}
           onChange={(event) => setOpcao(event.currentTarget.value)}
-          className={classes(densidade === "confortavel" ? "compacto" : densidade).input}
+          className={classes(densidade).input}
         >
           {placeholder !== null ? <option value="">{placeholder}</option> : null}
           {opcoes.map((opcaoItem) => (
@@ -916,13 +916,17 @@ function FormSection({
   description,
   children,
   densidade,
+  gridClassName,
 }: {
   step?: number;
   title: string;
   description?: string;
   children: ReactNode;
   densidade: Densidade;
+  gridClassName?: string;
 }) {
+  const gridClass = gridClassName ?? classes(densidade).grid;
+
   return (
     <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
       <div className="border-b border-gray-100 px-4 py-3">
@@ -936,7 +940,7 @@ function FormSection({
           <p className="mt-1 max-w-3xl text-sm text-gray-600">{description}</p>
         ) : null}
       </div>
-      <div className={`${classes(densidade).grid} ${classes(densidade).sectionPadding}`}>
+      <div className={`${gridClass} ${classes(densidade).sectionPadding}`}>
         {children}
       </div>
     </section>
@@ -1176,6 +1180,10 @@ function GeralTab({
   const horariosAtendimentoJson = JSON.stringify(
     serializarAgendaAtendimento(agendaAtendimento)
   );
+  const dadosCadastraisGrid =
+    densidade === "compacto"
+      ? "grid gap-x-3 gap-y-5 md:grid-cols-3"
+      : "grid gap-x-4 gap-y-6 md:grid-cols-2";
 
   function validarFormulario(event: FormEvent<HTMLFormElement>) {
     const erroAgenda = validarAgendaAtendimento(agendaAtendimento);
@@ -1589,6 +1597,7 @@ function GeralTab({
         title="Dados cadastrais"
         description="Identificação fiscal, operacional e vínculo de organização."
         densidade={densidade}
+        gridClassName={dadosCadastraisGrid}
       >
         <div className="grid gap-2 sm:grid-cols-2">
           <CampoSelect
@@ -1630,41 +1639,38 @@ function GeralTab({
           required
           densidade={densidade}
         />
-        <div className={labelClass}>
+        <div className={`${labelClass} relative`}>
           <label htmlFor="cnpj_cpf" className={labelTextClass}>
             {pessoaFisica ? "CPF" : "CNPJ"}
           </label>
-          <div className="mt-1 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-            <input
-              id="cnpj_cpf"
-              key={tipoPessoa}
-              name="cnpj_cpf"
-              value={campos.cnpj_cpf}
-              onChange={(event) =>
-                atualizarCampo(
-                  "cnpj_cpf",
-                  pessoaFisica
-                    ? mascararCpf(event.currentTarget.value)
-                    : mascararCnpj(event.currentTarget.value)
-                )
-              }
-              inputMode="numeric"
-              maxLength={pessoaFisica ? 14 : 18}
-              className={`${classes(densidade).input} mt-0`}
-            />
-            {!pessoaFisica ? (
-              <button
-                type="button"
-                disabled={!cnpjConsultavel || consultandoCnpj}
-                onClick={() => {
-                  void consultarCnpj();
-                }}
-                className={`${classes(densidade).button} sm:w-40`}
-              >
-                {consultandoCnpj ? "Consultando..." : "Consultar CNPJ"}
-              </button>
-            ) : null}
-          </div>
+          <input
+            id="cnpj_cpf"
+            key={tipoPessoa}
+            name="cnpj_cpf"
+            value={campos.cnpj_cpf}
+            onChange={(event) =>
+              atualizarCampo(
+                "cnpj_cpf",
+                pessoaFisica
+                  ? mascararCpf(event.currentTarget.value)
+                  : mascararCnpj(event.currentTarget.value)
+              )
+            }
+            inputMode="numeric"
+            maxLength={pessoaFisica ? 14 : 18}
+            className={classes(densidade).input}
+          />
+          {!pessoaFisica ? (
+            <button
+              type="button"
+              onClick={() => {
+                void consultarCnpj();
+              }}
+              className={`${auxiliaryTextClass} absolute left-0 top-full inline-flex w-fit text-blue-700 underline-offset-2 hover:underline disabled:cursor-wait disabled:text-blue-400`}
+            >
+              {consultandoCnpj ? "Consultando..." : "Consultar CNPJ"}
+            </button>
+          ) : null}
         </div>
         {renderFeedbackConsulta("cnpj")}
         <CampoTexto
@@ -1785,7 +1791,7 @@ function GeralTab({
               setOrganizacaoId(event.currentTarget.value);
               setOrganizacaoAlterada(event.currentTarget.value !== organizacaoInicial);
             }}
-            className={classes(densidade === "confortavel" ? "compacto" : densidade).input}
+            className={classes(densidade).input}
           >
             <option value="">Sem organização vinculada</option>
             {organizacoesSelect.map((organizacao) => (

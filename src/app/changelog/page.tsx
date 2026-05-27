@@ -6,6 +6,10 @@ const versoes = [
     versao: "v0.9.47",
     data: "22/05/2026",
     alteracoes: [
+      "Clientes / Parceiros v1.1.17 isola o link Consultar CNPJ da altura do campo e ajusta o espaçamento apenas em Dados cadastrais.",
+      "Clientes / Parceiros v1.1.16 troca Consultar CNPJ para ação textual sempre ativa abaixo do campo, seguindo o padrão dos links auxiliares.",
+      "Clientes / Parceiros v1.1.15 corrige o alinhamento do agrupamento CNPJ, impedindo quebra de linha no botão Consultar CNPJ.",
+      "Clientes / Parceiros v1.1.14 padroniza a altura dos dropdowns da aba Geral com os campos de texto no modo confortável.",
       "Clientes / Parceiros v1.1.13 compacta o vínculo de organização, aproxima toggles de WhatsApp dos telefones e permite Outro editável no contato principal.",
       "A aba Geral passa a exibir confirmação de salvamento junto às ações do formulário, mantendo mensagens de erro visíveis no ponto de decisão.",
       "Clientes / Parceiros v1.1.12 ajusta a aba Geral como padrão visual de grandes cadastros, reduzindo vazios verticais e padronizando altura de campos e ações.",
