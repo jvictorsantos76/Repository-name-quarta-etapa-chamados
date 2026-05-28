@@ -1182,8 +1182,8 @@ function GeralTab({
   );
   const dadosCadastraisGrid =
     densidade === "compacto"
-      ? "grid gap-x-3 gap-y-5 md:grid-cols-3"
-      : "grid gap-x-4 gap-y-6 md:grid-cols-2";
+      ? "grid gap-x-3 gap-y-4 md:grid-cols-3"
+      : "grid gap-x-4 gap-y-[1.2rem] md:grid-cols-2";
 
   function validarFormulario(event: FormEvent<HTMLFormElement>) {
     const erroAgenda = validarAgendaAtendimento(agendaAtendimento);
@@ -1639,10 +1639,23 @@ function GeralTab({
           required
           densidade={densidade}
         />
-        <div className={`${labelClass} relative`}>
-          <label htmlFor="cnpj_cpf" className={labelTextClass}>
-            {pessoaFisica ? "CPF" : "CNPJ"}
-          </label>
+        <div className={labelClass}>
+          <div className="flex items-baseline justify-between gap-3">
+            <label htmlFor="cnpj_cpf" className={labelTextClass}>
+              {pessoaFisica ? "CPF" : "CNPJ"}
+            </label>
+            {!pessoaFisica ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void consultarCnpj();
+                }}
+                className="inline-flex w-fit font-[Arial] text-[11px] font-semibold uppercase leading-[inherit] tracking-wide text-blue-700 underline-offset-2 hover:underline disabled:cursor-wait disabled:text-blue-400"
+              >
+                {consultandoCnpj ? "Consultando..." : "Consultar CNPJ"}
+              </button>
+            ) : null}
+          </div>
           <input
             id="cnpj_cpf"
             key={tipoPessoa}
@@ -1660,17 +1673,6 @@ function GeralTab({
             maxLength={pessoaFisica ? 14 : 18}
             className={classes(densidade).input}
           />
-          {!pessoaFisica ? (
-            <button
-              type="button"
-              onClick={() => {
-                void consultarCnpj();
-              }}
-              className={`${auxiliaryTextClass} absolute left-0 top-full inline-flex w-fit text-blue-700 underline-offset-2 hover:underline disabled:cursor-wait disabled:text-blue-400`}
-            >
-              {consultandoCnpj ? "Consultando..." : "Consultar CNPJ"}
-            </button>
-          ) : null}
         </div>
         {renderFeedbackConsulta("cnpj")}
         <CampoTexto
@@ -1780,9 +1782,21 @@ function GeralTab({
           densidade={densidade}
         />
         <div className={labelClass}>
-          <label htmlFor="organizacao_id" className={labelTextClass}>
-            Organização vinculada
-          </label>
+          <div className="flex items-end justify-between gap-3">
+            <label htmlFor="organizacao_id" className={labelTextClass}>
+              Organização vinculada
+            </label>
+            {!organizacaoId ? (
+              <label className="inline-flex h-[17px] w-fit items-center gap-2 font-[Arial] text-[11px] font-semibold uppercase leading-[17px] tracking-wide text-blue-700 underline-offset-2 hover:underline">
+                <input
+                  type="checkbox"
+                  name="criar_organizacao_vinculada"
+                  className="h-[17px] w-[17px] shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span>Criar organização ao salvar</span>
+              </label>
+            ) : null}
+          </div>
           <select
             id="organizacao_id"
             name="organizacao_id"
@@ -1809,16 +1823,6 @@ function GeralTab({
             >
               Abrir organização
             </Link>
-          ) : null}
-          {!organizacaoId ? (
-            <label className="mt-1 flex w-fit items-center gap-2 text-xs font-semibold normal-case tracking-normal text-gray-700">
-              <input
-                type="checkbox"
-                name="criar_organizacao_vinculada"
-                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span>Criar organização ao salvar</span>
-            </label>
           ) : null}
         </div>
       </FormSection>

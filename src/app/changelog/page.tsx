@@ -6,6 +6,13 @@ const versoes = [
     versao: "v0.9.47",
     data: "22/05/2026",
     alteracoes: [
+      "Clientes / Parceiros v1.1.24 alinha por baixo o conjunto Criar organização ao salvar usando Organização vinculada como referência.",
+      "Clientes / Parceiros v1.1.23 move o checkbox Criar organização ao salvar para o cabeçalho de Organização vinculada com altura de 17 px e texto em caixa alta.",
+      "Clientes / Parceiros v1.1.22 restaura o checkbox nativo Criar organização ao salvar com a função original.",
+      "Clientes / Parceiros v1.1.21 transforma Criar organização ao salvar em ação textual no cabeçalho de Organização vinculada.",
+      "Clientes / Parceiros v1.1.20 alinha Consultar CNPJ pela mesma linha de base do rótulo CNPJ.",
+      "Clientes / Parceiros v1.1.19 padroniza a ação Consultar CNPJ em Arial 11 px caixa alta e realinha o campo CNPJ com Nome fantasia.",
+      "Clientes / Parceiros v1.1.18 posiciona Consultar CNPJ no topo do campo CNPJ e reduz o espaçamento vertical de Dados cadastrais.",
       "Clientes / Parceiros v1.1.17 isola o link Consultar CNPJ da altura do campo e ajusta o espaçamento apenas em Dados cadastrais.",
       "Clientes / Parceiros v1.1.16 troca Consultar CNPJ para ação textual sempre ativa abaixo do campo, seguindo o padrão dos links auxiliares.",
       "Clientes / Parceiros v1.1.15 corrige o alinhamento do agrupamento CNPJ, impedindo quebra de linha no botão Consultar CNPJ.",

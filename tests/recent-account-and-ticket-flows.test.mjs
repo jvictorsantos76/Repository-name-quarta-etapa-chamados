@@ -551,7 +551,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.17"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.24"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -687,16 +687,19 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.17"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.24"/);
 });
 
 test("partner general tab keeps compact canonical large-form layout", () => {
   assert.doesNotMatch(parceirosFormSource, /min-h-\[5\.75rem\]/);
   assert.match(parceirosFormSource, /feedbackConsultaClass/);
-  assert.match(parceirosFormSource, /htmlFor="cnpj_cpf"[\s\S]*id="cnpj_cpf"[\s\S]*Consultar CNPJ/);
+  assert.match(parceirosFormSource, /htmlFor="cnpj_cpf"[\s\S]*Consultar CNPJ[\s\S]*id="cnpj_cpf"/);
+  assert.match(parceirosFormSource, /font-\[Arial\] text-\[11px\] font-semibold uppercase leading-\[inherit\]/);
   assert.match(parceirosFormSource, /whitespace-nowrap/);
   assert.match(parceirosFormSource, /gridClassName=\{dadosCadastraisGrid\}/);
-  assert.match(parceirosFormSource, /absolute left-0 top-full inline-flex w-fit text-blue-700/);
+  assert.match(parceirosFormSource, /flex items-baseline justify-between gap-3/);
+  assert.doesNotMatch(parceirosFormSource, /absolute left-0 top-full inline-flex w-fit text-blue-700/);
+  assert.match(parceirosFormSource, /grid gap-x-4 gap-y-\[1\.2rem\] md:grid-cols-2/);
   assert.doesNotMatch(parceirosFormSource, /sm:w-40/);
   assert.doesNotMatch(parceirosFormSource, /disabled=\{!cnpjConsultavel \|\| consultandoCnpj\}/);
   assert.match(parceirosFormSource, /htmlFor="cep"[\s\S]*id="cep"[\s\S]*Buscar CEP/);
@@ -704,6 +707,14 @@ test("partner general tab keeps compact canonical large-form layout", () => {
   assert.match(parceirosFormSource, /name="contato_celular"[\s\S]*name="contato_celular_whatsapp"/);
   assert.match(parceirosFormSource, /name="responsavel_local_telefone"[\s\S]*name="responsavel_local_whatsapp"/);
   assert.match(parceirosFormSource, /Criar organização ao salvar/);
+  assert.match(
+    parceirosFormSource,
+    /type="checkbox"[\s\S]*name="criar_organizacao_vinculada"/
+  );
+  assert.match(parceirosFormSource, /inline-flex h-\[17px\][\s\S]*uppercase leading-\[17px\]/);
+  assert.match(parceirosFormSource, /name="criar_organizacao_vinculada"[\s\S]*h-\[17px\] w-\[17px\]/);
+  assert.match(parceirosFormSource, /flex items-end justify-between gap-3[\s\S]*Organização vinculada/);
+  assert.doesNotMatch(parceirosFormSource, /criarOrganizacaoVinculada/);
   assert.match(parceirosActionsSource, /valorContatoEditavel/);
   assert.match(parceirosActionsSource, /opcao === "outro"/);
   assert.doesNotMatch(parceirosFormSource, /densidade === "confortavel" \? "compacto" : densidade/);
