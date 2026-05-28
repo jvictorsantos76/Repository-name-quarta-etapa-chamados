@@ -551,7 +551,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.24"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.26"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -687,7 +687,7 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.24"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.26"/);
 });
 
 test("partner general tab keeps compact canonical large-form layout", () => {
@@ -697,6 +697,11 @@ test("partner general tab keeps compact canonical large-form layout", () => {
   assert.match(parceirosFormSource, /font-\[Arial\] text-\[11px\] font-semibold uppercase leading-\[inherit\]/);
   assert.match(parceirosFormSource, /whitespace-nowrap/);
   assert.match(parceirosFormSource, /gridClassName=\{dadosCadastraisGrid\}/);
+  assert.match(parceirosFormSource, /grid gap-2 sm:grid-cols-2[\s\S]*Tipo de pessoa[\s\S]*Perfil operacional/);
+  assert.match(parceirosFormSource, /grid gap-2 sm:grid-cols-2[\s\S]*Código interno[\s\S]*Inscrição estadual/);
+  assert.match(parceirosFormSource, /grid gap-2 sm:grid-cols-2[\s\S]*Inscrição municipal[\s\S]*CRT/);
+  assert.match(parceirosFormSource, /grid gap-2 sm:grid-cols-2[\s\S]*Situação[\s\S]*Segmento/);
+  assert.match(parceirosFormSource, /grid gap-2 sm:grid-cols-2[\s\S]*Data de relacionamento[\s\S]*Suframa/);
   assert.match(parceirosFormSource, /flex items-baseline justify-between gap-3/);
   assert.doesNotMatch(parceirosFormSource, /absolute left-0 top-full inline-flex w-fit text-blue-700/);
   assert.match(parceirosFormSource, /grid gap-x-4 gap-y-\[1\.2rem\] md:grid-cols-2/);

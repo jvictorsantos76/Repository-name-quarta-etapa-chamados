@@ -1683,12 +1683,22 @@ function GeralTab({
           required
           densidade={densidade}
         />
-        <CampoTexto
-          name="codigo_interno"
-          label="Código interno"
-          defaultValue={parceiro?.codigo_interno}
-          densidade={densidade}
-        />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <CampoTexto
+            name="codigo_interno"
+            label="Código interno"
+            defaultValue={parceiro?.codigo_interno}
+            densidade={densidade}
+          />
+          {!pessoaFisica ? (
+            <CampoTexto
+              name="inscricao_estadual"
+              label="Inscrição estadual"
+              defaultValue={parceiro?.inscricao_estadual}
+              densidade={densidade}
+            />
+          ) : null}
+        </div>
         {pessoaFisica ? (
           <>
             <input type="hidden" name="inscricao_estadual" value={parceiro?.inscricao_estadual ?? ""} />
@@ -1698,13 +1708,7 @@ function GeralTab({
             <input type="hidden" name="suframa" value={parceiro?.suframa ?? ""} />
           </>
         ) : (
-          <>
-            <CampoTexto
-              name="inscricao_estadual"
-              label="Inscrição estadual"
-              defaultValue={parceiro?.inscricao_estadual}
-              densidade={densidade}
-            />
+          <div className="grid gap-2 sm:grid-cols-2">
             <CampoTexto
               name="inscricao_municipal"
               label="Inscrição municipal"
@@ -1724,56 +1728,60 @@ function GeralTab({
                 </option>
               ))}
             </CampoSelect>
-          </>
+          </div>
         )}
-        <CampoSelect
-          name="situacao"
-          label="Situação"
-          defaultValue={parceiro?.situacao ?? "ativo"}
-          densidade={densidade}
-        >
-          {SITUACOES_PARCEIRO.map((situacao) => (
-            <option key={situacao} value={situacao}>
-              {LABEL_SITUACAO_PARCEIRO[situacao]}
-            </option>
-          ))}
-        </CampoSelect>
-        <CampoTexto
-          name="cliente_desde"
-          label="Data de relacionamento"
-          type="date"
-          defaultValue={parceiro?.cliente_desde}
-          densidade={densidade}
-        />
-        <CampoSelect
-          name="segmento"
-          label="Segmento"
-          defaultValue={normalizarSelect(parceiro?.segmento, SEGMENTOS_PARCEIRO)}
-          densidade={densidade}
-        >
-          <option value="">Selecione</option>
-          {SEGMENTOS_PARCEIRO.map((segmento) => (
-            <option key={segmento} value={segmento}>
-              {LABEL_SEGMENTO_PARCEIRO[segmento]}
-            </option>
-          ))}
-        </CampoSelect>
-        {!pessoaFisica ? (
-          <>
-            <CampoTexto
-              name="cnae"
-              label="CNAE"
-              value={campos.cnae}
-              onChange={(event) => atualizarCampo("cnae", event.currentTarget.value)}
-              densidade={densidade}
-            />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <CampoSelect
+            name="situacao"
+            label="Situação"
+            defaultValue={parceiro?.situacao ?? "ativo"}
+            densidade={densidade}
+          >
+            {SITUACOES_PARCEIRO.map((situacao) => (
+              <option key={situacao} value={situacao}>
+                {LABEL_SITUACAO_PARCEIRO[situacao]}
+              </option>
+            ))}
+          </CampoSelect>
+          <CampoSelect
+            name="segmento"
+            label="Segmento"
+            defaultValue={normalizarSelect(parceiro?.segmento, SEGMENTOS_PARCEIRO)}
+            densidade={densidade}
+          >
+            <option value="">Selecione</option>
+            {SEGMENTOS_PARCEIRO.map((segmento) => (
+              <option key={segmento} value={segmento}>
+                {LABEL_SEGMENTO_PARCEIRO[segmento]}
+              </option>
+            ))}
+          </CampoSelect>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <CampoTexto
+            name="cliente_desde"
+            label="Data de relacionamento"
+            type="date"
+            defaultValue={parceiro?.cliente_desde}
+            densidade={densidade}
+          />
+          {!pessoaFisica ? (
             <CampoTexto
               name="suframa"
               label="Suframa"
               defaultValue={parceiro?.suframa}
               densidade={densidade}
             />
-          </>
+          ) : null}
+        </div>
+        {!pessoaFisica ? (
+          <CampoTexto
+            name="cnae"
+            label="CNAE"
+            value={campos.cnae}
+            onChange={(event) => atualizarCampo("cnae", event.currentTarget.value)}
+            densidade={densidade}
+          />
         ) : null}
         <CampoTexto
           name="website"

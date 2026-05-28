@@ -6,6 +6,8 @@ const versoes = [
     versao: "v0.9.47",
     data: "22/05/2026",
     alteracoes: [
+      "Clientes / Parceiros v1.1.26 estende o padrão de field médio para códigos, inscrições, CRT, data de relacionamento e Suframa.",
+      "Clientes / Parceiros v1.1.25 aplica o padrão de field médio a Situação e Segmento em Dados cadastrais.",
       "Clientes / Parceiros v1.1.24 alinha por baixo o conjunto Criar organização ao salvar usando Organização vinculada como referência.",
       "Clientes / Parceiros v1.1.23 move o checkbox Criar organização ao salvar para o cabeçalho de Organização vinculada com altura de 17 px e texto em caixa alta.",
       "Clientes / Parceiros v1.1.22 restaura o checkbox nativo Criar organização ao salvar com a função original.",
