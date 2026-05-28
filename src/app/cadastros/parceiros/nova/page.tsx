@@ -21,6 +21,13 @@ async function getErro(searchParams: PageProps["searchParams"]) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+async function getSalvo(searchParams: PageProps["searchParams"]) {
+  const params = searchParams ? await searchParams : {};
+  const value = params.salvo;
+
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default async function NovoParceiroPage({ searchParams }: PageProps) {
   const perfilAtual = await requirePerfilAutenticado();
 
@@ -29,6 +36,11 @@ export default async function NovoParceiroPage({ searchParams }: PageProps) {
   }
 
   const erro = await getErro(searchParams);
+  const salvo = await getSalvo(searchParams);
+  const sucesso =
+    salvo === "novo_cliente"
+      ? "Cadastro anterior salvo. Preencha os dados do novo cliente."
+      : null;
   const supabase = createSupabaseAdminClient();
   const { data: organizacoesData } = await supabase
     .from("organizacoes")
@@ -74,7 +86,7 @@ export default async function NovoParceiroPage({ searchParams }: PageProps) {
           </p>
         </div>
 
-        <ParceiroForm organizacoes={organizacoes} erro={erro} />
+        <ParceiroForm organizacoes={organizacoes} erro={erro} sucesso={sucesso} />
       </section>
     </main>
   );

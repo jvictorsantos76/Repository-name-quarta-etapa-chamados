@@ -459,6 +459,47 @@ function detalhePath(parceiroId: string) {
   return `${LISTAGEM_PARCEIROS_PATH}/${parceiroId}`;
 }
 
+async function contarChamadosRelacionadosAoParceiro(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  parceiroId: string
+) {
+  const { data: filiais, error: erroFiliais } = await supabase
+    .from("parceiros_filiais")
+    .select("id")
+    .eq("parceiro_id", parceiroId);
+
+  if (erroFiliais) {
+    return { count: 0, error: erroFiliais };
+  }
+
+  const { count: chamadosDiretos, error: erroChamadosDiretos } = await supabase
+    .from("chamados")
+    .select("id", { count: "exact", head: true })
+    .eq("parceiro_id", parceiroId);
+
+  if (erroChamadosDiretos) {
+    return { count: 0, error: erroChamadosDiretos };
+  }
+
+  const filialIds =
+    (filiais as { id: string }[] | null)?.map((filial) => filial.id) ?? [];
+
+  if (filialIds.length === 0) {
+    return { count: chamadosDiretos ?? 0, error: null };
+  }
+
+  const { count: chamadosFiliais, error: erroChamadosFiliais } = await supabase
+    .from("chamados")
+    .select("id", { count: "exact", head: true })
+    .in("parceiro_filial_id", filialIds);
+
+  if (erroChamadosFiliais) {
+    return { count: 0, error: erroChamadosFiliais };
+  }
+
+  return { count: (chamadosDiretos ?? 0) + (chamadosFiliais ?? 0), error: null };
+}
+
 function mensagemErroParceiro(error?: {
   code?: string;
   message?: string;
@@ -875,6 +916,7 @@ export async function salvarParceiroGeral(formData: FormData) {
   const perfil = await requireGestorParceiros();
   const id = normalizarTexto(formData.get("id"));
   const origem = id ? detalhePath(id) : `${LISTAGEM_PARCEIROS_PATH}/nova`;
+  const acaoPosSalvar = normalizarTexto(formData.get("acao_pos_salvar"));
   const resultado = montarPayloadParceiro(formData);
   const horariosResultado = montarHorariosAtendimento(formData);
   let organizacaoId = uuidOuNull(formData.get("organizacao_id"));
@@ -1173,12 +1215,33 @@ export async function salvarParceiroGeral(formData: FormData) {
 
   revalidatePath(LISTAGEM_PARCEIROS_PATH);
   revalidatePath(detalhePath(parceiroId));
+  if (acaoPosSalvar === "novo_cliente") {
+    revalidatePath(`${LISTAGEM_PARCEIROS_PATH}/nova`);
+    redirectComSucesso(`${LISTAGEM_PARCEIROS_PATH}/nova`, "novo_cliente");
+  }
+
   redirectComSucesso(detalhePath(parceiroId));
 }
 
 export async function alterarStatusParceiro(id: string, ativo: boolean) {
   const perfil = await requireGestorParceiros();
   const supabase = createSupabaseAdminClient();
+
+  if (!ativo) {
+    const chamadosRelacionados = await contarChamadosRelacionadosAoParceiro(supabase, id);
+
+    if (chamadosRelacionados.error) {
+      redirectComErro(detalhePath(id), "Não foi possível verificar chamados vinculados.");
+    }
+
+    if (chamadosRelacionados.count > 0) {
+      redirectComErro(
+        detalhePath(id),
+        "Este cliente possui chamados vinculados e não pode ser inativado nesta etapa."
+      );
+    }
+  }
+
   const { error } = await supabase
     .from("parceiros")
     .update({

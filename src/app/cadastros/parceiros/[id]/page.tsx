@@ -202,6 +202,22 @@ export default async function EditarParceiroPage({
         : null,
     })
   );
+  const filialIds = filiais.map((filial) => filial.id);
+  const [chamadosDiretosResposta, chamadosFiliaisResposta] = await Promise.all([
+    supabase
+      .from("chamados")
+      .select("id", { count: "exact", head: true })
+      .eq("parceiro_id", id),
+    filialIds.length > 0
+      ? supabase
+          .from("chamados")
+          .select("id", { count: "exact", head: true })
+          .in("parceiro_filial_id", filialIds)
+      : Promise.resolve({ count: 0, error: null }),
+  ]);
+  const chamadosRelacionadosCount =
+    (chamadosDiretosResposta.error ? 0 : chamadosDiretosResposta.count ?? 0) +
+    (chamadosFiliaisResposta.error ? 0 : chamadosFiliaisResposta.count ?? 0);
   const parceiro = {
     ...parceiroBase,
     cliente_legado_nome: clienteLegado?.nome_fantasia ?? null,
@@ -227,6 +243,7 @@ export default async function EditarParceiroPage({
   const erro = await getErro(searchParams);
   const salvo = await getSalvo(searchParams);
   const sucesso = salvo ? "As alterações foram gravadas e o cadastro já está atualizado." : null;
+  const inativacaoBloqueada = parceiro.ativo && chamadosRelacionadosCount > 0;
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">
@@ -264,15 +281,52 @@ export default async function EditarParceiroPage({
               Cadastro mestre ERP operacional separado de organizações internas.
             </p>
           </div>
-          <form action={alterarStatusParceiro.bind(null, parceiro.id, !parceiro.ativo)}>
+          <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="submit"
+              form="parceiro-geral-form"
+              name="acao_pos_salvar"
+              value="novo_cliente"
               className="inline-flex min-h-10 items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
             >
-              {parceiro.ativo ? "Inativar" : "Ativar"}
+              Novo cliente
             </button>
-          </form>
+            <form action={alterarStatusParceiro.bind(null, parceiro.id, !parceiro.ativo)}>
+              <button
+                type="submit"
+                disabled={inativacaoBloqueada}
+                title={
+                  inativacaoBloqueada
+                    ? "Cliente com chamados vinculados não pode ser inativado nesta etapa."
+                    : undefined
+                }
+                className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-gray-400 bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-950 transition hover:bg-gray-300 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-100 disabled:text-gray-500"
+              >
+                {parceiro.ativo ? "Inativar" : "Ativar"}
+              </button>
+            </form>
+          </div>
         </div>
+
+        {!parceiro.ativo ? (
+          <div
+            role="status"
+            className="mb-4 rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-800"
+          >
+            Este cliente está inativo. Ele permanece visível para histórico e consulta,
+            mas não deve ser usado para novas operações.
+          </div>
+        ) : null}
+
+        {inativacaoBloqueada ? (
+          <div
+            role="status"
+            className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
+          >
+            Inativação desabilitada: este cliente possui chamados vinculados. Essa
+            regra poderá mudar em uma feature futura.
+          </div>
+        ) : null}
 
         <ParceiroForm
           parceiro={parceiro}
