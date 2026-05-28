@@ -228,6 +228,14 @@ const parceirosPageSource = await readFile(
   new URL("../src/app/cadastros/parceiros/page.tsx", import.meta.url),
   "utf8"
 );
+const parceiroDetailPageSource = await readFile(
+  new URL("../src/app/cadastros/parceiros/[id]/page.tsx", import.meta.url),
+  "utf8"
+);
+const parceiroNovaPageSource = await readFile(
+  new URL("../src/app/cadastros/parceiros/nova/page.tsx", import.meta.url),
+  "utf8"
+);
 const parceirosActionsSource = await readFile(
   new URL("../src/app/cadastros/parceiros/actions.ts", import.meta.url),
   "utf8"
@@ -551,7 +559,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.26"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.33"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -687,12 +695,32 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.26"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.33"/);
 });
 
 test("partner general tab keeps compact canonical large-form layout", () => {
   assert.doesNotMatch(parceirosFormSource, /min-h-\[5\.75rem\]/);
   assert.match(parceirosFormSource, /feedbackConsultaClass/);
+  assert.match(parceirosFormSource, /id="parceiro-geral-form"/);
+  assert.match(parceiroDetailPageSource, /form="parceiro-geral-form"[\s\S]*name="acao_pos_salvar"[\s\S]*value="novo_cliente"[\s\S]*Novo cliente/);
+  assert.match(parceiroDetailPageSource, /bg-gray-200[\s\S]*text-gray-950[\s\S]*Inativar/);
+  assert.match(parceiroDetailPageSource, /inativacaoBloqueada[\s\S]*disabled=\{inativacaoBloqueada\}/);
+  assert.match(parceiroDetailPageSource, /Este cliente está inativo/);
+  assert.match(parceiroDetailPageSource, /Inativação desabilitada[\s\S]*chamados vinculados/);
+  assert.match(parceiroDetailPageSource, /\.from\("chamados"\)[\s\S]*\.eq\("parceiro_id", id\)/);
+  assert.match(parceiroDetailPageSource, /\.from\("chamados"\)[\s\S]*\.in\("parceiro_filial_id", filialIds\)/);
+  assert.match(parceirosActionsSource, /formData\.get\("acao_pos_salvar"\)/);
+  assert.match(parceirosActionsSource, /acaoPosSalvar === "novo_cliente"[\s\S]*redirectComSucesso\(`\$\{LISTAGEM_PARCEIROS_PATH\}\/nova`, "novo_cliente"\)/);
+  assert.match(parceirosActionsSource, /contarChamadosRelacionadosAoParceiro/);
+  assert.match(parceirosActionsSource, /Este cliente possui chamados vinculados e não pode ser inativado nesta etapa\./);
+  assert.match(parceiroNovaPageSource, /salvo === "novo_cliente"[\s\S]*Cadastro anterior salvo\. Preencha os dados do novo cliente\./);
+  assert.match(parceirosFormSource, /canonicalFormGrid/);
+  assert.match(parceirosFormSource, /auxiliaryLinkClass/);
+  assert.match(parceirosFormSource, /InlineFieldCheckbox/);
+  assert.match(parceirosFormSource, /inlineCheckboxClass/);
+  assert.match(parceirosFormSource, /items-center justify-start gap-2/);
+  assert.match(parceirosFormSource, /longTextFieldClass = "md:col-span-full"/);
+  assert.match(parceirosFormSource, /const emailPattern/);
   assert.match(parceirosFormSource, /htmlFor="cnpj_cpf"[\s\S]*Consultar CNPJ[\s\S]*id="cnpj_cpf"/);
   assert.match(parceirosFormSource, /font-\[Arial\] text-\[11px\] font-semibold uppercase leading-\[inherit\]/);
   assert.match(parceirosFormSource, /whitespace-nowrap/);
@@ -702,28 +730,52 @@ test("partner general tab keeps compact canonical large-form layout", () => {
   assert.match(parceirosFormSource, /grid gap-2 sm:grid-cols-2[\s\S]*Inscrição municipal[\s\S]*CRT/);
   assert.match(parceirosFormSource, /grid gap-2 sm:grid-cols-2[\s\S]*Situação[\s\S]*Segmento/);
   assert.match(parceirosFormSource, /grid gap-2 sm:grid-cols-2[\s\S]*Data de relacionamento[\s\S]*Suframa/);
-  assert.match(parceirosFormSource, /flex items-baseline justify-between gap-3/);
+  assert.match(parceirosFormSource, /flex h-\[17px\] items-end justify-between gap-3/);
   assert.doesNotMatch(parceirosFormSource, /absolute left-0 top-full inline-flex w-fit text-blue-700/);
-  assert.match(parceirosFormSource, /grid gap-x-4 gap-y-\[1\.2rem\] md:grid-cols-2/);
+  assert.match(
+    parceirosFormSource,
+    /grid min-w-0 grid-cols-\[minmax\(0,1fr\)\] gap-x-4 gap-y-\[1\.2rem\] md:grid-cols-2/
+  );
   assert.doesNotMatch(parceirosFormSource, /sm:w-40/);
   assert.doesNotMatch(parceirosFormSource, /disabled=\{!cnpjConsultavel \|\| consultandoCnpj\}/);
-  assert.match(parceirosFormSource, /htmlFor="cep"[\s\S]*id="cep"[\s\S]*Buscar CEP/);
+  assert.match(parceirosFormSource, /name="cep"[\s\S]*label="CEP"[\s\S]*Buscar CEP/);
+  assert.match(parceirosFormSource, /smallFieldsGroupClass/);
+  assert.match(parceirosFormSource, /grid min-w-0 grid-cols-\[minmax\(0,1fr\)\] gap-2 sm:grid-cols-3/);
+  assert.match(parceirosFormSource, /smallFieldsGroupClass[\s\S]*name="numero"[\s\S]*Estado \/ UF[\s\S]*País/);
+  assert.match(parceirosFormSource, /role=\{feedbackClass\.includes\("red"\) \? "alert" : "status"\}/);
   assert.match(parceirosFormSource, /CampoSelectEditavel/);
+  assert.match(parceirosFormSource, /label="Telefone comercial"/);
+  assert.doesNotMatch(parceirosFormSource, /label="Telefone internacional"/);
+  assert.match(parceirosFormSource, /label="Celular comercial"/);
+  assert.doesNotMatch(parceirosFormSource, /label="Celular internacional"/);
   assert.match(parceirosFormSource, /name="contato_celular"[\s\S]*name="contato_celular_whatsapp"/);
   assert.match(parceirosFormSource, /name="responsavel_local_telefone"[\s\S]*name="responsavel_local_whatsapp"/);
+  assert.match(parceirosFormSource, /label=\{densidade === "compacto" \? "Tel resp local" : "Telefone do responsável no local"\}/);
+  assert.match(parceirosFormSource, /label=\{densidade === "compacto" \? "WhatsApp\?" : "Celular é WhatsApp"\}/);
+  assert.match(parceirosFormSource, /longTextFieldClass[\s\S]*name="contato_observacoes"[\s\S]*Observações do contato/);
+  assert.match(parceirosFormSource, /longTextFieldClass[\s\S]*name="observacoes_acesso"[\s\S]*Observações de acesso/);
+  assert.match(parceirosFormSource, /longTextFieldClass[\s\S]*name="observacoes_operacionais"[\s\S]*Observações operacionais/);
+  assert.match(parceirosFormSource, /longTextFieldClass[\s\S]*Documento necessário para entrada/);
+  assert.match(parceirosFormSource, /flex min-h-10 items-center gap-2[\s\S]*name="documentos_entrada"/);
+  assert.match(parceirosFormSource, /name="contato_email"[\s\S]*pattern=\{emailPattern\}/);
+  assert.match(parceirosFormSource, /name="email"[\s\S]*pattern=\{emailPattern\}/);
   assert.match(parceirosFormSource, /Criar organização ao salvar/);
   assert.match(
     parceirosFormSource,
-    /type="checkbox"[\s\S]*name="criar_organizacao_vinculada"/
+    /<InlineFieldCheckbox[\s\S]*name="criar_organizacao_vinculada"[\s\S]*label="Criar organização ao salvar"/
   );
-  assert.match(parceirosFormSource, /inline-flex h-\[17px\][\s\S]*uppercase leading-\[17px\]/);
-  assert.match(parceirosFormSource, /name="criar_organizacao_vinculada"[\s\S]*h-\[17px\] w-\[17px\]/);
+  assert.match(parceirosFormSource, /inline-flex h-\[17px\] max-h-\[17px\][\s\S]*uppercase leading-\[17px\]/);
+  assert.match(parceirosFormSource, /inlineCheckboxInputClass[\s\S]*h-\[17px\] w-\[17px\]/);
   assert.match(parceirosFormSource, /flex items-end justify-between gap-3[\s\S]*Organização vinculada/);
   assert.doesNotMatch(parceirosFormSource, /criarOrganizacaoVinculada/);
   assert.match(parceirosActionsSource, /valorContatoEditavel/);
   assert.match(parceirosActionsSource, /opcao === "outro"/);
   assert.doesNotMatch(parceirosFormSource, /densidade === "confortavel" \? "compacto" : densidade/);
   assert.match(parceirosFormSource, /grid gap-x-3 gap-y-2 md:grid-cols-3/);
+  assert.match(
+    parceirosFormSource,
+    /grid min-w-0 grid-cols-\[minmax\(0,1fr\)\] gap-x-3 gap-y-4 md:grid-cols-3/
+  );
   assert.match(parceirosFormSource, /rows = 3/);
 });
 

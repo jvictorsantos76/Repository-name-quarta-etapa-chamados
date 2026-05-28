@@ -314,10 +314,10 @@ function validarAgendaAtendimento(agenda: DiaAtendimento[]) {
 
 function classes(densidade: Densidade) {
   return {
-    input: `mt-1 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 ${
+    input: `mt-1 w-full min-w-0 rounded-md border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-950 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 ${
       densidade === "compacto" ? "min-h-8 py-1" : "min-h-10 py-2"
     }`,
-    button: `inline-flex items-center justify-center whitespace-nowrap rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 ${
+    button: `inline-flex max-w-full items-center justify-center whitespace-nowrap rounded-md border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400 ${
       densidade === "compacto" ? "min-h-8 py-1" : "min-h-10 py-2"
     }`,
     grid:
@@ -328,15 +328,38 @@ function classes(densidade: Densidade) {
   };
 }
 
-const labelClass = "flex flex-col text-[11px] font-semibold text-gray-500";
-const longFieldLabelClass = "block text-[11px] font-semibold text-gray-500";
+function canonicalFormGrid(densidade: Densidade) {
+  return densidade === "compacto"
+    ? "grid min-w-0 grid-cols-[minmax(0,1fr)] gap-x-3 gap-y-4 md:grid-cols-3"
+    : "grid min-w-0 grid-cols-[minmax(0,1fr)] gap-x-4 gap-y-[1.2rem] md:grid-cols-2";
+}
+
+const fullFieldClass = "md:col-span-2";
+const longTextFieldClass = "md:col-span-full";
+
+const labelClass = "flex min-w-0 flex-col text-[11px] font-semibold text-gray-500";
+const longFieldLabelClass = "block min-w-0 text-[11px] font-semibold text-gray-500";
 const labelTextClass = "uppercase tracking-wide";
 const auxiliaryTextClass =
   "mt-1 text-xs font-semibold normal-case tracking-normal text-gray-700";
-const toggleClass =
-  "flex min-h-10 items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-700";
+const auxiliaryLinkClass =
+  "inline-flex w-fit max-w-full whitespace-nowrap text-xs font-semibold normal-case tracking-normal underline-offset-2 hover:underline";
+const inlineAuxiliaryActionClass =
+  "inline-flex w-fit whitespace-nowrap font-[Arial] text-[11px] font-semibold uppercase leading-[inherit] tracking-wide text-blue-700 underline-offset-2 hover:underline disabled:cursor-wait disabled:text-blue-400";
+const inlineCheckboxClass =
+  "inline-flex h-[17px] max-h-[17px] w-fit items-center gap-2 overflow-hidden font-[Arial] text-[11px] font-semibold uppercase leading-[17px] tracking-wide text-blue-700 underline-offset-2 hover:underline";
+const inlineCheckboxInputClass =
+  "h-[17px] w-[17px] shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500";
+const smallFieldsGroupClass = "grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 sm:grid-cols-3";
+const emailPattern = "[^@\\s]+@[^@\\s]+\\.[^@\\s]+";
 const metaBadgeClass =
   "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide";
+
+function toggleClass(densidade: Densidade) {
+  return `flex items-center justify-start gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 text-xs font-semibold uppercase tracking-wide text-gray-700 ${
+    densidade === "compacto" ? "min-h-8 py-1.5" : "min-h-10 py-2"
+  }`;
+}
 
 function somenteDigitos(valor: string) {
   return valor.replace(/\D/g, "");
@@ -524,15 +547,15 @@ function AcoesContato({
   }
 
   return (
-    <div className="mt-1 flex flex-wrap gap-2 text-xs font-semibold normal-case tracking-normal">
+    <div className="mt-1 flex min-h-4 flex-wrap items-center gap-2">
       {emailLink ? (
-        <a className="text-blue-700 underline-offset-2 hover:underline" href={`mailto:${emailLink}`}>
+        <a className={`${auxiliaryLinkClass} text-blue-700`} href={`mailto:${emailLink}`}>
           Enviar e-mail
         </a>
       ) : null}
       {whatsappLink ? (
         <a
-          className="text-emerald-700 underline-offset-2 hover:underline"
+          className={`${auxiliaryLinkClass} text-emerald-700`}
           href={whatsappLink}
           target="_blank"
           rel="noreferrer"
@@ -565,6 +588,8 @@ function CampoTexto({
   densidade,
   inputMode,
   maxLength,
+  pattern,
+  title,
   onInput,
   value,
   onChange,
@@ -577,6 +602,8 @@ function CampoTexto({
   densidade: Densidade;
   inputMode?: "text" | "search" | "email" | "tel" | "url" | "numeric" | "decimal";
   maxLength?: number;
+  pattern?: string;
+  title?: string;
   onInput?: (event: FormEvent<HTMLInputElement>) => void;
   value?: string;
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -595,12 +622,102 @@ function CampoTexto({
         required={required}
         inputMode={inputMode}
         maxLength={maxLength}
+        pattern={pattern}
+        title={title}
         onInput={onInput}
         onChange={onChange}
         className={classes(densidade).input}
       />
       <span aria-hidden="true" className={`${auxiliaryTextClass} hidden`} />
     </label>
+  );
+}
+
+function InlineFieldCheckbox({
+  name,
+  label,
+  defaultChecked = false,
+  checked,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  defaultChecked?: boolean;
+  checked?: boolean;
+  onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <label className={inlineCheckboxClass}>
+      <input
+        type="checkbox"
+        name={name}
+        defaultChecked={checked === undefined ? defaultChecked : undefined}
+        checked={checked}
+        onChange={onChange}
+        className={inlineCheckboxInputClass}
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function CampoTextoComAcao({
+  name,
+  label,
+  action,
+  defaultValue,
+  type = "text",
+  required = false,
+  densidade,
+  inputMode,
+  maxLength,
+  pattern,
+  title,
+  onInput,
+  value,
+  onChange,
+}: {
+  name: string;
+  label: string;
+  action?: ReactNode;
+  defaultValue?: string | number | null;
+  type?: string;
+  required?: boolean;
+  densidade: Densidade;
+  inputMode?: "text" | "search" | "email" | "tel" | "url" | "numeric" | "decimal";
+  maxLength?: number;
+  pattern?: string;
+  title?: string;
+  onInput?: (event: FormEvent<HTMLInputElement>) => void;
+  value?: string;
+  onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className={labelClass}>
+      <div className="flex h-[17px] items-end justify-between gap-3">
+        <label htmlFor={name} className={labelTextClass}>
+          {label}
+          {required ? <span aria-hidden="true" className="ml-1 text-red-500">*</span> : null}
+        </label>
+        {action}
+      </div>
+      <input
+        id={name}
+        name={name}
+        type={type}
+        defaultValue={value === undefined ? defaultValue ?? "" : undefined}
+        value={value}
+        required={required}
+        inputMode={inputMode}
+        maxLength={maxLength}
+        pattern={pattern}
+        title={title}
+        onInput={onInput}
+        onChange={onChange}
+        className={classes(densidade).input}
+      />
+      <span aria-hidden="true" className={`${auxiliaryTextClass} hidden`} />
+    </div>
   );
 }
 
@@ -733,16 +850,17 @@ function Toggle({
   defaultChecked = false,
   checked,
   onChange,
+  densidade = "confortavel",
 }: {
   name: string;
   label: string;
   defaultChecked?: boolean;
   checked?: boolean;
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+  densidade?: Densidade;
 }) {
   return (
-    <label className={toggleClass}>
-      <span>{label}</span>
+    <label className={toggleClass(densidade)}>
       <input
         type="checkbox"
         name={name}
@@ -751,6 +869,7 @@ function Toggle({
         onChange={onChange}
         className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
       />
+      <span>{label}</span>
     </label>
   );
 }
@@ -774,7 +893,7 @@ function AgendaSemanalAtendimento({
   }
 
   return (
-    <div className="md:col-span-full">
+    <div className="min-w-0 md:col-span-full">
       <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="min-w-[760px] w-full border-collapse text-left text-sm">
           <thead className="bg-gray-50 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
@@ -1180,10 +1299,7 @@ function GeralTab({
   const horariosAtendimentoJson = JSON.stringify(
     serializarAgendaAtendimento(agendaAtendimento)
   );
-  const dadosCadastraisGrid =
-    densidade === "compacto"
-      ? "grid gap-x-3 gap-y-4 md:grid-cols-3"
-      : "grid gap-x-4 gap-y-[1.2rem] md:grid-cols-2";
+  const dadosCadastraisGrid = canonicalFormGrid(densidade);
 
   function validarFormulario(event: FormEvent<HTMLFormElement>) {
     const erroAgenda = validarAgendaAtendimento(agendaAtendimento);
@@ -1479,13 +1595,16 @@ function GeralTab({
       return null;
     }
 
+    const feedbackClass = feedbackConsultaClass(
+      origem,
+      mensagemConsulta,
+      substituicaoPendente
+    );
+
     return (
       <div
-        className={`rounded-md border p-3 text-sm font-medium md:col-span-full ${feedbackConsultaClass(
-          origem,
-          mensagemConsulta,
-          substituicaoPendente
-        )}`}
+        role={feedbackClass.includes("red") ? "alert" : "status"}
+        className={`rounded-md border p-3 text-sm font-medium md:col-span-full ${feedbackClass}`}
       >
         {mensagemConsulta ? <p className="font-semibold">{mensagemConsulta}</p> : null}
         {origem === "cnpj" && situacaoCadastral ? (
@@ -1517,7 +1636,12 @@ function GeralTab({
   }
 
   return (
-    <form action={salvarParceiroGeral} onSubmit={validarFormulario} className="space-y-4">
+    <form
+      id="parceiro-geral-form"
+      action={salvarParceiroGeral}
+      onSubmit={validarFormulario}
+      className="space-y-4"
+    >
       <input type="hidden" name="id" value={parceiro?.id ?? ""} />
       <input type="hidden" name="endereco_id" value={endereco?.id ?? ""} />
       <input type="hidden" name="contato_id" value={contato?.id ?? ""} />
@@ -1647,10 +1771,11 @@ function GeralTab({
             {!pessoaFisica ? (
               <button
                 type="button"
+                disabled={consultandoCnpj}
                 onClick={() => {
                   void consultarCnpj();
                 }}
-                className="inline-flex w-fit font-[Arial] text-[11px] font-semibold uppercase leading-[inherit] tracking-wide text-blue-700 underline-offset-2 hover:underline disabled:cursor-wait disabled:text-blue-400"
+                className={inlineAuxiliaryActionClass}
               >
                 {consultandoCnpj ? "Consultando..." : "Consultar CNPJ"}
               </button>
@@ -1795,14 +1920,10 @@ function GeralTab({
               Organização vinculada
             </label>
             {!organizacaoId ? (
-              <label className="inline-flex h-[17px] w-fit items-center gap-2 font-[Arial] text-[11px] font-semibold uppercase leading-[17px] tracking-wide text-blue-700 underline-offset-2 hover:underline">
-                <input
-                  type="checkbox"
-                  name="criar_organizacao_vinculada"
-                  className="h-[17px] w-[17px] shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span>Criar organização ao salvar</span>
-              </label>
+              <InlineFieldCheckbox
+                name="criar_organizacao_vinculada"
+                label="Criar organização ao salvar"
+              />
             ) : null}
           </div>
           <select
@@ -1840,6 +1961,7 @@ function GeralTab({
         title="Contato principal"
         description="Pessoa de referência para atendimento, validação e comunicação inicial."
         densidade={densidade}
+        gridClassName={dadosCadastraisGrid}
       >
         <CampoTexto
           name="contato_nome"
@@ -1876,7 +1998,7 @@ function GeralTab({
         />
         <CampoTexto
           name="contato_telefone"
-          label="Telefone internacional"
+          label="Telefone comercial"
           defaultValue={mascararTelefone(contato?.telefone ?? "")}
           densidade={densidade}
           inputMode="tel"
@@ -1885,60 +2007,78 @@ function GeralTab({
             event.currentTarget.value = mascararTelefone(event.currentTarget.value);
           }}
         />
-        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end md:col-span-2">
-          <CampoTexto
-            name="contato_celular"
-            label="Celular internacional"
-            value={contatoCelular}
-            densidade={densidade}
-            inputMode="tel"
-            maxLength={19}
-            onChange={(event) => {
-              const valor = mascararCelular(event.currentTarget.value);
-              setContatoCelular(valor);
-              if (celularEhWhatsapp) {
-                setContatoWhatsapp(valor);
-              }
-            }}
-          />
-          <Toggle
-            name="contato_celular_whatsapp"
-            label="Celular é WhatsApp"
-            checked={celularEhWhatsapp}
-            onChange={(event) => {
-              setCelularEhWhatsapp(event.currentTarget.checked);
-              if (event.currentTarget.checked) {
-                setContatoWhatsapp(contatoCelular);
-              }
-            }}
-          />
-        </div>
-        <div>
-          <CampoTexto
-            name="contato_email"
-            label="E-mail"
-            type="email"
-            defaultValue={contato?.email}
-            densidade={densidade}
-            inputMode="email"
-          />
-          <AcoesContato email={contato?.email} />
-        </div>
-        <div>
-          <CampoTexto
-            name="contato_whatsapp"
-            label="WhatsApp"
-            value={contatoWhatsapp}
-            densidade={densidade}
-            inputMode="tel"
-            maxLength={19}
-            onChange={(event) => {
-              setContatoWhatsapp(mascararCelular(event.currentTarget.value));
-            }}
-          />
-          <AcoesContato telefone={contato?.whatsapp ?? contato?.celular} />
-        </div>
-        <div className="md:col-span-2">
+        <CampoTextoComAcao
+          name="contato_celular"
+          label="Celular comercial"
+          value={contatoCelular}
+          densidade={densidade}
+          inputMode="tel"
+          maxLength={19}
+          action={
+            <InlineFieldCheckbox
+              name="contato_celular_whatsapp"
+              label="Celular é WhatsApp"
+              checked={celularEhWhatsapp}
+              onChange={(event) => {
+                setCelularEhWhatsapp(event.currentTarget.checked);
+                if (event.currentTarget.checked) {
+                  setContatoWhatsapp(contatoCelular);
+                }
+              }}
+            />
+          }
+          onChange={(event) => {
+            const valor = mascararCelular(event.currentTarget.value);
+            setContatoCelular(valor);
+            if (celularEhWhatsapp) {
+              setContatoWhatsapp(valor);
+            }
+          }}
+        />
+        <CampoTextoComAcao
+          name="contato_email"
+          label="E-mail"
+          type="email"
+          defaultValue={contato?.email}
+          densidade={densidade}
+          inputMode="email"
+          pattern={emailPattern}
+          title="Informe um e-mail válido com @ e domínio, como nome@empresa.com."
+          action={
+            emailValido(contato?.email) ? (
+              <a
+                className={inlineAuxiliaryActionClass}
+                href={`mailto:${emailValido(contato?.email)}`}
+              >
+                Enviar e-mail
+              </a>
+            ) : null
+          }
+        />
+        <CampoTextoComAcao
+          name="contato_whatsapp"
+          label="WhatsApp"
+          value={contatoWhatsapp}
+          densidade={densidade}
+          inputMode="tel"
+          maxLength={19}
+          action={
+            whatsappUrl(contato?.whatsapp ?? contato?.celular) ? (
+              <a
+                className={`${inlineAuxiliaryActionClass} text-emerald-700`}
+                href={whatsappUrl(contato?.whatsapp ?? contato?.celular) ?? undefined}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Abrir WhatsApp
+              </a>
+            ) : null
+          }
+          onChange={(event) => {
+            setContatoWhatsapp(mascararCelular(event.currentTarget.value));
+          }}
+        />
+        <div className={longTextFieldClass}>
           <CampoTextarea
             name="contato_observacoes"
             label="Observações do contato"
@@ -1953,58 +2093,58 @@ function GeralTab({
         title="Endereço principal"
         description="Base cadastral usada para identificação, cobrança e referência inicial de deslocamento."
         densidade={densidade}
+        gridClassName={dadosCadastraisGrid}
       >
-        <div className={labelClass}>
-          <label htmlFor="cep" className={labelTextClass}>
-            CEP
-          </label>
-          <div className="mt-1 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-            <input
-              id="cep"
-              name="cep"
-              value={campos.cep}
-              onChange={(event) =>
-                atualizarCampo("cep", mascararCep(event.currentTarget.value))
-              }
-              inputMode="numeric"
-              maxLength={9}
-              className={`${classes(densidade).input} mt-0`}
-            />
+        <CampoTextoComAcao
+          name="cep"
+          label="CEP"
+          value={campos.cep}
+          densidade={densidade}
+          inputMode="numeric"
+          maxLength={9}
+          action={
             <button
               type="button"
               disabled={!cepConsultavel || consultandoCep}
               onClick={() => {
                 void consultarCep();
               }}
-              className={`${classes(densidade).button} sm:w-36`}
+              className={inlineAuxiliaryActionClass}
             >
               {consultandoCep ? "Buscando..." : "Buscar CEP"}
             </button>
-          </div>
-        </div>
+          }
+          onChange={(event) =>
+            atualizarCampo("cep", mascararCep(event.currentTarget.value))
+          }
+        />
         {renderFeedbackConsulta("cep")}
-        <CampoTexto name="endereco" label="Endereço / Logradouro" value={campos.endereco} onChange={(event) => atualizarCampo("endereco", event.currentTarget.value)} densidade={densidade} />
-        <CampoTexto name="numero" label="Número" value={campos.numero} onChange={(event) => atualizarCampo("numero", event.currentTarget.value)} densidade={densidade} />
+        <div className={fullFieldClass}>
+          <CampoTexto name="endereco" label="Endereço / Logradouro" value={campos.endereco} onChange={(event) => atualizarCampo("endereco", event.currentTarget.value)} densidade={densidade} />
+        </div>
+        <div className={`${smallFieldsGroupClass} ${fullFieldClass}`}>
+          <CampoTexto name="numero" label="Número" value={campos.numero} onChange={(event) => atualizarCampo("numero", event.currentTarget.value)} densidade={densidade} />
+          <CampoSelect
+            name="estado"
+            label="Estado / UF"
+            value={campos.estado}
+            densidade={densidade}
+            onChange={(event) => atualizarCampo("estado", event.currentTarget.value)}
+          >
+            <option value="">Selecione</option>
+            {UFS_BRASIL.map((uf) => (
+              <option key={uf} value={uf}>
+                {uf}
+              </option>
+            ))}
+          </CampoSelect>
+          <CampoSelect name="pais" label="País" value={campos.pais} densidade={densidade} onChange={(event) => atualizarCampo("pais", event.currentTarget.value)}>
+            <option value="Brasil">Brasil</option>
+          </CampoSelect>
+        </div>
         <CampoTexto name="complemento" label="Complemento" value={campos.complemento} onChange={(event) => atualizarCampo("complemento", event.currentTarget.value)} densidade={densidade} />
         <CampoTexto name="bairro" label="Bairro" value={campos.bairro} onChange={(event) => atualizarCampo("bairro", event.currentTarget.value)} densidade={densidade} />
         <CampoTexto name="cidade" label="Cidade" value={campos.cidade} onChange={(event) => atualizarCampo("cidade", event.currentTarget.value)} densidade={densidade} />
-        <CampoSelect
-          name="estado"
-          label="Estado / UF"
-          value={campos.estado}
-          densidade={densidade}
-          onChange={(event) => atualizarCampo("estado", event.currentTarget.value)}
-        >
-          <option value="">Selecione</option>
-          {UFS_BRASIL.map((uf) => (
-            <option key={uf} value={uf}>
-              {uf}
-            </option>
-          ))}
-        </CampoSelect>
-        <CampoSelect name="pais" label="País" value={campos.pais} densidade={densidade} onChange={(event) => atualizarCampo("pais", event.currentTarget.value)}>
-          <option value="Brasil">Brasil</option>
-        </CampoSelect>
       </FormSection>
 
       <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
@@ -2020,17 +2160,17 @@ function GeralTab({
           </p>
         </div>
         <div className={`space-y-4 ${classes(densidade).sectionPadding}`}>
-          <div className={classes(densidade).grid}>
-            <div className="md:col-span-2">
+          <div className={canonicalFormGrid(densidade)}>
+            <div className={fullFieldClass}>
               <CampoTexto
-              name="link_maps"
-              label="Link ou endereço do Google Maps"
-              value={localizacao.link_maps}
-              onChange={(event) => atualizarLocalizacao("link_maps", event.currentTarget.value)}
-              densidade={densidade}
-              inputMode="url"
-            />
-          </div>
+                name="link_maps"
+                label="Link ou endereço do Google Maps"
+                value={localizacao.link_maps}
+                onChange={(event) => atualizarLocalizacao("link_maps", event.currentTarget.value)}
+                densidade={densidade}
+                inputMode="url"
+              />
+            </div>
             <div className={labelClass}>
               <div className="flex items-center gap-2">
                 <span className={labelTextClass}>Latitude</span>
@@ -2094,7 +2234,7 @@ function GeralTab({
                 const preview = document.getElementById("preview-mapa-operacional");
                 preview?.scrollIntoView({ behavior: "smooth", block: "nearest" });
               }}
-              className="inline-flex min-h-9 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-gray-50 disabled:text-gray-400"
+              className={classes(densidade).button}
             >
               Visualizar no mapa
             </button>
@@ -2103,7 +2243,9 @@ function GeralTab({
                 href={rotaUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-9 items-center justify-center rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md bg-gray-900 px-3 text-sm font-semibold text-white transition hover:bg-gray-800 ${
+                  densidade === "compacto" ? "min-h-8 py-1" : "min-h-10 py-2"
+                }`}
               >
                 Iniciar rota
               </a>
@@ -2111,7 +2253,9 @@ function GeralTab({
               <button
                 type="button"
                 disabled
-                className="inline-flex min-h-9 items-center justify-center rounded-md bg-gray-100 px-3 py-2 text-sm font-semibold text-gray-400"
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-md bg-gray-100 px-3 text-sm font-semibold text-gray-400 ${
+                  densidade === "compacto" ? "min-h-8 py-1" : "min-h-10 py-2"
+                }`}
               >
                 Iniciar rota
               </button>
@@ -2188,6 +2332,7 @@ function GeralTab({
         title="Informações de acesso"
         description="Regras práticas para entrada, autorização, estacionamento, portaria e documentos."
         densidade={densidade}
+        gridClassName={dadosCadastraisGrid}
       >
         <CampoTexto name="ponto_referencia" label="Ponto de referência" defaultValue={parceiro?.ponto_referencia} densidade={densidade} />
         <CampoSelect
@@ -2214,41 +2359,40 @@ function GeralTab({
           }}
           densidade={densidade}
         />
-        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end md:col-span-2">
-          <CampoTexto
-            name="responsavel_local_telefone"
-            label="Telefone do responsável no local"
-            value={responsavelLocalTelefone}
-            onChange={(event) => {
-              setResponsavelLocalTelefone(mascararCelular(event.currentTarget.value));
-            }}
-            densidade={densidade}
-            inputMode="tel"
-            maxLength={19}
-          />
-          <Toggle
-            name="responsavel_local_whatsapp"
-            label="Celular é WhatsApp"
-            checked={responsavelLocalWhatsapp}
-            onChange={(event) => setResponsavelLocalWhatsapp(event.currentTarget.checked)}
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {responsavelWhatsappLink ? (
-            <a
-              href={responsavelWhatsappLink}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex text-xs font-semibold text-emerald-700 underline-offset-2 hover:underline"
-            >
-              Abrir WhatsApp
-            </a>
-          ) : null}
-        </div>
+        <CampoTextoComAcao
+          name="responsavel_local_telefone"
+          label={densidade === "compacto" ? "Tel resp local" : "Telefone do responsável no local"}
+          value={responsavelLocalTelefone}
+          onChange={(event) => {
+            setResponsavelLocalTelefone(mascararCelular(event.currentTarget.value));
+          }}
+          densidade={densidade}
+          inputMode="tel"
+          maxLength={19}
+          action={
+            <InlineFieldCheckbox
+              name="responsavel_local_whatsapp"
+              label={densidade === "compacto" ? "WhatsApp?" : "Celular é WhatsApp"}
+              checked={responsavelLocalWhatsapp}
+              onChange={(event) => setResponsavelLocalWhatsapp(event.currentTarget.checked)}
+            />
+          }
+        />
+        {responsavelWhatsappLink ? (
+          <a
+            href={responsavelWhatsappLink}
+            target="_blank"
+            rel="noreferrer"
+            className={`${inlineAuxiliaryActionClass} text-emerald-700`}
+          >
+            Abrir WhatsApp
+          </a>
+        ) : null}
         <Toggle
           name="necessita_autorizacao_previa"
           label="Necessita autorização prévia"
           defaultChecked={parceiro?.necessita_autorizacao_previa ?? false}
+          densidade={densidade}
         />
         <Toggle
           name="estacionamento_privativo"
@@ -2257,11 +2401,13 @@ function GeralTab({
             parceiro?.estacionamento_privativo ??
             Boolean(parceiro?.estacionamento?.trim())
           }
+          densidade={densidade}
         />
         <Toggle
           name="estacionamento_terceiros"
           label="Estacionamento de terceiros"
           checked={estacionamentoTerceiros}
+          densidade={densidade}
           onChange={(event) => setEstacionamentoTerceiros(event.currentTarget.checked)}
         />
         {estacionamentoTerceiros ? (
@@ -2293,11 +2439,13 @@ function GeralTab({
             parceiro?.possui_portaria_recepcao ??
             Boolean(parceiro?.portaria_recepcao?.trim())
           }
+          densidade={densidade}
         />
         <Toggle
           name="possui_doca_carga_descarga"
           label="Doca / carga e descarga"
           checked={possuiDoca}
+          densidade={densidade}
           onChange={(event) => setPossuiDoca(event.currentTarget.checked)}
         />
         {possuiDoca ? (
@@ -2308,7 +2456,7 @@ function GeralTab({
             densidade={densidade}
           />
         ) : null}
-        <div className="md:col-span-2">
+        <div className={longTextFieldClass}>
           <span className={`${longFieldLabelClass} ${labelTextClass}`}>
             Documento necessário para entrada
           </span>
@@ -2316,7 +2464,7 @@ function GeralTab({
             {DOCUMENTOS_ENTRADA.map((documento) => (
               <label
                 key={documento}
-                className="flex min-h-8 items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs font-semibold text-gray-700"
+                className="flex min-h-10 items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-2.5 py-2 text-xs font-semibold text-gray-700"
               >
                 <input
                   type="checkbox"
@@ -2342,7 +2490,7 @@ function GeralTab({
             densidade={densidade}
           />
         ) : null}
-        <div className="md:col-span-2">
+        <div className={longTextFieldClass}>
           <CampoTextarea name="observacoes_acesso" label="Observações de acesso" rows={densidade === "compacto" ? 3 : 4} defaultValue={parceiro?.observacoes_acesso} densidade={densidade} />
         </div>
       </FormSection>
@@ -2352,9 +2500,10 @@ function GeralTab({
         title="Horários de atendimento"
         description="Agenda semanal usada como referência para atendimento técnico e agendamento."
         densidade={densidade}
+        gridClassName={dadosCadastraisGrid}
       >
-        <Toggle name="atendimento_feriado" label="Atendimento em feriados" defaultChecked={parceiro?.atendimento_feriado ?? false} />
-        <Toggle name="necessita_agendamento" label="Necessita agendamento" defaultChecked={parceiro?.necessita_agendamento ?? false} />
+        <Toggle name="atendimento_feriado" label="Atendimento em feriados" defaultChecked={parceiro?.atendimento_feriado ?? false} densidade={densidade} />
+        <Toggle name="necessita_agendamento" label="Necessita agendamento" defaultChecked={parceiro?.necessita_agendamento ?? false} densidade={densidade} />
         <AgendaSemanalAtendimento
           agenda={agendaAtendimento}
           onChange={(proximaAgenda) => {
@@ -2435,7 +2584,15 @@ function FiliaisTab({
           <CampoTexto name="pais" label="País" defaultValue="Brasil" densidade={densidade} />
           <CampoTexto name="contato_nome" label="Contato" densidade={densidade} />
           <CampoTexto name="contato_telefone" label="Telefone" densidade={densidade} />
-          <CampoTexto name="contato_email" label="E-mail" densidade={densidade} />
+          <CampoTexto
+            name="contato_email"
+            label="E-mail"
+            type="email"
+            densidade={densidade}
+            inputMode="email"
+            pattern={emailPattern}
+            title="Informe um e-mail válido com @ e domínio, como nome@empresa.com."
+          />
           <CampoTexto name="sla_padrao" label="SLA" densidade={densidade} />
           <CampoTexto name="horario_atendimento" label="Horários" densidade={densidade} />
           <label className={labelClass}>
@@ -2449,7 +2606,7 @@ function FiliaisTab({
             </select>
             <span aria-hidden="true" className={auxiliaryTextClass} />
           </label>
-          <div className="md:col-span-2">
+          <div className={longTextFieldClass}>
             <CampoTextarea name="observacoes_operacionais" label="Observações operacionais" densidade={densidade} />
           </div>
         </div>
@@ -2555,7 +2712,7 @@ function ContatosTab({
           </CampoSelect>
           <CampoTexto
             name="telefone"
-            label="Telefone internacional"
+            label="Telefone comercial"
             defaultValue={mascararTelefone(contatoEmEdicao?.telefone ?? "")}
             densidade={densidade}
             inputMode="tel"
@@ -2564,46 +2721,72 @@ function ContatosTab({
               event.currentTarget.value = mascararTelefone(event.currentTarget.value);
             }}
           />
-          <CampoTexto
+          <CampoTextoComAcao
             name="celular"
-            label="Celular internacional"
+            label="Celular comercial"
             defaultValue={mascararCelular(contatoEmEdicao?.celular ?? "")}
             densidade={densidade}
             inputMode="tel"
             maxLength={19}
+            action={
+              <InlineFieldCheckbox
+                name="celular_whatsapp"
+                label="Celular é WhatsApp"
+                defaultChecked={Boolean(
+                  contatoEmEdicao?.celular &&
+                    contatoEmEdicao.celular === contatoEmEdicao.whatsapp
+                )}
+              />
+            }
             onInput={(event) => {
               event.currentTarget.value = mascararCelular(event.currentTarget.value);
             }}
           />
-          <CampoTexto
+          <CampoTextoComAcao
             name="whatsapp"
             label="WhatsApp"
             defaultValue={mascararCelular(contatoEmEdicao?.whatsapp ?? "")}
             densidade={densidade}
             inputMode="tel"
             maxLength={19}
+            action={
+              whatsappUrl(contatoEmEdicao?.whatsapp ?? contatoEmEdicao?.celular) ? (
+                <a
+                  className={`${inlineAuxiliaryActionClass} text-emerald-700`}
+                  href={
+                    whatsappUrl(contatoEmEdicao?.whatsapp ?? contatoEmEdicao?.celular) ??
+                    undefined
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Abrir WhatsApp
+                </a>
+              ) : null
+            }
             onInput={(event) => {
               event.currentTarget.value = mascararCelular(event.currentTarget.value);
             }}
           />
-          <div>
-            <CampoTexto
-              name="email"
-              label="E-mail"
-              type="email"
-              defaultValue={contatoEmEdicao?.email}
-              densidade={densidade}
-              inputMode="email"
-            />
-            <AcoesContato email={contatoEmEdicao?.email} />
-          </div>
-          <Toggle
-            name="celular_whatsapp"
-            label="Celular é WhatsApp"
-            defaultChecked={Boolean(
-              contatoEmEdicao?.celular &&
-                contatoEmEdicao.celular === contatoEmEdicao.whatsapp
-            )}
+          <CampoTextoComAcao
+            name="email"
+            label="E-mail"
+            type="email"
+            defaultValue={contatoEmEdicao?.email}
+            densidade={densidade}
+            inputMode="email"
+            pattern={emailPattern}
+            title="Informe um e-mail válido com @ e domínio, como nome@empresa.com."
+            action={
+              emailValido(contatoEmEdicao?.email) ? (
+                <a
+                  className={inlineAuxiliaryActionClass}
+                  href={`mailto:${emailValido(contatoEmEdicao?.email)}`}
+                >
+                  Enviar e-mail
+                </a>
+              ) : null
+            }
           />
           <Toggle name="principal" label="Principal" defaultChecked={contatoEmEdicao?.principal ?? false} />
           <Toggle
@@ -2622,7 +2805,7 @@ function ContatosTab({
             defaultChecked={contatoEmEdicao?.contato_operacional ?? true}
           />
           <Toggle name="ativo" label="Ativo" defaultChecked={contatoEmEdicao?.ativo ?? true} />
-          <div className="md:col-span-2">
+          <div className={longTextFieldClass}>
             <CampoTextarea
               name="observacoes"
               label="Observações do contato"
@@ -2673,11 +2856,20 @@ function FinanceiroTab({
       </FormSection>
       <FormSection title="Faturamento" densidade={densidade}>
         <CampoTexto name="responsavel_financeiro" label="Responsável financeiro" defaultValue={financeiro?.responsavel_financeiro} densidade={densidade} />
-        <CampoTexto name="email_nf" label="E-mail NF" defaultValue={financeiro?.email_nf} densidade={densidade} />
+        <CampoTexto
+          name="email_nf"
+          label="E-mail NF"
+          type="email"
+          defaultValue={financeiro?.email_nf}
+          densidade={densidade}
+          inputMode="email"
+          pattern={emailPattern}
+          title="Informe um e-mail válido com @ e domínio, como nome@empresa.com."
+        />
         <CampoTexto name="dia_faturamento" label="Dia faturamento" defaultValue={financeiro?.dia_faturamento} densidade={densidade} />
         <CampoTexto name="retencao" label="Retenção" defaultValue={financeiro?.retencao} densidade={densidade} />
         <CampoTexto name="natureza_operacao" label="Natureza operação" defaultValue={financeiro?.natureza_operacao} densidade={densidade} />
-        <div className="md:col-span-2">
+        <div className={longTextFieldClass}>
           <CampoTextarea name="observacoes_financeiras" label="Observações financeiras" defaultValue={financeiro?.observacoes_financeiras} densidade={densidade} />
         </div>
       </FormSection>
@@ -2716,7 +2908,7 @@ function OperacaoTab({
         <CampoTexto name="restricao_horario" label="Restrição horário" defaultValue={op?.restricao_horario} densidade={densidade} />
         <CampoTexto name="contato_escalonamento" label="Escalonamento" defaultValue={op?.contato_escalonamento} densidade={densidade} />
         <CampoTexto name="grupo_tecnico_padrao" label="Grupo técnico" defaultValue={op?.grupo_tecnico_padrao} densidade={densidade} />
-        <div className="md:col-span-2">
+        <div className={longTextFieldClass}>
           <CampoTextarea name="observacoes_operacionais" label="Observações operacionais" rows={7} defaultValue={op?.observacoes_operacionais} densidade={densidade} />
         </div>
       </FormSection>
@@ -2763,7 +2955,7 @@ function ContratosTab({
             </select>
             <span aria-hidden="true" className={auxiliaryTextClass} />
           </label>
-          <div className="md:col-span-2">
+          <div className={longTextFieldClass}>
             <CampoTextarea name="observacoes" label="Observações" densidade={densidade} />
           </div>
         </div>
@@ -2929,8 +3121,8 @@ export function ParceiroForm({
       ) : null}
 
       <section className="rounded-lg border border-gray-200 bg-white p-3 shadow-sm">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex gap-2 overflow-x-auto">
+        <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 max-w-full gap-2 overflow-x-auto">
             {ABAS.map((item) => (
               <button
                 key={item.id}
