@@ -17,7 +17,6 @@ import {
   registrarParceiroAnexo,
   salvarParceiroContato,
   salvarParceiroContrato,
-  salvarParceiroFilial,
   salvarParceiroFinanceiro,
   salvarParceiroGeral,
   salvarParceiroOperacional,
@@ -40,13 +39,13 @@ import {
   SEGMENTOS_PARCEIRO,
   SITUACOES_PARCEIRO,
   STATUS_CONTRATO,
-  STATUS_FILIAL,
   TIPOS_CONTATO,
   TIPOS_PARCEIRO,
   TIPOS_PESSOA,
   UFS_BRASIL,
   type OrganizacaoParceiroOpcao,
   type ParceiroDetalhe,
+  type ParceiroFilial,
   type ParceiroHorarioAtendimento,
   type TipoPessoa,
 } from "./types";
@@ -1122,6 +1121,46 @@ function MiniTable({
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function formatarEnderecoFilial(filial: ParceiroFilial) {
+  const enderecoLinha = [filial.endereco, filial.numero].filter(Boolean).join(", ");
+  const localidadeLinha = [filial.bairro, filial.cidade, filial.estado]
+    .filter(Boolean)
+    .join(" · ");
+  const cepLinha = filial.cep ? `CEP ${mascararCep(filial.cep)}` : null;
+  const linhas = [enderecoLinha, localidadeLinha, filial.pais, cepLinha].filter(Boolean);
+
+  if (linhas.length === 0) {
+    return "-";
+  }
+
+  return (
+    <div className="space-y-1">
+      {linhas.map((linha) => (
+        <p key={linha}>{linha}</p>
+      ))}
+    </div>
+  );
+}
+
+function formatarContatoFilial(filial: ParceiroFilial) {
+  const telefone = filial.contato_telefone
+    ? mascararTelefone(filial.contato_telefone)
+    : null;
+  const linhas = [filial.contato_nome, telefone, filial.contato_email].filter(Boolean);
+
+  if (linhas.length === 0) {
+    return "-";
+  }
+
+  return (
+    <div className="space-y-1">
+      {linhas.map((linha) => (
+        <p key={linha}>{linha}</p>
+      ))}
     </div>
   );
 }
@@ -2551,70 +2590,77 @@ function GeralTab({
 
 function FiliaisTab({
   parceiro,
-  densidade,
 }: {
   parceiro: ParceiroDetalhe;
   densidade: Densidade;
 }) {
   return (
-    <div className="space-y-4">
-      <MiniTable
-        headers={["Filial", "Loja vinculada", "Cidade", "SLA", "Contato", "Status"]}
-        rows={parceiro.filiais.map((filial) => [
-          filial.nome_filial,
-          filial.loja_legado_nome ?? "Sem loja legada",
-          filial.cidade ?? "-",
-          filial.sla_padrao ?? "-",
-          filial.contato_nome ?? filial.contato_telefone ?? "-",
-          LABEL_STATUS_FILIAL[filial.status],
-        ])}
-      />
-
-      <form action={salvarParceiroFilial} className="space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <input type="hidden" name="parceiro_id" value={parceiro.id} />
-        <div className={classes(densidade).grid}>
-          <CampoTexto name="nome_filial" label="Filial" required densidade={densidade} />
-          <CampoTexto name="codigo_interno" label="Código interno" densidade={densidade} />
-          <CampoTexto name="cep" label="CEP" densidade={densidade} />
-          <CampoTexto name="endereco" label="Endereço" densidade={densidade} />
-          <CampoTexto name="numero" label="Número" densidade={densidade} />
-          <CampoTexto name="bairro" label="Bairro" densidade={densidade} />
-          <CampoTexto name="cidade" label="Cidade" densidade={densidade} />
-          <CampoTexto name="estado" label="Estado" densidade={densidade} />
-          <CampoTexto name="pais" label="País" defaultValue="Brasil" densidade={densidade} />
-          <CampoTexto name="contato_nome" label="Contato" densidade={densidade} />
-          <CampoTexto name="contato_telefone" label="Telefone" densidade={densidade} />
-          <CampoTexto
-            name="contato_email"
-            label="E-mail"
-            type="email"
-            densidade={densidade}
-            inputMode="email"
-            pattern={emailPattern}
-            title="Informe um e-mail válido com @ e domínio, como nome@empresa.com."
-          />
-          <CampoTexto name="sla_padrao" label="SLA" densidade={densidade} />
-          <CampoTexto name="horario_atendimento" label="Horários" densidade={densidade} />
-          <label className={labelClass}>
-            <span className={labelTextClass}>Status</span>
-            <select name="status" defaultValue="ativa" className={classes(densidade).input}>
-              {STATUS_FILIAL.map((status) => (
-                <option key={status} value={status}>
-                  {LABEL_STATUS_FILIAL[status]}
-                </option>
-              ))}
-            </select>
-            <span aria-hidden="true" className={auxiliaryTextClass} />
-          </label>
-          <div className={longTextFieldClass}>
-            <CampoTextarea name="observacoes_operacionais" label="Observações operacionais" densidade={densidade} />
-          </div>
+    <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-1 border-b border-gray-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-base font-bold text-gray-950">Filiais cadastradas</h2>
+          <p className="text-sm text-gray-600">
+            Consulta das unidades operacionais vinculadas ao cliente.
+          </p>
         </div>
-        <button type="submit" className="min-h-10 rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
-          + Nova filial
-        </button>
-      </form>
-    </div>
+        <span className="inline-flex w-fit rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700">
+          {parceiro.filiais.length} {parceiro.filiais.length === 1 ? "filial" : "filiais"}
+        </span>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-[720px] w-full border-collapse text-left text-sm">
+          <thead className="bg-gray-900 text-white">
+            <tr>
+              <th className="px-4 py-3">Filial</th>
+              <th className="px-4 py-3">Endereço</th>
+              <th className="px-4 py-3">Contato</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Observações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {parceiro.filiais.length > 0 ? (
+              parceiro.filiais.map((filial) => (
+                <tr key={filial.id} className="border-b border-gray-200 last:border-b-0">
+                  <td className="px-4 py-3 align-top">
+                    <Link
+                      href={`/cadastros/parceiros/${parceiro.id}`}
+                      className="font-semibold text-gray-950 underline-offset-2 hover:text-blue-700 hover:underline"
+                    >
+                      {filial.nome_filial}
+                    </Link>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {filial.codigo_interno ?? "Sem código interno"}
+                    </p>
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    {formatarEnderecoFilial(filial)}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    {formatarContatoFilial(filial)}
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-800">
+                      {LABEL_STATUS_FILIAL[filial.status]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 align-top">
+                    {filial.observacoes_operacionais ?? "-"}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5} className="px-4 py-5 text-gray-600">
+                  Nenhuma filial cadastrada para este cliente.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

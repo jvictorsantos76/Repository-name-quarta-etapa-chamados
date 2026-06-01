@@ -6,6 +6,12 @@ const versoes = [
     versao: "v0.9.47",
     data: "22/05/2026",
     alteracoes: [
+      "Clientes / Parceiros v1.1.39 torna o nome da filial clicável para abrir o registro correspondente em Cadastros > Clientes / Parceiros.",
+      "Clientes / Parceiros v1.1.38 remove a coluna Horários da consulta de Filiais.",
+      "Clientes / Parceiros v1.1.37 remove a coluna Loja vinculada da consulta de Filiais.",
+      "Clientes / Parceiros v1.1.36 remove a coluna SLA da consulta de Filiais.",
+      "Clientes / Parceiros v1.1.35 aplica à consulta de Filiais o padrão tabular operacional usado no acompanhamento de chamados recentes.",
+      "Clientes / Parceiros v1.1.34 transforma a aba Filiais em consulta, removendo inputs e ações de criação ou edição.",
       "Clientes / Parceiros v1.1.33 ajusta o botão Inativar para cinza com fonte preta, exibe aviso de inatividade e bloqueia inativação quando há chamados vinculados.",
       "Clientes / Parceiros v1.1.32 adiciona Novo cliente no cabeçalho de edição, salvando a aba Geral antes de abrir um novo cadastro.",
       "Clientes / Parceiros v1.1.31 posiciona checkboxes à esquerda do texto, mantém documentos de entrada em largura total e usa rótulos compactos no responsável local.",

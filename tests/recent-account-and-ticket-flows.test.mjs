@@ -559,7 +559,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.33"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.39"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -695,7 +695,17 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.33"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.39"/);
+  assert.doesNotMatch(parceirosFormSource, /action=\{salvarParceiroFilial\}/);
+  assert.doesNotMatch(parceirosFormSource, /\+ Nova filial/);
+  assert.doesNotMatch(parceirosFormSource, /<th className="px-4 py-3">SLA<\/th>/);
+  assert.doesNotMatch(parceirosFormSource, /filial\.sla_padrao/);
+  assert.doesNotMatch(parceirosFormSource, /<th className="px-4 py-3">Loja vinculada<\/th>/);
+  assert.doesNotMatch(parceirosFormSource, /<th className="px-4 py-3">Horários<\/th>/);
+  assert.doesNotMatch(parceirosFormSource, /filial\.horario_atendimento/);
+  assert.match(parceirosFormSource, /href=\{`\/cadastros\/parceiros\/\$\{parceiro\.id\}`\}/);
+  assert.match(parceirosFormSource, /Filiais cadastradas/);
+  assert.match(parceirosFormSource, /Consulta das unidades operacionais vinculadas ao cliente/);
 });
 
 test("partner general tab keeps compact canonical large-form layout", () => {
