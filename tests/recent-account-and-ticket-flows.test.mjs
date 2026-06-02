@@ -264,6 +264,59 @@ function extractArray(source, constantName) {
   return source.slice(arrayStart + 1, arrayEnd);
 }
 
+function extractFunctionBlock(source, functionName) {
+  const declarationStart = source.indexOf(`function ${functionName}(`);
+  assert.notEqual(declarationStart, -1, `Nao foi possivel localizar ${functionName}.`);
+
+  const signatureStart = source.indexOf("(", declarationStart);
+  assert.notEqual(signatureStart, -1, `Nao foi possivel localizar a assinatura de ${functionName}.`);
+
+  let signatureDepth = 0;
+  let signatureEnd = -1;
+
+  for (let index = signatureStart; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (char === "(") {
+      signatureDepth += 1;
+    }
+
+    if (char === ")") {
+      signatureDepth -= 1;
+    }
+
+    if (signatureDepth === 0) {
+      signatureEnd = index;
+      break;
+    }
+  }
+
+  assert.notEqual(signatureEnd, -1, `Nao foi possivel localizar o fim da assinatura de ${functionName}.`);
+
+  const bodyStart = source.indexOf("{", signatureEnd);
+  assert.notEqual(bodyStart, -1, `Nao foi possivel localizar o corpo de ${functionName}.`);
+
+  let depth = 0;
+
+  for (let index = bodyStart; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (char === "{") {
+      depth += 1;
+    }
+
+    if (char === "}") {
+      depth -= 1;
+    }
+
+    if (depth === 0) {
+      return source.slice(declarationStart, index + 1);
+    }
+  }
+
+  assert.fail(`Nao foi possivel extrair o bloco de ${functionName}.`);
+}
+
 test("faturado ticket changes stay restricted to admin and analyst roles", () => {
   const papeisFaturado = extractArray(
     permissionsSource,
@@ -696,8 +749,6 @@ test("partner operational location keeps address independent and route links ext
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
   assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.39"/);
-  assert.doesNotMatch(parceirosFormSource, /action=\{salvarParceiroFilial\}/);
-  assert.doesNotMatch(parceirosFormSource, /\+ Nova filial/);
   assert.doesNotMatch(parceirosFormSource, /<th className="px-4 py-3">SLA<\/th>/);
   assert.doesNotMatch(parceirosFormSource, /filial\.sla_padrao/);
   assert.doesNotMatch(parceirosFormSource, /<th className="px-4 py-3">Loja vinculada<\/th>/);
@@ -706,6 +757,26 @@ test("partner operational location keeps address independent and route links ext
   assert.match(parceirosFormSource, /href=\{`\/cadastros\/parceiros\/\$\{parceiro\.id\}`\}/);
   assert.match(parceirosFormSource, /Filiais cadastradas/);
   assert.match(parceirosFormSource, /Consulta das unidades operacionais vinculadas ao cliente/);
+});
+
+test("partner branches tab stays read only after the detail-flow adjustment", () => {
+  const filiaisTabSource = extractFunctionBlock(parceirosFormSource, "FiliaisTab");
+
+  assert.match(filiaisTabSource, /Filiais cadastradas/);
+  assert.match(filiaisTabSource, /Consulta das unidades operacionais vinculadas ao cliente/);
+  assert.match(filiaisTabSource, /parceiro\.filiais\.map/);
+  assert.match(filiaisTabSource, /href=\{`\/cadastros\/parceiros\/\$\{parceiro\.id\}`\}/);
+  assert.match(filiaisTabSource, /Nenhuma filial cadastrada para este cliente\./);
+
+  assert.doesNotMatch(filiaisTabSource, /action=\{salvarParceiroFilial\}/);
+  assert.doesNotMatch(filiaisTabSource, /<form\b/);
+  assert.doesNotMatch(filiaisTabSource, /<input\b/);
+  assert.doesNotMatch(filiaisTabSource, /<button\b/);
+  assert.doesNotMatch(filiaisTabSource, /\+ Nova filial|Salvar filial|Limpar edição/);
+  assert.doesNotMatch(
+    filiaisTabSource,
+    /name="(?:filial_id|nome_filial|sla_padrao|horario_atendimento|loja_legado_id)"/
+  );
 });
 
 test("partner general tab keeps compact canonical large-form layout", () => {
