@@ -278,6 +278,19 @@ export type ParceiroFilial = {
   ativo: boolean;
 };
 
+export type ParceiroOrganizacaoResumo = {
+  id: string;
+  nome_exibicao: string;
+  codigo_interno: string | null;
+  tipo_parceiro: TipoParceiro;
+  situacao: SituacaoParceiro;
+  ativo: boolean;
+  endereco_resumido: string | null;
+  contato_resumido: string | null;
+  observacoes_resumidas: string | null;
+  is_atual: boolean;
+};
+
 export type ParceiroFinanceiro = {
   parceiro_id: string;
   condicao_pagamento: string | null;
@@ -373,6 +386,7 @@ export type ParceiroDetalhe = ParceiroResumo & {
   endereco_principal: ParceiroEndereco | null;
   contato_principal: ParceiroContato | null;
   filiais: ParceiroFilial[];
+  unidades_organizacao: ParceiroOrganizacaoResumo[];
   contatos: ParceiroContato[];
   financeiro: ParceiroFinanceiro | null;
   operacional: ParceiroOperacional | null;

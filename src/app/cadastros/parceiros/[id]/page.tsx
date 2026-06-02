@@ -20,6 +20,7 @@ import type {
   ParceiroHorarioAtendimento,
   ParceiroHistorico,
   ParceiroOperacional,
+  ParceiroOrganizacaoResumo,
   OrganizacaoParceiroOpcao,
 } from "../types";
 
@@ -40,6 +41,46 @@ async function getSalvo(searchParams: PageProps["searchParams"]) {
   const value = params.salvo;
 
   return Array.isArray(value) ? value[0] : value;
+}
+
+type ParceiroOrganizacaoRow = {
+  id: string;
+  tipo_parceiro: ParceiroOrganizacaoResumo["tipo_parceiro"];
+  razao_social: string;
+  nome_fantasia: string;
+  codigo_interno: string | null;
+  situacao: ParceiroOrganizacaoResumo["situacao"];
+  ativo: boolean;
+  observacoes_operacionais: string | null;
+  organizacao_id: string | null;
+};
+
+function textoResumo(valor: string | null | undefined) {
+  const texto = String(valor ?? "").trim().replace(/\s+/g, " ");
+  return texto || null;
+}
+
+function montarEnderecoResumo(endereco: ParceiroEndereco | null) {
+  if (!endereco) {
+    return null;
+  }
+
+  const logradouro = [endereco.endereco, endereco.numero].filter(Boolean).join(", ");
+  const localidade = [endereco.bairro, endereco.cidade, endereco.estado]
+    .filter(Boolean)
+    .join(" - ");
+  const partes = [logradouro, localidade || endereco.pais].filter(Boolean);
+  return textoResumo(partes.join(" | "));
+}
+
+function montarContatoResumo(contato: ParceiroContato | null) {
+  if (!contato) {
+    return null;
+  }
+
+  const telefone = contato.whatsapp ?? contato.celular ?? contato.telefone;
+  const partes = [contato.nome, telefone, contato.email].filter(Boolean);
+  return textoResumo(partes.join(" | "));
 }
 
 export default async function EditarParceiroPage({
@@ -149,7 +190,112 @@ export default async function EditarParceiroPage({
     | "organizacao_legada_nome"
     | "organizacao_nome"
     | "filiais_count"
+    | "unidades_organizacao"
   >;
+  const enderecos = (enderecosResposta.data as ParceiroEndereco[] | null) ?? [];
+  const contatos = (contatosResposta.data as ParceiroContato[] | null) ?? [];
+  let parceirosOrganizacao: ParceiroOrganizacaoRow[] = [];
+
+  if (parceiroBase.organizacao_id) {
+    const parceirosOrganizacaoResposta = await supabase
+      .from("parceiros")
+      .select(
+        "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, situacao, ativo, observacoes_operacionais, organizacao_id"
+      )
+      .eq("organizacao_id", parceiroBase.organizacao_id);
+
+    parceirosOrganizacao = parceirosOrganizacaoResposta.error
+      ? [
+          {
+            id: parceiroBase.id,
+            tipo_parceiro: parceiroBase.tipo_parceiro,
+            razao_social: parceiroBase.razao_social,
+            nome_fantasia: parceiroBase.nome_fantasia,
+            codigo_interno: parceiroBase.codigo_interno,
+            situacao: parceiroBase.situacao,
+            ativo: parceiroBase.ativo,
+            observacoes_operacionais: parceiroBase.observacoes_operacionais ?? null,
+            organizacao_id: parceiroBase.organizacao_id,
+          },
+        ]
+      : ((parceirosOrganizacaoResposta.data as ParceiroOrganizacaoRow[] | null) ?? []);
+  }
+
+  parceirosOrganizacao.sort((a, b) => {
+    if (a.id === id && b.id !== id) {
+      return -1;
+    }
+
+    if (b.id === id && a.id !== id) {
+      return 1;
+    }
+
+    if (a.ativo !== b.ativo) {
+      return a.ativo ? -1 : 1;
+    }
+
+    const nomeA = a.nome_fantasia || a.razao_social;
+    const nomeB = b.nome_fantasia || b.razao_social;
+    return nomeA.localeCompare(nomeB, "pt-BR", { sensitivity: "base" });
+  });
+
+  const unidadesOrganizacaoIds = parceirosOrganizacao.map((parceiro) => parceiro.id);
+  const [enderecosUnidadesResposta, contatosUnidadesResposta] = await Promise.all([
+    unidadesOrganizacaoIds.length > 0
+      ? supabase
+          .from("parceiros_enderecos")
+          .select("*")
+          .in("parceiro_id", unidadesOrganizacaoIds)
+          .order("principal", { ascending: false })
+          .order("atualizado_em", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    unidadesOrganizacaoIds.length > 0
+      ? supabase
+          .from("parceiros_contatos")
+          .select("*")
+          .in("parceiro_id", unidadesOrganizacaoIds)
+          .order("principal", { ascending: false })
+          .order("nome")
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  const enderecoPorParceiroId = new Map<string, ParceiroEndereco>();
+  if (!enderecosUnidadesResposta.error) {
+    for (const endereco of
+      (enderecosUnidadesResposta.data as ParceiroEndereco[] | null) ?? []) {
+      if (!enderecoPorParceiroId.has(endereco.parceiro_id)) {
+        enderecoPorParceiroId.set(endereco.parceiro_id, endereco);
+      }
+    }
+  }
+
+  const contatoPorParceiroId = new Map<string, ParceiroContato>();
+  if (!contatosUnidadesResposta.error) {
+    for (const contato of
+      (contatosUnidadesResposta.data as ParceiroContato[] | null) ?? []) {
+      if (!contatoPorParceiroId.has(contato.parceiro_id)) {
+        contatoPorParceiroId.set(contato.parceiro_id, contato);
+      }
+    }
+  }
+
+  const unidadesOrganizacao: ParceiroOrganizacaoResumo[] = parceirosOrganizacao.map(
+    (unidade) => ({
+      id: unidade.id,
+      nome_exibicao: unidade.nome_fantasia || unidade.razao_social,
+      codigo_interno: unidade.codigo_interno,
+      tipo_parceiro: unidade.tipo_parceiro,
+      situacao: unidade.situacao,
+      ativo: unidade.ativo,
+      endereco_resumido: montarEnderecoResumo(
+        enderecoPorParceiroId.get(unidade.id) ?? null
+      ),
+      contato_resumido: montarContatoResumo(contatoPorParceiroId.get(unidade.id) ?? null),
+      observacoes_resumidas: textoResumo(unidade.observacoes_operacionais),
+      is_atual: unidade.id === id,
+    })
+  );
+
   const lojaLegadoIds =
     (filiaisResposta.data as ParceiroFilial[] | null)
       ?.map((filial) => filial.loja_legado_id)
@@ -169,8 +315,6 @@ export default async function EditarParceiroPage({
           .in("id", lojaLegadoIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
-  const enderecos = (enderecosResposta.data as ParceiroEndereco[] | null) ?? [];
-  const contatos = (contatosResposta.data as ParceiroContato[] | null) ?? [];
   const organizacoes =
     (organizacoesResposta.data as OrganizacaoParceiroOpcao[] | null) ?? [];
   const organizacoesPorId = new Map(
@@ -231,6 +375,7 @@ export default async function EditarParceiroPage({
     endereco_principal: enderecos[0] ?? null,
     contato_principal: contatos.find((contato) => contato.principal) ?? contatos[0] ?? null,
     filiais,
+    unidades_organizacao: unidadesOrganizacao,
     contatos,
     financeiro: (financeiroResposta.data as ParceiroFinanceiro | null) ?? null,
     operacional: (operacionalResposta.data as ParceiroOperacional | null) ?? null,

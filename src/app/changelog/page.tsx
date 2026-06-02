@@ -6,6 +6,8 @@ const versoes = [
     versao: "v0.9.47",
     data: "22/05/2026",
     alteracoes: [
+      "Clientes / Parceiros v1.1.41 passa a listar na aba Filiais as unidades vinculadas à mesma organização em public.parceiros, com badge do cadastro atual e link Abrir cadastro.",
+      "Clientes / Parceiros v1.1.40 amplia a consulta de Filiais para exibir também filiais de parceiros vinculados à mesma organização.",
       "Clientes / Parceiros v1.1.39 torna o nome da filial clicável para abrir o registro correspondente em Cadastros > Clientes / Parceiros.",
       "Clientes / Parceiros v1.1.38 remove a coluna Horários da consulta de Filiais.",
       "Clientes / Parceiros v1.1.37 remove a coluna Loja vinculada da consulta de Filiais.",

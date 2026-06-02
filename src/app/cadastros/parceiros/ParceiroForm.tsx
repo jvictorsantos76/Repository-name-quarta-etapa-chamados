@@ -30,7 +30,6 @@ import {
   LABEL_DEPARTAMENTO_CONTATO,
   LABEL_SEGMENTO_PARCEIRO,
   LABEL_STATUS_CONTRATO,
-  LABEL_STATUS_FILIAL,
   LABEL_SITUACAO_PARCEIRO,
   LABEL_TIPO_CONTATO,
   LABEL_TIPO_PARCEIRO,
@@ -45,7 +44,7 @@ import {
   UFS_BRASIL,
   type OrganizacaoParceiroOpcao,
   type ParceiroDetalhe,
-  type ParceiroFilial,
+  type ParceiroOrganizacaoResumo,
   type ParceiroHorarioAtendimento,
   type TipoPessoa,
 } from "./types";
@@ -1125,44 +1124,16 @@ function MiniTable({
   );
 }
 
-function formatarEnderecoFilial(filial: ParceiroFilial) {
-  const enderecoLinha = [filial.endereco, filial.numero].filter(Boolean).join(", ");
-  const localidadeLinha = [filial.bairro, filial.cidade, filial.estado]
-    .filter(Boolean)
-    .join(" · ");
-  const cepLinha = filial.cep ? `CEP ${mascararCep(filial.cep)}` : null;
-  const linhas = [enderecoLinha, localidadeLinha, filial.pais, cepLinha].filter(Boolean);
-
-  if (linhas.length === 0) {
-    return "-";
-  }
-
-  return (
-    <div className="space-y-1">
-      {linhas.map((linha) => (
-        <p key={linha}>{linha}</p>
-      ))}
-    </div>
-  );
+function textoConsulta(valor: string | null | undefined) {
+  return valor?.trim() || "-";
 }
 
-function formatarContatoFilial(filial: ParceiroFilial) {
-  const telefone = filial.contato_telefone
-    ? mascararTelefone(filial.contato_telefone)
-    : null;
-  const linhas = [filial.contato_nome, telefone, filial.contato_email].filter(Boolean);
-
-  if (linhas.length === 0) {
-    return "-";
-  }
-
-  return (
-    <div className="space-y-1">
-      {linhas.map((linha) => (
-        <p key={linha}>{linha}</p>
-      ))}
-    </div>
-  );
+function UnidadeAtualBadge({ unidade }: { unidade: ParceiroOrganizacaoResumo }) {
+  return unidade.is_atual ? (
+    <span className="ml-2 inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+      Atual
+    </span>
+  ) : null;
 }
 
 function GeralTab({
@@ -2594,72 +2565,129 @@ function FiliaisTab({
   parceiro: ParceiroDetalhe;
   densidade: Densidade;
 }) {
+  const unidades = parceiro.unidades_organizacao;
+  const totalUnidades = unidades.length;
+  const somenteUnidadeAtual = Boolean(parceiro.organizacao_id && totalUnidades === 1);
+
   return (
     <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
       <div className="flex flex-col gap-1 border-b border-gray-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-base font-bold text-gray-950">Filiais cadastradas</h2>
+          <h2 className="text-base font-bold text-gray-950">
+            Unidades vinculadas à organização
+          </h2>
           <p className="text-sm text-gray-600">
-            Consulta das unidades operacionais vinculadas ao cliente.
+            Consulta dos clientes e unidades operacionais vinculados à mesma organização.
           </p>
         </div>
         <span className="inline-flex w-fit rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700">
-          {parceiro.filiais.length} {parceiro.filiais.length === 1 ? "filial" : "filiais"}
+          {totalUnidades} {totalUnidades === 1 ? "unidade" : "unidades"}
         </span>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="min-w-[720px] w-full border-collapse text-left text-sm">
-          <thead className="bg-gray-900 text-white">
-            <tr>
-              <th className="px-4 py-3">Filial</th>
-              <th className="px-4 py-3">Endereço</th>
-              <th className="px-4 py-3">Contato</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Observações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {parceiro.filiais.length > 0 ? (
-              parceiro.filiais.map((filial) => (
-                <tr key={filial.id} className="border-b border-gray-200 last:border-b-0">
-                  <td className="px-4 py-3 align-top">
-                    <Link
-                      href={`/cadastros/parceiros/${parceiro.id}`}
-                      className="font-semibold text-gray-950 underline-offset-2 hover:text-blue-700 hover:underline"
-                    >
-                      {filial.nome_filial}
-                    </Link>
-                    <p className="mt-1 text-xs text-gray-500">
-                      {filial.codigo_interno ?? "Sem código interno"}
-                    </p>
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    {formatarEnderecoFilial(filial)}
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    {formatarContatoFilial(filial)}
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-800">
-                      {LABEL_STATUS_FILIAL[filial.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    {filial.observacoes_operacionais ?? "-"}
-                  </td>
+      {!parceiro.organizacao_id ? (
+        <div className="px-4 py-5 text-sm text-gray-600">
+          Este cadastro ainda não possui organização vinculada. Vincule uma organização
+          na aba Geral para visualizar unidades relacionadas.
+        </div>
+      ) : null}
+
+      {somenteUnidadeAtual ? (
+        <div className="border-b border-gray-100 px-4 py-3 text-sm font-medium text-gray-700">
+          Esta é a única unidade vinculada à organização.
+        </div>
+      ) : null}
+
+      {parceiro.organizacao_id ? (
+        <>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="min-w-[1040px] w-full border-collapse text-left text-sm">
+              <thead className="bg-gray-900 text-white">
+                <tr>
+                  <th className="px-4 py-3">Unidade</th>
+                  <th className="px-4 py-3">Código</th>
+                  <th className="px-4 py-3">Endereço</th>
+                  <th className="px-4 py-3">Contato</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Tipo</th>
+                  <th className="px-4 py-3">Observações</th>
+                  <th className="px-4 py-3">Ação</th>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={5} className="px-4 py-5 text-gray-600">
-                  Nenhuma filial cadastrada para este cliente.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody>
+                {unidades.map((unidade) => (
+                  <tr key={unidade.id} className="border-b border-gray-200 last:border-b-0">
+                    <td className="px-4 py-3 align-top">
+                      <p className="font-semibold text-gray-950">
+                        {unidade.nome_exibicao}
+                        <UnidadeAtualBadge unidade={unidade} />
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      {textoConsulta(unidade.codigo_interno)}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      {textoConsulta(unidade.endereco_resumido)}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      {textoConsulta(unidade.contato_resumido)}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-800">
+                        {LABEL_SITUACAO_PARCEIRO[unidade.situacao]}
+                      </span>
+                      {!unidade.ativo ? (
+                        <span className="ml-2 inline-flex rounded-full bg-gray-50 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                          Inativo
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      {LABEL_TIPO_PARCEIRO[unidade.tipo_parceiro]}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      {textoConsulta(unidade.observacoes_resumidas)}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Link
+                        href={`/cadastros/parceiros/${unidade.id}`}
+                        className="text-sm font-semibold text-blue-700 underline-offset-2 hover:underline"
+                      >
+                        Abrir cadastro
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="divide-y divide-gray-100 md:hidden">
+            {unidades.map((unidade) => (
+              <article key={unidade.id} className="space-y-3 px-4 py-4">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-950">
+                    {unidade.nome_exibicao}
+                    <UnidadeAtualBadge unidade={unidade} />
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold text-gray-500">
+                    {textoConsulta(unidade.codigo_interno)}
+                  </p>
+                </div>
+                <div className="grid gap-2 text-sm text-gray-700">
+                  <p>{textoConsulta(unidade.endereco_resumido)}</p>
+                  <p>{LABEL_SITUACAO_PARCEIRO[unidade.situacao]}</p>
+                </div>
+                <Link
+                  href={`/cadastros/parceiros/${unidade.id}`}
+                  className="inline-flex min-h-9 items-center rounded-md border border-gray-300 px-3 py-1.5 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                >
+                  Abrir cadastro
+                </Link>
+              </article>
+            ))}
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }

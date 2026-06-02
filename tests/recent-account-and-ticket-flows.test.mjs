@@ -244,9 +244,17 @@ const parceirosFormSource = await readFile(
   new URL("../src/app/cadastros/parceiros/ParceiroForm.tsx", import.meta.url),
   "utf8"
 );
+const parceirosTypesSource = await readFile(
+  new URL("../src/app/cadastros/parceiros/types.ts", import.meta.url),
+  "utf8"
+);
 const parceirosLocationUtilsSource = await readFile(
   new URL("../src/app/cadastros/parceiros/location-utils.ts", import.meta.url),
   "utf8"
+);
+const filiaisTabSource = parceirosFormSource.slice(
+  parceirosFormSource.indexOf("function FiliaisTab"),
+  parceirosFormSource.indexOf("function ContatosTab")
 );
 
 function extractArray(source, constantName) {
@@ -559,7 +567,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.39"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.41"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
@@ -695,17 +703,27 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.39"/);
-  assert.doesNotMatch(parceirosFormSource, /action=\{salvarParceiroFilial\}/);
-  assert.doesNotMatch(parceirosFormSource, /\+ Nova filial/);
-  assert.doesNotMatch(parceirosFormSource, /<th className="px-4 py-3">SLA<\/th>/);
-  assert.doesNotMatch(parceirosFormSource, /filial\.sla_padrao/);
-  assert.doesNotMatch(parceirosFormSource, /<th className="px-4 py-3">Loja vinculada<\/th>/);
-  assert.doesNotMatch(parceirosFormSource, /<th className="px-4 py-3">Horários<\/th>/);
-  assert.doesNotMatch(parceirosFormSource, /filial\.horario_atendimento/);
-  assert.match(parceirosFormSource, /href=\{`\/cadastros\/parceiros\/\$\{parceiro\.id\}`\}/);
-  assert.match(parceirosFormSource, /Filiais cadastradas/);
-  assert.match(parceirosFormSource, /Consulta das unidades operacionais vinculadas ao cliente/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.41"/);
+  assert.match(parceirosTypesSource, /export type ParceiroOrganizacaoResumo = \{/);
+  assert.match(parceirosTypesSource, /unidades_organizacao: ParceiroOrganizacaoResumo\[\]/);
+  assert.doesNotMatch(filiaisTabSource, /action=\{salvarParceiroFilial\}/);
+  assert.doesNotMatch(filiaisTabSource, /\+ Nova filial/);
+  assert.doesNotMatch(filiaisTabSource, /<form|<input|<select|<textarea/);
+  assert.doesNotMatch(filiaisTabSource, /<th className="px-4 py-3">SLA<\/th>/);
+  assert.doesNotMatch(filiaisTabSource, /filial\.sla_padrao/);
+  assert.doesNotMatch(filiaisTabSource, /<th className="px-4 py-3">Loja vinculada<\/th>/);
+  assert.doesNotMatch(filiaisTabSource, /<th className="px-4 py-3">Horários<\/th>/);
+  assert.doesNotMatch(filiaisTabSource, /filial\.horario_atendimento/);
+  assert.match(filiaisTabSource, /const unidades = parceiro\.unidades_organizacao/);
+  assert.match(filiaisTabSource, /Unidades vinculadas à organização/);
+  assert.match(filiaisTabSource, /Vincule uma organização[\s\S]*na aba Geral/);
+  assert.match(filiaisTabSource, /Esta é a única unidade vinculada à organização\./);
+  assert.match(filiaisTabSource, /UnidadeAtualBadge/);
+  assert.match(filiaisTabSource, /href=\{`\/cadastros\/parceiros\/\$\{unidade\.id\}`\}/);
+  assert.match(filiaisTabSource, /Abrir cadastro/);
+  assert.match(filiaisTabSource, /!unidade\.ativo/);
+  assert.doesNotMatch(filiaisTabSource, /Filiais cadastradas/);
+  assert.doesNotMatch(filiaisTabSource, /Nenhuma filial cadastrada para este cliente/);
 });
 
 test("partner general tab keeps compact canonical large-form layout", () => {
@@ -719,6 +737,11 @@ test("partner general tab keeps compact canonical large-form layout", () => {
   assert.match(parceiroDetailPageSource, /Inativação desabilitada[\s\S]*chamados vinculados/);
   assert.match(parceiroDetailPageSource, /\.from\("chamados"\)[\s\S]*\.eq\("parceiro_id", id\)/);
   assert.match(parceiroDetailPageSource, /\.from\("chamados"\)[\s\S]*\.in\("parceiro_filial_id", filialIds\)/);
+  assert.match(parceiroDetailPageSource, /\.from\("parceiros"\)[\s\S]*\.eq\("organizacao_id", parceiroBase\.organizacao_id\)/);
+  assert.match(parceiroDetailPageSource, /\.from\("parceiros_filiais"\)[\s\S]*\.eq\("parceiro_id", id\)/);
+  assert.match(parceiroDetailPageSource, /unidades_organizacao: unidadesOrganizacao/);
+  assert.match(parceiroDetailPageSource, /a\.ativo !== b\.ativo[\s\S]*a\.ativo \? -1 : 1/);
+  assert.doesNotMatch(parceiroDetailPageSource, /parceirosMesmoNucleoIds/);
   assert.match(parceirosActionsSource, /formData\.get\("acao_pos_salvar"\)/);
   assert.match(parceirosActionsSource, /acaoPosSalvar === "novo_cliente"[\s\S]*redirectComSucesso\(`\$\{LISTAGEM_PARCEIROS_PATH\}\/nova`, "novo_cliente"\)/);
   assert.match(parceirosActionsSource, /contarChamadosRelacionadosAoParceiro/);
