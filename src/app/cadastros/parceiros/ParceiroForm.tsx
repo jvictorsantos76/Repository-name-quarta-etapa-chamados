@@ -16,7 +16,6 @@ import {
   consultarCnpjPublico,
   registrarParceiroAnexo,
   salvarParceiroContato,
-  salvarParceiroContrato,
   salvarParceiroFinanceiro,
   salvarParceiroGeral,
   salvarParceiroOperacional,
@@ -37,7 +36,6 @@ import {
   OPCOES_CRT,
   SEGMENTOS_PARCEIRO,
   SITUACOES_PARCEIRO,
-  STATUS_CONTRATO,
   TIPOS_CONTATO,
   TIPOS_PARCEIRO,
   TIPOS_PESSOA,
@@ -116,7 +114,7 @@ const ABAS: { id: Aba; label: string }[] = [
   { id: "filiais", label: "Filiais" },
   { id: "contatos", label: "Contatos" },
   { id: "financeiro", label: "Financeiro" },
-  { id: "contratos", label: "Contratos e SLA" },
+  { id: "contratos", label: "Contratos" },
   { id: "operacao", label: "Operação" },
   { id: "anexos", label: "Anexos" },
   { id: "historico", label: "Histórico" },
@@ -3082,13 +3080,29 @@ function OperacaoTab({
 
 function ContratosTab({
   parceiro,
-  densidade,
 }: {
   parceiro: ParceiroDetalhe;
-  densidade: Densidade;
 }) {
   return (
     <div className="space-y-4">
+      <section className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-base font-bold text-gray-950">
+              Contratos vinculados ao cliente
+            </h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Consulta dos contratos cadastrados na Gerência. Novos contratos devem ser criados no cadastro próprio.
+            </p>
+          </div>
+          <Link
+            href={`/cadastros/contratos?parceiro=${parceiro.id}`}
+            className="inline-flex min-h-10 w-fit items-center justify-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+          >
+            Gerenciar contratos
+          </Link>
+        </div>
+      </section>
       <MiniTable
         headers={["Contrato", "Vigência", "SLA", "Status"]}
         rows={parceiro.contratos.map((contrato) => [
@@ -3098,32 +3112,6 @@ function ContratosTab({
           LABEL_STATUS_CONTRATO[contrato.status],
         ])}
       />
-      <form action={salvarParceiroContrato} className="space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-        <input type="hidden" name="parceiro_id" value={parceiro.id} />
-        <div className={classes(densidade).grid}>
-          <CampoTexto name="contrato" label="Contrato" required densidade={densidade} />
-          <CampoTexto name="vigencia_inicio" label="Vigência início" type="date" densidade={densidade} />
-          <CampoTexto name="vigencia_fim" label="Vigência fim" type="date" densidade={densidade} />
-          <CampoTexto name="sla" label="SLA" densidade={densidade} />
-          <label className={labelClass}>
-            <span className={labelTextClass}>Status</span>
-            <select name="status" defaultValue="ativo" className={classes(densidade).input}>
-              {STATUS_CONTRATO.map((status) => (
-                <option key={status} value={status}>
-                  {LABEL_STATUS_CONTRATO[status]}
-                </option>
-              ))}
-            </select>
-            <span aria-hidden="true" className={auxiliaryTextClass} />
-          </label>
-          <div className={longTextFieldClass}>
-            <CampoTextarea name="observacoes" label="Observações" densidade={densidade} />
-          </div>
-        </div>
-        <button type="submit" className="min-h-10 rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white">
-          + Novo contrato
-        </button>
-      </form>
     </div>
   );
 }
@@ -3329,7 +3317,7 @@ export function ParceiroForm({
       {parceiro && aba === "filiais" ? <FiliaisTab parceiro={parceiro} densidade={densidade} /> : null}
       {parceiro && aba === "contatos" ? <ContatosTab parceiro={parceiro} densidade={densidade} /> : null}
       {parceiro && aba === "financeiro" ? <FinanceiroTab parceiro={parceiro} densidade={densidade} /> : null}
-      {parceiro && aba === "contratos" ? <ContratosTab parceiro={parceiro} densidade={densidade} /> : null}
+      {parceiro && aba === "contratos" ? <ContratosTab parceiro={parceiro} /> : null}
       {parceiro && aba === "operacao" ? <OperacaoTab parceiro={parceiro} densidade={densidade} /> : null}
       {parceiro && aba === "anexos" ? <AnexosTab parceiro={parceiro} densidade={densidade} /> : null}
       {parceiro && aba === "historico" ? <HistoricoTab parceiro={parceiro} /> : null}

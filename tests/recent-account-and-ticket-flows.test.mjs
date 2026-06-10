@@ -150,8 +150,24 @@ const versionBadgeSource = await readFile(
   new URL("../src/components/VersionBadge.tsx", import.meta.url),
   "utf8"
 );
+const navigationSource = await readFile(
+  new URL("../src/config/navigation.ts", import.meta.url),
+  "utf8"
+);
 const versionSource = await readFile(
   new URL("../src/config/version.ts", import.meta.url),
+  "utf8"
+);
+const contratosPageSource = await readFile(
+  new URL("../src/app/cadastros/contratos/page.tsx", import.meta.url),
+  "utf8"
+);
+const contratosClientSource = await readFile(
+  new URL("../src/app/cadastros/contratos/ContratosClient.tsx", import.meta.url),
+  "utf8"
+);
+const contratosActionsSource = await readFile(
+  new URL("../src/app/cadastros/contratos/actions.ts", import.meta.url),
   "utf8"
 );
 const organizacaoDetalhePageSource = await readFile(
@@ -578,8 +594,12 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.42"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.43"/);
+  assert.match(versionSource, /CONTRATOS_PAGE_VERSION = "v1\.0\.0"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
+  assert.match(versionBadgeSource, /\/cadastros\/contratos/);
+  assert.match(navigationSource, /id: "gerencia-contratos"/);
+  assert.match(navigationSource, /href: "\/cadastros\/contratos"/);
   assert.match(parceirosFormSource, /CATEGORIAS_FINANCEIRAS/);
   assert.match(parceirosFormSource, /CampoMoedaReais/);
   assert.match(parceirosFormSource, /style:\s*"currency"[\s\S]*currency:\s*"BRL"/);
@@ -595,6 +615,23 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.doesNotMatch(parceirosActionsSource, /dia_faturamento: inteiroOuNull\(formData\.get\("dia_faturamento"\)\)/);
   assert.doesNotMatch(parceirosActionsSource, /retencao: textoOuNull\(formData\.get\("retencao"\)\)/);
   assert.doesNotMatch(parceirosActionsSource, /natureza_operacao: textoOuNull\(formData\.get\("natureza_operacao"\)\)/);
+  assert.match(parceirosFormSource, /label: "Contratos"/);
+  assert.doesNotMatch(parceirosFormSource, /label: "Contratos e SLA"/);
+  assert.match(parceirosFormSource, /Gerenciar contratos/);
+  assert.match(parceirosFormSource, /\/cadastros\/contratos\?parceiro=/);
+  assert.doesNotMatch(parceirosFormSource, /action=\{salvarParceiroContrato\}/);
+  assert.doesNotMatch(parceirosFormSource, /salvarParceiroContrato/);
+  assert.doesNotMatch(parceirosFormSource, /\+ Novo contrato/);
+  assert.match(contratosPageSource, /\.from\("parceiros_contratos"\)/);
+  assert.match(contratosPageSource, /\.from\("parceiros"\)/);
+  assert.match(contratosClientSource, /NovoContratoForm/);
+  assert.match(contratosClientSource, /ContratosClient/);
+  assert.match(contratosClientSource, /ParceiroSelect/);
+  assert.match(contratosClientSource, /CatalogoPaginacao/);
+  assert.match(contratosClientSource, /Abrir cliente/);
+  assert.match(contratosActionsSource, /salvarContratoGerencia/);
+  assert.match(contratosActionsSource, /\.from\("parceiros_contratos"\)/);
+  assert.match(contratosActionsSource, /revalidatePath\("\/cadastros\/contratos"\)/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_contato text null/i);
@@ -729,7 +766,7 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.42"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.43"/);
   assert.match(parceirosTypesSource, /export type ParceiroOrganizacaoResumo = \{/);
   assert.match(parceirosTypesSource, /unidades_organizacao: ParceiroOrganizacaoResumo\[\]/);
   assert.doesNotMatch(filiaisTabSource, /action=\{salvarParceiroFilial\}/);

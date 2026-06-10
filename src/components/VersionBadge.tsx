@@ -11,6 +11,7 @@ import {
   CONTA_PAGE_VERSION,
   CONTA_PERFIL_PAGE_VERSION,
   CONTA_PERMISSOES_PAGE_VERSION,
+  CONTRATOS_PAGE_VERSION,
   DASHBOARD_PAGE_VERSION,
   LOGIN_PAGE_VERSION,
   NOVO_CHAMADO_PAGE_VERSION,
@@ -124,6 +125,10 @@ function getPageVersion(pathname: string) {
 
   if (pathname.startsWith("/cadastros/parceiros")) {
     return `Tela | Clientes / Parceiros ${PARCEIROS_PAGE_VERSION}`;
+  }
+
+  if (pathname.startsWith("/cadastros/contratos")) {
+    return `Tela | Contratos ${CONTRATOS_PAGE_VERSION}`;
   }
 
   if (pathname.startsWith("/cadastros/organizacoes")) {

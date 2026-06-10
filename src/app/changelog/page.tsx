@@ -3,6 +3,17 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.51",
+    data: "09/06/2026",
+    alteracoes: [
+      "Gerência ganha o cadastro de Contratos v1.0.0 para criar e editar vínculos contratuais diretamente em parceiros_contratos.",
+      "Clientes / Parceiros v1.1.43 renomeia a aba Contratos e SLA para Contratos e transforma o conteúdo em consulta dos contratos vinculados.",
+    ],
+    correcoes: [
+      "A criação de contratos sai da tela do cliente e passa a ocorrer no menu de Gerência, preservando a aba do cliente como pesquisa operacional.",
+    ],
+  },
+  {
     versao: "v0.9.50",
     data: "09/06/2026",
     alteracoes: [

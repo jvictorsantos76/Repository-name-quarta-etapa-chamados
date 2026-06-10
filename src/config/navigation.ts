@@ -166,6 +166,14 @@ export const navigationGroups: NavigationGroup[] = [
         allowedRoles: ["super_admin", "admin", "analista"],
       },
       {
+        id: "gerencia-contratos",
+        label: "Contratos",
+        href: "/cadastros/contratos",
+        status: "disponivel",
+        icon: "fileText",
+        allowedRoles: ["super_admin", "admin", "analista"],
+      },
+      {
         id: "gerencia-tecnicos",
         label: "Técnicos",
         href: "/admin/usuarios",
