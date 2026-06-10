@@ -154,6 +154,17 @@ const versionSource = await readFile(
   new URL("../src/config/version.ts", import.meta.url),
   "utf8"
 );
+const organizacaoDetalhePageSource = await readFile(
+  new URL("../src/app/cadastros/organizacoes/[id]/page.tsx", import.meta.url),
+  "utf8"
+);
+const organizacaoFiliaisSectionSource = await readFile(
+  new URL(
+    "../src/app/cadastros/organizacoes/OrganizacaoFiliaisSection.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
 const parceirosMigration = await readFile(
   new URL(
     "../supabase/migrations/20260519205423_create_parceiros_operacionais.sql",
@@ -567,8 +578,23 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.41"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.42"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
+  assert.match(parceirosFormSource, /CATEGORIAS_FINANCEIRAS/);
+  assert.match(parceirosFormSource, /CampoMoedaReais/);
+  assert.match(parceirosFormSource, /style:\s*"currency"[\s\S]*currency:\s*"BRL"/);
+  assert.match(parceirosFormSource, /CampoSelectEditavel[\s\S]*name="categoria_financeira"/);
+  assert.match(parceirosFormSource, /Compra de insumos e matéria prima/);
+  assert.match(parceirosFormSource, /Despesas adicionais em operações financeiras/);
+  assert.doesNotMatch(parceirosFormSource, /name="centro_custo"/);
+  assert.doesNotMatch(parceirosFormSource, /name="dia_faturamento"/);
+  assert.doesNotMatch(parceirosFormSource, /name="retencao"/);
+  assert.doesNotMatch(parceirosFormSource, /name="natureza_operacao"/);
+  assert.match(parceirosActionsSource, /categoriaFinanceiraOuNull/);
+  assert.doesNotMatch(parceirosActionsSource, /centro_custo: textoOuNull\(formData\.get\("centro_custo"\)\)/);
+  assert.doesNotMatch(parceirosActionsSource, /dia_faturamento: inteiroOuNull\(formData\.get\("dia_faturamento"\)\)/);
+  assert.doesNotMatch(parceirosActionsSource, /retencao: textoOuNull\(formData\.get\("retencao"\)\)/);
+  assert.doesNotMatch(parceirosActionsSource, /natureza_operacao: textoOuNull\(formData\.get\("natureza_operacao"\)\)/);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_contato text null/i);
@@ -703,7 +729,7 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.41"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.42"/);
   assert.match(parceirosTypesSource, /export type ParceiroOrganizacaoResumo = \{/);
   assert.match(parceirosTypesSource, /unidades_organizacao: ParceiroOrganizacaoResumo\[\]/);
   assert.doesNotMatch(filiaisTabSource, /action=\{salvarParceiroFilial\}/);
@@ -949,9 +975,16 @@ test("organizations link to clients without replacing operational ticket fields"
   assert.match(novoChamadoFormSource, /Cadastro mestre:/);
   assert.match(novoChamadoFormSource, /Filial no cadastro mestre:/);
   assert.doesNotMatch(novoChamadoFormSource, /organizacao_id: clienteId/);
-  assert.match(versionSource, /ORGANIZACOES_PAGE_VERSION = "v1\.1\.1"/);
+  assert.match(versionSource, /ORGANIZACOES_PAGE_VERSION = "v1\.1\.2"/);
   assert.match(versionSource, /NOVO_CHAMADO_PAGE_VERSION = "v0\.2\.7"/);
   assert.match(versionBadgeSource, /\/cadastros\/organizacoes/);
+  assert.match(organizacaoDetalhePageSource, /\.from\("parceiros"\)/);
+  assert.match(organizacaoDetalhePageSource, /\.eq\("organizacao_id", id\)/);
+  assert.match(organizacaoDetalhePageSource, /parceiros_enderecos/);
+  assert.match(organizacaoDetalhePageSource, /parceiros_contatos/);
+  assert.match(organizacaoDetalhePageSource, /OrganizacaoFiliaisSection/);
+  assert.match(organizacaoFiliaisSectionSource, /Filiais vinculadas/);
+  assert.match(organizacaoFiliaisSectionSource, /Abrir cadastro/);
 });
 
 test("partner form normalizes website before hitting database constraints", () => {

@@ -15,9 +15,42 @@ const mensagemCredenciais =
   "E-mail ou senha inválidos. Confira seus dados e tente novamente.";
 const mensagemLinkMagico =
   "Se o e-mail estiver autorizado, enviaremos o link de acesso.";
+const mensagemConexaoSupabase =
+  "Não foi possível conectar ao serviço de autenticação agora. Verifique a conexão e tente novamente.";
 
 const TEMPO_VERIFICACAO_SESSAO_MS = 8000;
+const TEMPO_REQUISICAO_AUTH_MS = 12000;
 const GOOGLE_OAUTH_HABILITADO = false;
+
+async function executarAuthComTimeout<T>(promise: PromiseLike<T>) {
+  let timeoutId: ReturnType<typeof setTimeout>;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error("supabase-auth-timeout")),
+          TEMPO_REQUISICAO_AUTH_MS
+        );
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeoutId!);
+  }
+}
+
+function isErroConexaoSupabase(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return (
+    error.name === "AuthRetryableFetchError" ||
+    error.message.toLowerCase().includes("failed to fetch") ||
+    error.message === "supabase-auth-timeout"
+  );
+}
 
 const contatos = [
   {
@@ -116,36 +149,70 @@ export default function LoginPage() {
     setAviso("");
     setEntrando(true);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password: senha,
-    });
+    let resultadoLogin;
+
+    try {
+      resultadoLogin = await executarAuthComTimeout(
+        supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password: senha,
+        })
+      );
+    } catch (error) {
+      setErro(
+        isErroConexaoSupabase(error) ? mensagemConexaoSupabase : mensagemCredenciais
+      );
+      setEntrando(false);
+      return;
+    }
+
+    const { data, error } = resultadoLogin;
 
     if (error || !data.session) {
-      setErro(mensagemCredenciais);
+      setErro(isErroConexaoSupabase(error) ? mensagemConexaoSupabase : mensagemCredenciais);
       setEntrando(false);
       return;
     }
 
     syncSupabaseSessionCookies(data.session);
     await redirecionarPorPerfil();
+    setEntrando(false);
   }
 
   async function continuarComGoogle() {
     setErro("");
     setAviso("");
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    let resultadoGoogle;
+
+    try {
+      resultadoGoogle = await executarAuthComTimeout(
+        supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        })
+      );
+    } catch (error) {
+      setErro(
+        isErroConexaoSupabase(error)
+          ? mensagemConexaoSupabase
+          : "Não foi possível iniciar o login com Google."
+      );
+      return;
+    }
+
+    const { error } = resultadoGoogle;
 
     // O provider Google precisa estar habilitado no painel Supabase Auth e
     // configurado no Google Cloud com a callback URL informada pelo Supabase.
     if (error) {
-      setErro("Não foi possível iniciar o login com Google.");
+      setErro(
+        isErroConexaoSupabase(error)
+          ? mensagemConexaoSupabase
+          : "Não foi possível iniciar o login com Google."
+      );
     }
   }
 
@@ -160,15 +227,41 @@ export default function LoginPage() {
     setAviso("");
     setEnviandoLinkMagico(true);
 
-    await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: `${window.location.origin}/auth/confirm`,
-      },
-    });
+    let resultadoLinkMagico;
+
+    try {
+      resultadoLinkMagico = await executarAuthComTimeout(
+        supabase.auth.signInWithOtp({
+          email: email.trim(),
+          options: {
+            shouldCreateUser: false,
+            emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          },
+        })
+      );
+    } catch (error) {
+      setEnviandoLinkMagico(false);
+      setErro(
+        isErroConexaoSupabase(error)
+          ? mensagemConexaoSupabase
+          : "Não foi possível enviar o link de acesso."
+      );
+      return;
+    }
+
+    const { error } = resultadoLinkMagico;
 
     setEnviandoLinkMagico(false);
+
+    if (error) {
+      setErro(
+        isErroConexaoSupabase(error)
+          ? mensagemConexaoSupabase
+          : "Não foi possível enviar o link de acesso."
+      );
+      return;
+    }
+
     setAviso(mensagemLinkMagico);
   }
 
@@ -178,12 +271,31 @@ export default function LoginPage() {
       return;
     }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/auth/confirm?next=/auth/alterar-senha`,
-    });
+    let resultadoRecuperacao;
+
+    try {
+      resultadoRecuperacao = await executarAuthComTimeout(
+        supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/auth/confirm?next=/auth/alterar-senha`,
+        })
+      );
+    } catch (error) {
+      setErro(
+        isErroConexaoSupabase(error)
+          ? mensagemConexaoSupabase
+          : "Não foi possível enviar a recuperação de senha."
+      );
+      return;
+    }
+
+    const { error } = resultadoRecuperacao;
 
     if (error) {
-      setErro("Não foi possível enviar a recuperação de senha.");
+      setErro(
+        isErroConexaoSupabase(error)
+          ? mensagemConexaoSupabase
+          : "Não foi possível enviar a recuperação de senha."
+      );
       return;
     }
 

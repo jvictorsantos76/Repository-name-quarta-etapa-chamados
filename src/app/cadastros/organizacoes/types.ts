@@ -1,3 +1,5 @@
+import type { SituacaoParceiro, TipoParceiro } from "../parceiros/types";
+
 export const TIPOS_ORGANIZACAO = [
   "cliente",
   "parceiro",
@@ -38,6 +40,18 @@ export type ClienteOrganizacao = {
   organizacao_id: string | null;
   lojas_count?: number;
   parceiro_mestre_nome?: string | null;
+};
+
+export type UnidadeOrganizacao = {
+  id: string;
+  nome_exibicao: string;
+  codigo_interno: string | null;
+  tipo: TipoParceiro;
+  situacao: SituacaoParceiro;
+  ativo: boolean;
+  endereco_resumido: string | null;
+  contato_resumido: string | null;
+  observacoes_resumidas: string | null;
 };
 
 export const LABEL_TIPO_ORGANIZACAO: Record<TipoOrganizacao, string> = {

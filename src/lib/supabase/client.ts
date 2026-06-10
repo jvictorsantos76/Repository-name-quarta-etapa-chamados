@@ -26,6 +26,63 @@ function getSupabaseConfig() {
   return { supabaseUrl, supabaseKey };
 }
 
+function getSupabaseAuthStorageKey(supabaseUrl: string) {
+  try {
+    const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+    return projectRef ? `sb-${projectRef}-auth-token` : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredSessionExpiration(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const session = value as {
+    expires_at?: unknown;
+    currentSession?: { expires_at?: unknown };
+  };
+  const expiresAt = session.expires_at ?? session.currentSession?.expires_at;
+
+  if (typeof expiresAt === "number") {
+    return expiresAt;
+  }
+
+  if (typeof expiresAt === "string") {
+    const parsed = Number(expiresAt);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function discardExpiredSupabaseBrowserSession(storageKey: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const storedSession = window.localStorage.getItem(storageKey);
+
+  if (!storedSession) {
+    return;
+  }
+
+  try {
+    const expiresAt = getStoredSessionExpiration(JSON.parse(storedSession));
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+
+    if (expiresAt !== null && expiresAt <= nowInSeconds + 30) {
+      window.localStorage.removeItem(storageKey);
+      syncSupabaseSessionCookies(null);
+    }
+  } catch {
+    window.localStorage.removeItem(storageKey);
+    syncSupabaseSessionCookies(null);
+  }
+}
+
 function setCookie(name: string, value: string, maxAge: number) {
   if (typeof document === "undefined") {
     return;
@@ -79,7 +136,20 @@ export function createSupabaseBrowserClient(): SupabaseClient {
   }
 
   const { supabaseUrl, supabaseKey } = getSupabaseConfig();
-  browserClient = createClient(supabaseUrl, supabaseKey);
+  const storageKey = getSupabaseAuthStorageKey(supabaseUrl);
+
+  if (storageKey) {
+    discardExpiredSupabaseBrowserSession(storageKey);
+  }
+
+  browserClient = createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: true,
+      ...(storageKey ? { storageKey } : {}),
+    },
+  });
 
   return browserClient;
 }

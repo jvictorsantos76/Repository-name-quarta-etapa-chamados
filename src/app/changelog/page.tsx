@@ -3,6 +3,37 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.50",
+    data: "09/06/2026",
+    alteracoes: [
+      "Clientes / Parceiros v1.1.42 simplifica a aba Financeiro removendo campos sem uso operacional, transforma Categoria financeira em lista editável e aplica máscara em reais no Limite de crédito.",
+    ],
+    correcoes: [
+      "O salvamento financeiro deixa de sobrescrever centro de custo, dia de faturamento, retenção e natureza da operação, preservando dados históricos já gravados.",
+    ],
+  },
+  {
+    versao: "v0.9.49",
+    data: "09/06/2026",
+    alteracoes: [
+      "Organizações v1.1.2 passa a exibir a seção Filiais vinculadas na tela de edição, listando as unidades operacionais conectadas pela mesma organização.",
+    ],
+    correcoes: [
+      "A consulta de filiais em Organizações reaproveita os vínculos existentes de parceiros, endereço e contato principal, sem alterar schema, RLS ou regras de persistência.",
+    ],
+  },
+  {
+    versao: "v0.9.48",
+    data: "09/06/2026",
+    alteracoes: [
+      "Tela de Login v0.2.2 passa a tratar indisponibilidade do Supabase Auth com timeout controlado e mensagem operacional no formulário.",
+    ],
+    correcoes: [
+      "Cliente Supabase do navegador deixa de iniciar refresh automático de sessão expirada no carregamento do login, evitando overlay técnico de Failed to fetch.",
+      "Botões de login, link mágico e recuperação de senha voltam ao estado normal quando o serviço de autenticação não responde.",
+    ],
+  },
+  {
     versao: "v0.9.47",
     data: "22/05/2026",
     alteracoes: [

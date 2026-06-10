@@ -173,6 +173,11 @@ function numeroOuNull(valor: FormDataEntryValue | null) {
   return Number.isFinite(numero) ? numero : null;
 }
 
+function categoriaFinanceiraOuNull(valor: FormDataEntryValue | null) {
+  const texto = textoOuNull(valor);
+  return texto === "Sem categoria" ? null : texto;
+}
+
 function coordenadaOuNull(
   valor: FormDataEntryValue | null,
   limiteMinimo: number,
@@ -1406,16 +1411,12 @@ export async function salvarParceiroFinanceiro(formData: FormData) {
     parceiro_id: parceiroId,
     condicao_pagamento: textoOuNull(formData.get("condicao_pagamento")),
     limite_credito: numeroOuNull(formData.get("limite_credito")),
-    categoria_financeira: textoOuNull(formData.get("categoria_financeira")),
-    centro_custo: textoOuNull(formData.get("centro_custo")),
+    categoria_financeira: categoriaFinanceiraOuNull(formData.get("categoria_financeira")),
     vendedor: textoOuNull(formData.get("vendedor")),
     comissao: numeroOuNull(formData.get("comissao")),
     forma_pagamento_padrao: textoOuNull(formData.get("forma_pagamento_padrao")),
     responsavel_financeiro: textoOuNull(formData.get("responsavel_financeiro")),
     email_nf: textoOuNull(formData.get("email_nf")),
-    dia_faturamento: inteiroOuNull(formData.get("dia_faturamento")),
-    retencao: textoOuNull(formData.get("retencao")),
-    natureza_operacao: textoOuNull(formData.get("natureza_operacao")),
     observacoes_financeiras: textoOuNull(formData.get("observacoes_financeiras")),
     atualizado_por: perfil.id,
   };

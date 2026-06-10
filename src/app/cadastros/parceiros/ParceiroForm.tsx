@@ -142,6 +142,21 @@ const ORIGENS_GEOLOCALIZACAO = [
   "Técnico em campo",
   "Cliente informou",
 ] as const;
+const CATEGORIAS_FINANCEIRAS = [
+  "Sem categoria",
+  "Compra de insumos e matéria prima",
+  "Compras de fornecedores",
+  "Contribuição social sobre lucro líquido",
+  "Custo das mercadorias vendidas",
+  "Custo dos produtos vendidos",
+  "Custo dos serviços prestados",
+  "Descontos incondicionais",
+  "Despesas adicionais em operações financeiras",
+] as const;
+const LABEL_CATEGORIA_FINANCEIRA: Record<string, string> =
+  Object.fromEntries(
+    CATEGORIAS_FINANCEIRAS.map((categoria) => [categoria, categoria])
+  );
 
 function normalizarNomeArquivo(nomeArquivo: string) {
   return nomeArquivo
@@ -398,6 +413,34 @@ function mascararTelefone(valor: string) {
 function mascararCelular(valor: string) {
   const digitos = normalizarTelefoneInternacional(valor, 13);
   return formatarTelefoneInternacional(digitos, true);
+}
+
+function formatarMoedaReaisPorCentavos(centavos: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(centavos / 100);
+}
+
+function centavosDeValorMonetario(valor: string | number | null | undefined) {
+  if (typeof valor === "number" && Number.isFinite(valor)) {
+    return Math.round(valor * 100);
+  }
+
+  return Number(somenteDigitos(String(valor ?? "")));
+}
+
+function centavosTextoDeValorMonetario(valor: string | number | null | undefined) {
+  if (valor === null || valor === undefined || valor === "") {
+    return "";
+  }
+
+  const centavos = centavosDeValorMonetario(valor);
+  return Number.isFinite(centavos) ? String(centavos) : "";
+}
+
+function valorDecimalDeCentavos(centavos: number) {
+  return (centavos / 100).toFixed(2);
 }
 
 function normalizarTelefoneInternacional(valor: string, maxLength: number) {
@@ -813,6 +856,45 @@ function CampoSelectEditavel({
         <input type="hidden" name={name} value={opcao} />
       )}
     </div>
+  );
+}
+
+function CampoMoedaReais({
+  name,
+  label,
+  defaultValue,
+  densidade,
+}: {
+  name: string;
+  label: string;
+  defaultValue?: string | number | null;
+  densidade: Densidade;
+}) {
+  const [centavosTexto, setCentavosTexto] = useState(() =>
+    centavosTextoDeValorMonetario(defaultValue)
+  );
+  const centavos = Number(centavosTexto);
+
+  return (
+    <label className={labelClass}>
+      <span className={labelTextClass}>{label}</span>
+      <input
+        type="hidden"
+        name={name}
+        value={centavosTexto ? valorDecimalDeCentavos(centavos) : ""}
+      />
+      <input
+        type="text"
+        value={centavosTexto ? formatarMoedaReaisPorCentavos(centavos) : ""}
+        inputMode="numeric"
+        placeholder="R$ 0,00"
+        onChange={(event) => {
+          setCentavosTexto(somenteDigitos(event.currentTarget.value));
+        }}
+        className={classes(densidade).input}
+      />
+      <span aria-hidden="true" className={`${auxiliaryTextClass} hidden`} />
+    </label>
   );
 }
 
@@ -2921,9 +3003,17 @@ function FinanceiroTab({
       <input type="hidden" name="parceiro_id" value={parceiro.id} />
       <FormSection title="Cobrança" densidade={densidade}>
         <CampoTexto name="condicao_pagamento" label="Condição de pagamento" defaultValue={financeiro?.condicao_pagamento} densidade={densidade} />
-        <CampoTexto name="limite_credito" label="Limite de crédito" defaultValue={financeiro?.limite_credito} densidade={densidade} />
-        <CampoTexto name="categoria_financeira" label="Categoria financeira" defaultValue={financeiro?.categoria_financeira} densidade={densidade} />
-        <CampoTexto name="centro_custo" label="Centro de custo" defaultValue={financeiro?.centro_custo} densidade={densidade} />
+        <CampoMoedaReais name="limite_credito" label="Limite de crédito" defaultValue={financeiro?.limite_credito} densidade={densidade} />
+        <CampoSelectEditavel
+          name="categoria_financeira"
+          label="Categoria financeira"
+          options={CATEGORIAS_FINANCEIRAS}
+          labels={LABEL_CATEGORIA_FINANCEIRA}
+          defaultValue={financeiro?.categoria_financeira}
+          defaultOption="Sem categoria"
+          placeholder={null}
+          densidade={densidade}
+        />
         <CampoTexto name="vendedor" label="Vendedor" defaultValue={financeiro?.vendedor} densidade={densidade} />
         <CampoTexto name="comissao" label="Comissão" defaultValue={financeiro?.comissao} densidade={densidade} />
         <CampoTexto name="forma_pagamento_padrao" label="Forma padrão" defaultValue={financeiro?.forma_pagamento_padrao} densidade={densidade} />
@@ -2940,9 +3030,6 @@ function FinanceiroTab({
           pattern={emailPattern}
           title="Informe um e-mail válido com @ e domínio, como nome@empresa.com."
         />
-        <CampoTexto name="dia_faturamento" label="Dia faturamento" defaultValue={financeiro?.dia_faturamento} densidade={densidade} />
-        <CampoTexto name="retencao" label="Retenção" defaultValue={financeiro?.retencao} densidade={densidade} />
-        <CampoTexto name="natureza_operacao" label="Natureza operação" defaultValue={financeiro?.natureza_operacao} densidade={densidade} />
         <div className={longTextFieldClass}>
           <CampoTextarea name="observacoes_financeiras" label="Observações financeiras" defaultValue={financeiro?.observacoes_financeiras} densidade={densidade} />
         </div>
