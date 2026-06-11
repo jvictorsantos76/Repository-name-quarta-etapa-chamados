@@ -31,8 +31,21 @@ type ContratoRow = {
   id: string;
   parceiro_id: string;
   contrato: string;
+  descricao_contrato: string | null;
+  valor: number | null;
   vigencia_inicio: string | null;
   vigencia_fim: string | null;
+  data_base: string | null;
+  vencimento: string | null;
+  dia_vencimento: number | null;
+  periodicidade: string | null;
+  valor_total_previsto: number | null;
+  gerar_nota_fiscal: boolean;
+  data_contrato: string | null;
+  impressao_periodo_cobranca: string | null;
+  cobrar_outro_contato: boolean;
+  cobranca_parceiro_id: string | null;
+  renovacao_automatica: boolean;
   sla: string | null;
   status: StatusContrato;
   observacoes: string | null;
@@ -57,7 +70,7 @@ export default async function ContratosPage({ searchParams }: PageProps) {
   const [contratosResposta, parceirosResposta] = await Promise.all([
     supabase
       .from("parceiros_contratos")
-      .select("id, parceiro_id, contrato, vigencia_inicio, vigencia_fim, sla, status, observacoes")
+      .select("id, parceiro_id, contrato, descricao_contrato, valor, vigencia_inicio, vigencia_fim, data_base, vencimento, dia_vencimento, periodicidade, valor_total_previsto, gerar_nota_fiscal, data_contrato, impressao_periodo_cobranca, cobrar_outro_contato, cobranca_parceiro_id, renovacao_automatica, sla, status, observacoes")
       .order("atualizado_em", { ascending: false }),
     supabase
       .from("parceiros")
@@ -82,6 +95,9 @@ export default async function ContratosPage({ searchParams }: PageProps) {
     ((contratosResposta.data as ContratoRow[] | null) ?? []).map((contrato) => ({
       ...contrato,
       parceiro_nome: parceirosPorId.get(contrato.parceiro_id) ?? "Cliente não encontrado",
+      cobranca_parceiro_nome: contrato.cobranca_parceiro_id
+        ? parceirosPorId.get(contrato.cobranca_parceiro_id) ?? "Cliente de cobrança não encontrado"
+        : null,
     }));
   const erro = await getSearchParam(searchParams, "erro");
   const salvo = await getSearchParam(searchParams, "salvo");

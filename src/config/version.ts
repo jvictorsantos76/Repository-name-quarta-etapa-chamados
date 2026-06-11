@@ -1,5 +1,5 @@
-export const APP_VERSION = "v0.9.51";
-export const APP_UPDATED_AT = "2026-06-09";
+export const APP_VERSION = "v0.9.55";
+export const APP_UPDATED_AT = "2026-06-10";
 
 export const DASHBOARD_PAGE_VERSION = "v0.1.0";
 export const LOGIN_PAGE_VERSION = "v0.2.2";
@@ -17,5 +17,5 @@ export const ORIGENS_CHAMADO_PAGE_VERSION = "v1.0.0";
 export const GRUPOS_ATENDIMENTO_PAGE_VERSION = "v1.0.0";
 export const ORGANIZACOES_PAGE_VERSION = "v1.1.2";
 export const PARCEIROS_PAGE_VERSION = "v1.1.43";
-export const CONTRATOS_PAGE_VERSION = "v1.0.0";
+export const CONTRATOS_PAGE_VERSION = "v1.0.4";
 export const LEGAL_DOCUMENTS_VERSION = "v0.7.0";

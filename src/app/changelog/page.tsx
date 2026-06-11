@@ -3,6 +3,49 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.55",
+    data: "10/06/2026",
+    alteracoes: [
+      "Contratos v1.0.4 ajusta os campos de consulta de cliente para abrir a lista apenas durante a digitação, sem deslocar a ordem visual do formulário.",
+    ],
+    correcoes: [
+      "A consulta de cliente de cobrança deixa de listar o mesmo cliente selecionado como contratante e remove o rastro textual de seleção após escolher o cliente.",
+    ],
+  },
+  {
+    versao: "v0.9.54",
+    data: "10/06/2026",
+    alteracoes: [
+      "Contratos v1.0.3 mantém a consulta de cliente em sobreposição para não deslocar a ordem visual dos demais campos.",
+      "O formulário passa a usar Início do contrato e Término do contrato, adiciona Renovação automática e calcula o Valor total previsto pelo período, valor e periodicidade.",
+    ],
+    correcoes: [
+      "O cálculo do valor previsto também é repetido no salvamento como fallback para preservar consistência quando o payload não enviar o valor calculado.",
+    ],
+  },
+  {
+    versao: "v0.9.53",
+    data: "10/06/2026",
+    alteracoes: [
+      "Contratos v1.0.2 troca o seletor de cliente do formulário por campo de consulta pesquisável por nome ou código.",
+      "Ao marcar Cobrar de outro contato, o formulário habilita uma segunda consulta para definir o cliente de cobrança do contrato.",
+    ],
+    correcoes: [
+      "O vínculo de cobrança é gravado separado do cliente principal do contrato, preservando a consulta do cliente contratante.",
+    ],
+  },
+  {
+    versao: "v0.9.52",
+    data: "10/06/2026",
+    alteracoes: [
+      "Contratos v1.0.1 passa a seguir a referência visual de Organizações, com botão Novo contrato no cabeçalho, listagem tabular e formulário aberto por criação ou edição.",
+      "Cadastro de contratos recebe descrição, valor em reais, vencimento, dia de vencimento, periodicidade, valor total previsto e configuração de nota fiscal.",
+    ],
+    correcoes: [
+      "Valor total previsto agora é exibido como soma dos contratos carregados, usando o valor previsto informado ou o valor do contrato como fallback.",
+    ],
+  },
+  {
     versao: "v0.9.51",
     data: "09/06/2026",
     alteracoes: [

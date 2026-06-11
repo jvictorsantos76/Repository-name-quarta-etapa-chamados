@@ -170,6 +170,27 @@ const contratosActionsSource = await readFile(
   new URL("../src/app/cadastros/contratos/actions.ts", import.meta.url),
   "utf8"
 );
+const contratosCamposMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260610030235_add_campos_cadastro_contratos.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const contratosCobrancaMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260610031840_add_cliente_cobranca_contratos.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const contratosRenovacaoMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260610033611_add_renovacao_automatica_contratos.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const organizacaoDetalhePageSource = await readFile(
   new URL("../src/app/cadastros/organizacoes/[id]/page.tsx", import.meta.url),
   "utf8"
@@ -595,7 +616,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
   assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.43"/);
-  assert.match(versionSource, /CONTRATOS_PAGE_VERSION = "v1\.0\.0"/);
+  assert.match(versionSource, /CONTRATOS_PAGE_VERSION = "v1\.0\.4"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
   assert.match(versionBadgeSource, /\/cadastros\/contratos/);
   assert.match(navigationSource, /id: "gerencia-contratos"/);
@@ -624,14 +645,65 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.doesNotMatch(parceirosFormSource, /\+ Novo contrato/);
   assert.match(contratosPageSource, /\.from\("parceiros_contratos"\)/);
   assert.match(contratosPageSource, /\.from\("parceiros"\)/);
-  assert.match(contratosClientSource, /NovoContratoForm/);
+  assert.match(contratosClientSource, /ContratoForm/);
   assert.match(contratosClientSource, /ContratosClient/);
-  assert.match(contratosClientSource, /ParceiroSelect/);
+  assert.match(contratosClientSource, /ConsultaParceiro/);
+  assert.match(contratosClientSource, /type="search"/);
+  assert.match(contratosClientSource, /Pesquisar por nome ou código/);
+  assert.match(contratosClientSource, /deveMostrarOpcoes = aberto && !selecionadoId && busca\.trim\(\)\.length > 0/);
+  assert.match(contratosClientSource, /absolute left-0 right-0 top-\[calc\(100%\+4px\)\] z-30/);
+  assert.match(contratosClientSource, /excludeIds/);
+  assert.match(contratosClientSource, /idsExcluidos\.has\(parceiro\.id\)/);
+  assert.match(contratosClientSource, /onSelectedChange/);
+  assert.doesNotMatch(contratosClientSource, /Selecionado:/);
+  assert.match(contratosClientSource, /Cliente de cobrança/);
+  assert.match(contratosClientSource, /setCobrarOutroContato/);
+  assert.match(contratosClientSource, /Início do contrato/);
+  assert.match(contratosClientSource, /Término do contrato/);
+  assert.match(contratosClientSource, /Renovação automática/);
+  assert.match(contratosClientSource, /calcularValorTotalPrevisto/);
+  assert.match(contratosClientSource, /calcularParcelasPrevistas/);
   assert.match(contratosClientSource, /CatalogoPaginacao/);
   assert.match(contratosClientSource, /Abrir cliente/);
+  assert.match(contratosClientSource, /Novo contrato/);
+  assert.match(contratosClientSource, /Descrição do contrato/);
+  assert.match(contratosClientSource, /Valor total previsto/);
+  assert.match(contratosClientSource, /Gerar nota fiscal/);
+  assert.match(contratosClientSource, /Dia/);
+  assert.match(contratosClientSource, /Periodicidade/);
+  assert.match(contratosClientSource, /formatarMoeda/);
+  assert.match(contratosClientSource, /valorTotalPrevisto/);
   assert.match(contratosActionsSource, /salvarContratoGerencia/);
   assert.match(contratosActionsSource, /\.from\("parceiros_contratos"\)/);
+  assert.match(contratosActionsSource, /descricao_contrato/);
+  assert.match(contratosActionsSource, /valor_total_previsto/);
+  assert.match(contratosActionsSource, /gerar_nota_fiscal/);
+  assert.match(contratosActionsSource, /cobranca_parceiro_id/);
+  assert.match(contratosActionsSource, /cobrarOutroContato && !cobrancaParceiroId/);
+  assert.match(contratosActionsSource, /renovacao_automatica/);
+  assert.match(contratosActionsSource, /calcularParcelasPrevistas/);
   assert.match(contratosActionsSource, /revalidatePath\("\/cadastros\/contratos"\)/);
+  for (const coluna of [
+    "descricao_contrato",
+    "valor",
+    "data_base",
+    "vencimento",
+    "dia_vencimento",
+    "periodicidade",
+    "valor_total_previsto",
+    "gerar_nota_fiscal",
+    "data_contrato",
+    "impressao_periodo_cobranca",
+    "cobrar_outro_contato",
+  ]) {
+    assert.match(contratosCamposMigration, new RegExp(`add column if not exists ${coluna}`, "i"));
+  }
+  assert.match(contratosCobrancaMigration, /add column if not exists cobranca_parceiro_id uuid null references public\.parceiros\(id\)/i);
+  assert.match(contratosCobrancaMigration, /create index if not exists parceiros_contratos_cobranca_parceiro_id_idx/i);
+  assert.match(contratosRenovacaoMigration, /add column if not exists renovacao_automatica boolean not null default false/i);
+  assert.doesNotMatch(contratosCamposMigration, /disable row level security|drop policy|grant .* to anon|revoke delete/i);
+  assert.doesNotMatch(contratosCobrancaMigration, /disable row level security|drop policy|grant .* to anon|revoke delete/i);
+  assert.doesNotMatch(contratosRenovacaoMigration, /disable row level security|drop policy|grant .* to anon|revoke delete/i);
 
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_pessoa text null/i);
   assert.match(parceirosAbaGeralMigration, /add column if not exists tipo_contato text null/i);
