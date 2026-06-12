@@ -162,6 +162,14 @@ const contratosPageSource = await readFile(
   new URL("../src/app/cadastros/contratos/page.tsx", import.meta.url),
   "utf8"
 );
+const contratosNovoPageSource = await readFile(
+  new URL("../src/app/cadastros/contratos/novo/page.tsx", import.meta.url),
+  "utf8"
+);
+const contratosEditarPageSource = await readFile(
+  new URL("../src/app/cadastros/contratos/[id]/page.tsx", import.meta.url),
+  "utf8"
+);
 const contratosClientSource = await readFile(
   new URL("../src/app/cadastros/contratos/ContratosClient.tsx", import.meta.url),
   "utf8"
@@ -616,7 +624,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
   assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.43"/);
-  assert.match(versionSource, /CONTRATOS_PAGE_VERSION = "v1\.0\.4"/);
+  assert.match(versionSource, /CONTRATOS_PAGE_VERSION = "v1\.0\.7"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
   assert.match(versionBadgeSource, /\/cadastros\/contratos/);
   assert.match(navigationSource, /id: "gerencia-contratos"/);
@@ -645,8 +653,19 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.doesNotMatch(parceirosFormSource, /\+ Novo contrato/);
   assert.match(contratosPageSource, /\.from\("parceiros_contratos"\)/);
   assert.match(contratosPageSource, /\.from\("parceiros"\)/);
+  assert.match(contratosNovoPageSource, /Novo contrato/);
+  assert.match(contratosNovoPageSource, /ContratoForm/);
+  assert.match(contratosNovoPageSource, /contrato=\{null\}/);
+  assert.match(contratosEditarPageSource, /Editar contrato/);
+  assert.match(contratosEditarPageSource, /params: Promise<\{ id: string \}>/);
+  assert.match(contratosEditarPageSource, /\.eq\("id", id\)/);
+  assert.match(contratosEditarPageSource, /ContratoForm/);
   assert.match(contratosClientSource, /ContratoForm/);
   assert.match(contratosClientSource, /ContratosClient/);
+  assert.match(contratosClientSource, /href=\{`\/cadastros\/contratos\/\$\{contrato\.id\}`\}/);
+  assert.match(contratosClientSource, /\/cadastros\/contratos\/novo/);
+  assert.doesNotMatch(contratosClientSource, /setFormAberto/);
+  assert.doesNotMatch(contratosClientSource, /onClick=\{\(\) => editarContrato/);
   assert.match(contratosClientSource, /ConsultaParceiro/);
   assert.match(contratosClientSource, /type="search"/);
   assert.match(contratosClientSource, /Pesquisar por nome ou código/);
@@ -668,6 +687,9 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(contratosClientSource, /Novo contrato/);
   assert.match(contratosClientSource, /Descrição do contrato/);
   assert.match(contratosClientSource, /Valor total previsto/);
+  assert.doesNotMatch(contratosClientSource, /Previsto:/);
+  assert.doesNotMatch(contratosClientSource, /name="data_base"/);
+  assert.doesNotMatch(contratosClientSource, /label="Data base"/);
   assert.match(contratosClientSource, /Gerar nota fiscal/);
   assert.match(contratosClientSource, /Dia/);
   assert.match(contratosClientSource, /Periodicidade/);
@@ -677,6 +699,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(contratosActionsSource, /\.from\("parceiros_contratos"\)/);
   assert.match(contratosActionsSource, /descricao_contrato/);
   assert.match(contratosActionsSource, /valor_total_previsto/);
+  assert.doesNotMatch(contratosActionsSource, /data_base: dataOuNull\(formData\.get\("data_base"\)\)/);
   assert.match(contratosActionsSource, /gerar_nota_fiscal/);
   assert.match(contratosActionsSource, /cobranca_parceiro_id/);
   assert.match(contratosActionsSource, /cobrarOutroContato && !cobrancaParceiroId/);

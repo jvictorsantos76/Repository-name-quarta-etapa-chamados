@@ -476,16 +476,16 @@ function StatusSelect({ defaultValue = "ativo" }: { defaultValue?: StatusContrat
   );
 }
 
-function ContratoForm({
+export function ContratoForm({
   contrato,
   parceiros,
   parceiroInicial,
-  onCancel,
+  cancelHref = "/cadastros/contratos",
 }: {
   contrato: ContratoListItem | null;
   parceiros: ContratoParceiroOpcao[];
   parceiroInicial?: string | null;
-  onCancel: () => void;
+  cancelHref?: string;
 }) {
   const hoje = new Date().toISOString().slice(0, 10);
   const [cobrarOutroContato, setCobrarOutroContato] = useState(
@@ -524,13 +524,12 @@ function ContratoForm({
             Preencha os dados comerciais e fiscais do contrato vinculado ao cliente.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onCancel}
+        <Link
+          href={cancelHref}
           className="inline-flex min-h-9 w-fit items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
         >
           Cancelar
-        </button>
+        </Link>
       </div>
       <form action={salvarContratoGerencia} className="space-y-5 p-4">
         <input type="hidden" name="id" value={contrato?.id ?? ""} />
@@ -609,12 +608,6 @@ function ContratoForm({
             defaultValue={contrato?.valor}
             centavosTextoControlado={valorCentavos}
             onCentavosChange={setValorCentavos}
-          />
-          <CampoTexto
-            name="data_base"
-            label="Data base"
-            type="date"
-            defaultValue={contrato?.data_base ?? hoje}
           />
           <CampoSelecao
             name="vencimento"
@@ -699,13 +692,12 @@ function ContratoForm({
         </label>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onCancel}
+          <Link
+            href={cancelHref}
             className="inline-flex min-h-10 items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
           >
             Cancelar
-          </button>
+          </Link>
           <button
             type="submit"
             className="inline-flex min-h-10 items-center justify-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
@@ -732,10 +724,6 @@ export function ContratosClient({
   });
   const [itensPorPagina, setItensPorPagina] = useState(10);
   const [paginaAtual, setPaginaAtual] = useState(1);
-  const [formAberto, setFormAberto] = useState(false);
-  const [contratoEmEdicaoId, setContratoEmEdicaoId] = useState("");
-  const contratoEmEdicao =
-    contratos.find((contrato) => contrato.id === contratoEmEdicaoId) ?? null;
 
   const contratosFiltrados = useMemo(
     () =>
@@ -753,11 +741,6 @@ export function ContratosClient({
         return clienteMatch && contratoMatch && statusMatch;
       }),
     [contratos, filtros]
-  );
-  const valorTotalPrevisto = contratos.reduce(
-    (total, contrato) =>
-      total + Number(contrato.valor_total_previsto ?? contrato.valor ?? 0),
-    0
   );
   const totalPaginas = Math.max(1, Math.ceil(contratosFiltrados.length / itensPorPagina));
   const paginaSegura = Math.min(paginaAtual, totalPaginas);
@@ -781,21 +764,6 @@ export function ContratosClient({
   function limparFiltros() {
     setFiltros(FILTROS_INICIAIS);
     setPaginaAtual(1);
-  }
-
-  function novoContrato() {
-    setContratoEmEdicaoId("");
-    setFormAberto(true);
-  }
-
-  function editarContrato(id: string) {
-    setContratoEmEdicaoId(id);
-    setFormAberto(true);
-  }
-
-  function fecharFormulario() {
-    setContratoEmEdicaoId("");
-    setFormAberto(false);
   }
 
   return (
@@ -830,16 +798,16 @@ export function ContratosClient({
           <span className="w-fit rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
             Total: {contratos.length}
           </span>
-          <span className="w-fit rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
-            Previsto: {formatarMoeda(valorTotalPrevisto)}
-          </span>
-          <button
-            type="button"
-            onClick={novoContrato}
+          <Link
+            href={
+              parceiroInicial
+                ? `/cadastros/contratos/novo?parceiro=${parceiroInicial}`
+                : "/cadastros/contratos/novo"
+            }
             className="inline-flex min-h-10 items-center justify-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
           >
             Novo contrato
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -954,13 +922,12 @@ export function ContratosClient({
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-2">
-                        <button
-                          type="button"
-                          onClick={() => editarContrato(contrato.id)}
+                        <Link
+                          href={`/cadastros/contratos/${contrato.id}`}
                           className="min-h-9 rounded-md bg-gray-900 px-3 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
                         >
                           Ver / editar
-                        </button>
+                        </Link>
                         <Link
                           href={`/cadastros/parceiros/${contrato.parceiro_id}`}
                           className="min-h-9 rounded-md border border-gray-300 bg-white px-3 py-2 text-center text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
@@ -1005,15 +972,6 @@ export function ContratosClient({
           />
         </section>
 
-        {formAberto ? (
-          <ContratoForm
-            key={contratoEmEdicao?.id ?? "novo-contrato"}
-            contrato={contratoEmEdicao}
-            parceiros={parceiros}
-            parceiroInicial={parceiroInicial}
-            onCancel={fecharFormulario}
-          />
-        ) : null}
       </div>
     </section>
   );

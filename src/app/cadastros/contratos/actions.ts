@@ -130,7 +130,6 @@ export async function salvarContratoGerencia(formData: FormData) {
     valor,
     vigencia_inicio: vigenciaInicio,
     vigencia_fim: vigenciaFim,
-    data_base: dataOuNull(formData.get("data_base")),
     vencimento: textoOuNull(formData.get("vencimento")),
     dia_vencimento: inteiroOuNull(formData.get("dia_vencimento")),
     periodicidade,

@@ -3,6 +3,36 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.58",
+    data: "11/06/2026",
+    alteracoes: [
+      "Contratos v1.0.7 remove o campo Data base do cadastro e edição de contratos.",
+    ],
+    correcoes: [
+      "O salvamento de contratos deixa de enviar data_base quando o campo não está visível, preservando dados históricos já gravados.",
+    ],
+  },
+  {
+    versao: "v0.9.57",
+    data: "11/06/2026",
+    alteracoes: [
+      "Contratos v1.0.6 passa a abrir criação e edição em páginas próprias, seguindo o padrão operacional do cadastro de Organizações.",
+    ],
+    correcoes: [
+      "O formulário de contrato deixa de aparecer no fim da listagem, evitando que o usuário perca a referência visual ao iniciar um cadastro.",
+    ],
+  },
+  {
+    versao: "v0.9.56",
+    data: "11/06/2026",
+    alteracoes: [
+      "Contratos v1.0.5 remove o indicador agregado de valor previsto do cabeçalho, mantendo a informação apenas no formulário e nos registros.",
+    ],
+    correcoes: [
+      "O cabeçalho da tela de Contratos fica mais compacto em visualização mobile, exibindo apenas total de registros e ação de novo contrato.",
+    ],
+  },
+  {
     versao: "v0.9.55",
     data: "10/06/2026",
     alteracoes: [
