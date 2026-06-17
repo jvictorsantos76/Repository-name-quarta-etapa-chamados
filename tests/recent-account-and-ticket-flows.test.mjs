@@ -659,9 +659,14 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(contratosEditarPageSource, /Editar contrato/);
   assert.match(contratosEditarPageSource, /params: Promise<\{ id: string \}>/);
   assert.match(contratosEditarPageSource, /\.eq\("id", id\)/);
+  assert.match(contratosEditarPageSource, /\.maybeSingle\(\)/);
+  assert.match(contratosEditarPageSource, /if \(contratoResposta\.error \|\| !contratoResposta\.data\)/);
+  assert.match(contratosEditarPageSource, /cobranca_parceiro_nome: contratoBase\.cobranca_parceiro_id/);
   assert.match(contratosEditarPageSource, /ContratoForm/);
+  assert.match(contratosEditarPageSource, /<ContratoForm contrato=\{contrato\} parceiros=\{parceiros\} \/>/);
   assert.match(contratosClientSource, /ContratoForm/);
   assert.match(contratosClientSource, /ContratosClient/);
+  assert.match(contratosClientSource, /<input type="hidden" name="id" value=\{contrato\?\.id \?\? ""\} \/>/);
   assert.match(contratosClientSource, /href=\{`\/cadastros\/contratos\/\$\{contrato\.id\}`\}/);
   assert.match(contratosClientSource, /\/cadastros\/contratos\/novo/);
   assert.doesNotMatch(contratosClientSource, /setFormAberto/);
@@ -702,6 +707,9 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.doesNotMatch(contratosActionsSource, /data_base: dataOuNull\(formData\.get\("data_base"\)\)/);
   assert.match(contratosActionsSource, /gerar_nota_fiscal/);
   assert.match(contratosActionsSource, /cobranca_parceiro_id/);
+  assert.match(contratosActionsSource, /const id = normalizarTexto\(formData\.get\("id"\)\)/);
+  assert.match(contratosActionsSource, /id\s*\?\s*await supabase\.from\("parceiros_contratos"\)\.update\(payload\)\.eq\("id", id\)/);
+  assert.match(contratosActionsSource, /:\s*await supabase\.from\("parceiros_contratos"\)\.insert\(\{/);
   assert.match(contratosActionsSource, /cobrarOutroContato && !cobrancaParceiroId/);
   assert.match(contratosActionsSource, /renovacao_automatica/);
   assert.match(contratosActionsSource, /calcularParcelasPrevistas/);
