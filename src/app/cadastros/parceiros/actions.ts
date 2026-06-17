@@ -1469,11 +1469,20 @@ export async function salvarParceiroOperacional(formData: FormData) {
   };
 
   const supabase = createSupabaseAdminClient();
-  const { error } = await supabase
-    .from("parceiros_operacional")
-    .upsert({ ...payload, criado_por: perfil.id }, { onConflict: "parceiro_id" });
+  const [{ error }, parceiroResposta] = await Promise.all([
+    supabase
+      .from("parceiros_operacional")
+      .upsert({ ...payload, criado_por: perfil.id }, { onConflict: "parceiro_id" }),
+    supabase
+      .from("parceiros")
+      .update({
+        sla_padrao_id: uuidOuNull(formData.get("sla_padrao_id")),
+        atualizado_por: perfil.id,
+      })
+      .eq("id", parceiroId),
+  ]);
 
-  if (error) {
+  if (error || parceiroResposta.error) {
     redirectComErro(detalhePath(parceiroId), "Não foi possível salvar regras operacionais.");
   }
 

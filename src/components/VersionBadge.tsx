@@ -7,6 +7,7 @@ import {
   APP_UPDATED_AT,
   APP_VERSION,
   CADASTRO_USUARIO_PAGE_VERSION,
+  CALENDARIOS_SLA_PAGE_VERSION,
   CONTA_APARENCIA_PAGE_VERSION,
   CONTA_PAGE_VERSION,
   CONTA_PERFIL_PAGE_VERSION,
@@ -20,6 +21,7 @@ import {
   GRUPOS_ATENDIMENTO_PAGE_VERSION,
   ORIGENS_CHAMADO_PAGE_VERSION,
   PERFIL_USUARIO_PAGE_VERSION,
+  SLAS_PAGE_VERSION,
   STATUS_CHAMADOS_PAGE_VERSION,
   SOLICITACOES_ACESSO_PAGE_VERSION,
   TIPOS_CHAMADO_PAGE_VERSION,
@@ -121,6 +123,14 @@ function getPageVersion(pathname: string) {
 
   if (pathname === "/configurar/grupos-atendimento") {
     return `Tela | Grupos de Atendimento ${GRUPOS_ATENDIMENTO_PAGE_VERSION}`;
+  }
+
+  if (pathname === "/configurar/slas") {
+    return `Tela | SLAs ${SLAS_PAGE_VERSION}`;
+  }
+
+  if (pathname === "/configurar/slas/calendarios") {
+    return `Tela | Calendários de SLA ${CALENDARIOS_SLA_PAGE_VERSION}`;
   }
 
   if (pathname.startsWith("/cadastros/parceiros")) {

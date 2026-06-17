@@ -199,6 +199,44 @@ const contratosRenovacaoMigration = await readFile(
   ),
   "utf8"
 );
+const configurarSlasMigration = await readFile(
+  new URL(
+    "../supabase/migrations/202606120001_configurar_slas_mvp.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const slasPageSource = await readFile(
+  new URL("../src/app/configurar/slas/page.tsx", import.meta.url),
+  "utf8"
+);
+const slasClientSource = await readFile(
+  new URL("../src/app/configurar/slas/SlaClient.tsx", import.meta.url),
+  "utf8"
+);
+const slasActionsSource = await readFile(
+  new URL("../src/app/configurar/slas/actions.ts", import.meta.url),
+  "utf8"
+);
+const calendariosSlaPageSource = await readFile(
+  new URL("../src/app/configurar/slas/calendarios/page.tsx", import.meta.url),
+  "utf8"
+);
+const calendariosSlaClientSource = await readFile(
+  new URL(
+    "../src/app/configurar/slas/calendarios/CalendariosSlaClient.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const agendaSemanalSource = await readFile(
+  new URL("../src/lib/agenda-semanal.ts", import.meta.url),
+  "utf8"
+);
+const agendaSemanalComponentSource = await readFile(
+  new URL("../src/components/AgendaSemanalAtendimento.tsx", import.meta.url),
+  "utf8"
+);
 const organizacaoDetalhePageSource = await readFile(
   new URL("../src/app/cadastros/organizacoes/[id]/page.tsx", import.meta.url),
   "utf8"
@@ -589,6 +627,63 @@ test("small configuration catalogs follow the canonical ticket status pattern", 
   assert.match(versionBadgeSource, /\/configurar\/grupos-atendimento/);
 });
 
+test("sla configuration mvp keeps conservative data model and guarded pages", () => {
+  for (const tabela of [
+    "calendarios_sla",
+    "calendarios_sla_horarios",
+    "slas",
+    "sla_versoes",
+    "sla_metas",
+  ]) {
+    assert.match(
+      configurarSlasMigration,
+      new RegExp(`create table if not exists public\\.${tabela}`, "i")
+    );
+    assert.match(
+      configurarSlasMigration,
+      new RegExp(`alter table public\\.${tabela} enable row level security`, "i")
+    );
+    assert.match(
+      configurarSlasMigration,
+      new RegExp(`revoke all on table public\\.${tabela} from anon`, "i")
+    );
+    assert.match(
+      configurarSlasMigration,
+      new RegExp(`revoke delete on table public\\.${tabela} from authenticated`, "i")
+    );
+  }
+
+  assert.match(configurarSlasMigration, /usuario_acesso_chamados_ativo\(\)/);
+  assert.match(configurarSlasMigration, /usuario_catalogo_chamados_ativo\(\)/);
+  assert.match(configurarSlasMigration, /add column if not exists sla_id uuid null references public\.slas/);
+  assert.match(configurarSlasMigration, /add column if not exists sla_padrao_id uuid null references public\.slas/);
+  assert.doesNotMatch(configurarSlasMigration, /chamados_sla_snapshot/);
+  assert.doesNotMatch(configurarSlasMigration, /chamados_sla_eventos/);
+
+  assert.match(navigationSource, /id: "configurar-slas"[\s\S]*href: "\/configurar\/slas"/);
+  assert.match(navigationSource, /id: "configurar-slas"[\s\S]*status: "disponivel"/);
+  assert.match(versionSource, /APP_VERSION = "v0\.9\.59"/);
+  assert.match(versionSource, /SLAS_PAGE_VERSION = "v1\.0\.0"/);
+  assert.match(versionSource, /CALENDARIOS_SLA_PAGE_VERSION = "v1\.0\.0"/);
+  assert.match(versionBadgeSource, /\/configurar\/slas/);
+  assert.match(versionBadgeSource, /\/configurar\/slas\/calendarios/);
+
+  for (const pageSource of [slasPageSource, calendariosSlaPageSource]) {
+    assert.match(pageSource, /requirePerfilAutenticado/);
+    assert.match(pageSource, /podeGerenciarCatalogosChamado/);
+    assert.match(pageSource, /notFound\(\)/);
+  }
+
+  assert.match(slasClientSource, /CatalogoPaginacao/);
+  assert.match(slasClientSource, /duplicarSla/);
+  assert.match(slasClientSource, /alterarStatusSla/);
+  assert.doesNotMatch(slasClientSource, /delete/i);
+  assert.match(calendariosSlaClientSource, /AgendaSemanalAtendimento/);
+  assert.match(slasActionsSource, /requirePerfilAutenticado/);
+  assert.match(slasActionsSource, /podeGerenciarCatalogosChamado/);
+  assert.match(slasActionsSource, /revalidatePath\(SLAS_PATH\)/);
+});
+
 test("operational partners module keeps legacy compatibility and guarded RLS", () => {
   for (const tabela of [
     "parceiros",
@@ -623,8 +718,8 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.43"/);
-  assert.match(versionSource, /CONTRATOS_PAGE_VERSION = "v1\.0\.7"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.44"/);
+  assert.match(versionSource, /CONTRATOS_PAGE_VERSION = "v1\.0\.8"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
   assert.match(versionBadgeSource, /\/cadastros\/contratos/);
   assert.match(navigationSource, /id: "gerencia-contratos"/);
@@ -691,6 +786,12 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.doesNotMatch(contratosClientSource, /name="data_base"/);
   assert.doesNotMatch(contratosClientSource, /label="Data base"/);
   assert.match(contratosClientSource, /Gerar nota fiscal/);
+  assert.match(contratosClientSource, /name="sla_id" label="SLA cadastrado"/);
+  assert.match(contratosClientSource, /SLA legado \/ observação/);
+  assert.match(contratosActionsSource, /sla_id: uuidOuNull\(formData\.get\("sla_id"\)\)/);
+  assert.match(contratosPageSource, /\.from\("slas"\)/);
+  assert.match(contratosNovoPageSource, /slas=\{slas\}/);
+  assert.match(contratosEditarPageSource, /slas=\{slas\}/);
   assert.match(contratosClientSource, /Dia/);
   assert.match(contratosClientSource, /Periodicidade/);
   assert.match(contratosClientSource, /formatarMoeda/);
@@ -861,7 +962,7 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.43"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.44"/);
   assert.match(parceirosTypesSource, /export type ParceiroOrganizacaoResumo = \{/);
   assert.match(parceirosTypesSource, /unidades_organizacao: ParceiroOrganizacaoResumo\[\]/);
   assert.doesNotMatch(filiaisTabSource, /action=\{salvarParceiroFilial\}/);
@@ -1016,11 +1117,13 @@ test("partner service hours use weekly structured agenda without deleting legacy
   );
 
   assert.match(parceirosFormSource, /AgendaSemanalAtendimento/);
-  assert.match(parceirosFormSource, /DIAS_ATENDIMENTO/);
+  assert.doesNotMatch(parceirosFormSource, /const DIAS_ATENDIMENTO/);
+  assert.match(agendaSemanalSource, /export const DIAS_ATENDIMENTO/);
+  assert.match(agendaSemanalComponentSource, /export function AgendaSemanalAtendimento/);
   assert.match(parceirosFormSource, /horarios_atendimento_json/);
-  assert.match(parceirosFormSource, /"09:00"/);
-  assert.match(parceirosFormSource, /"17:00"/);
-  assert.match(parceirosFormSource, /Não é permitido|não podem se sobrepor/);
+  assert.match(agendaSemanalSource, /"09:00"/);
+  assert.match(agendaSemanalSource, /"17:00"/);
+  assert.match(agendaSemanalSource, /Não é permitido|não podem se sobrepor/);
   assert.match(parceirosActionsSource, /montarHorariosAtendimento/);
   assert.match(parceirosActionsSource, /salvarHorariosAtendimento/);
   assert.match(parceirosActionsSource, /\.from\("parceiro_horarios_atendimento"\)[\s\S]*\.delete\(\)/);
@@ -1031,6 +1134,20 @@ test("partner service hours use weekly structured agenda without deleting legacy
   assert.doesNotMatch(parceirosFormSource, /name="prazo_minimo_agendamento"/);
   assert.doesNotMatch(parceirosFormSource, /name="atendimento_sabado"/);
   assert.doesNotMatch(parceirosFormSource, /name="atendimento_domingo"/);
+});
+
+test("partners can select a registered default sla while preserving legacy note", () => {
+  assert.match(parceirosTypesSource, /export type ParceiroSlaOpcao/);
+  assert.match(parceiroDetailPageSource, /\.from\("slas"\)/);
+  assert.match(parceiroDetailPageSource, /sla_padrao_id/);
+  assert.match(parceiroDetailPageSource, /slas=\{slas\}/);
+  assert.match(parceirosFormSource, /name="sla_padrao_id"/);
+  assert.match(parceirosFormSource, /SLA padrão cadastrado/);
+  assert.match(parceirosFormSource, /SLA legado \/ observação/);
+  assert.match(
+    parceirosActionsSource,
+    /sla_padrao_id: uuidOuNull\(formData\.get\("sla_padrao_id"\)\)/
+  );
 });
 
 test("organizations link to clients without replacing operational ticket fields", () => {

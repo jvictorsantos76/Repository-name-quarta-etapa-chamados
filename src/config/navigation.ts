@@ -299,9 +299,10 @@ export const navigationGroups: NavigationGroup[] = [
       {
         id: "configurar-slas",
         label: "SLAs",
-        href: ROADMAP_PATH,
-        status: "em_breve",
+        href: "/configurar/slas",
+        status: "disponivel",
         icon: "calendar",
+        allowedRoles: ["super_admin", "admin", "analista"],
       },
       {
         id: "configurar-automacoes",

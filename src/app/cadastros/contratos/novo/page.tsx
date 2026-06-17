@@ -7,7 +7,11 @@ import {
   createSupabaseAdminClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
-import { ContratoForm, type ContratoParceiroOpcao } from "../ContratosClient";
+import {
+  ContratoForm,
+  type ContratoParceiroOpcao,
+  type ContratoSlaOpcao,
+} from "../ContratosClient";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -31,6 +35,13 @@ type ParceiroRow = {
   ativo: boolean;
 };
 
+type SlaRow = {
+  id: string;
+  nome: string;
+  codigo: string;
+  ativo: boolean;
+};
+
 export default async function NovoContratoPage({ searchParams }: PageProps) {
   const perfilAtual = await requirePerfilAutenticado();
 
@@ -39,16 +50,30 @@ export default async function NovoContratoPage({ searchParams }: PageProps) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const { data } = await supabase
-    .from("parceiros")
-    .select("id, razao_social, nome_fantasia, codigo_interno, ativo")
-    .order("nome_fantasia");
+  const [parceirosResposta, slasResposta] = await Promise.all([
+    supabase
+      .from("parceiros")
+      .select("id, razao_social, nome_fantasia, codigo_interno, ativo")
+      .order("nome_fantasia"),
+    supabase
+      .from("slas")
+      .select("id, nome, codigo, ativo")
+      .eq("ativo", true)
+      .order("nome"),
+  ]);
   const parceiros: ContratoParceiroOpcao[] =
-    ((data as ParceiroRow[] | null) ?? []).map((parceiro) => ({
+    ((parceirosResposta.data as ParceiroRow[] | null) ?? []).map((parceiro) => ({
       id: parceiro.id,
       nome: parceiro.nome_fantasia || parceiro.razao_social,
       codigo_interno: parceiro.codigo_interno,
       ativo: parceiro.ativo,
+    }));
+  const slas: ContratoSlaOpcao[] =
+    ((slasResposta.data as SlaRow[] | null) ?? []).map((sla) => ({
+      id: sla.id,
+      nome: sla.nome,
+      codigo: sla.codigo,
+      ativo: sla.ativo,
     }));
   const parceiroInicial = await getSearchParam(searchParams, "parceiro");
 
@@ -91,6 +116,7 @@ export default async function NovoContratoPage({ searchParams }: PageProps) {
         <ContratoForm
           contrato={null}
           parceiros={parceiros}
+          slas={slas}
           parceiroInicial={parceiroInicial}
         />
       </section>

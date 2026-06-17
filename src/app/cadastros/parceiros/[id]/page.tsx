@@ -21,6 +21,7 @@ import type {
   ParceiroHistorico,
   ParceiroOperacional,
   ParceiroOrganizacaoResumo,
+  ParceiroSlaOpcao,
   OrganizacaoParceiroOpcao,
 } from "../types";
 
@@ -53,6 +54,13 @@ type ParceiroOrganizacaoRow = {
   ativo: boolean;
   observacoes_operacionais: string | null;
   organizacao_id: string | null;
+};
+
+type SlaRow = {
+  id: string;
+  nome: string;
+  codigo: string;
+  ativo: boolean;
 };
 
 function textoResumo(valor: string | null | undefined) {
@@ -107,11 +115,12 @@ export default async function EditarParceiroPage({
     anexosResposta,
     historicoResposta,
     organizacoesResposta,
+    slasResposta,
   ] = await Promise.all([
     supabase
       .from("parceiros")
       .select(
-        "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, inscricao_estadual, inscricao_municipal, crt, situacao, cliente_desde, segmento, cnae, suframa, website, ativo, cliente_legado_id, organizacao_id, latitude, longitude, origem_geolocalizacao, link_maps, localizacao_referencia, observacoes_acesso, ponto_referencia, restricoes_entrada, estacionamento, estacionamento_privativo, estacionamento_terceiros, estacionamento_terceiros_nome, estacionamento_terceiros_endereco, estacionamento_terceiros_valores, portaria_recepcao, doca_carga_descarga, documento_necessario_entrada, responsavel_local, telefone_responsavel_local, responsavel_local_nome, responsavel_local_contato_id, responsavel_local_telefone, responsavel_local_whatsapp, necessita_autorizacao_previa, possui_portaria_recepcao, possui_doca_carga_descarga, identificacao_doca, documentos_entrada, horario_funcionamento, horario_atendimento_tecnico, horario_coleta_entrega, atendimento_sabado, atendimento_domingo, atendimento_feriado, necessita_agendamento, prazo_minimo_agendamento, observacoes_operacionais, criado_em, atualizado_em, criado_por, atualizado_por"
+        "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, inscricao_estadual, inscricao_municipal, crt, situacao, cliente_desde, segmento, cnae, suframa, website, ativo, cliente_legado_id, organizacao_id, sla_padrao_id, latitude, longitude, origem_geolocalizacao, link_maps, localizacao_referencia, observacoes_acesso, ponto_referencia, restricoes_entrada, estacionamento, estacionamento_privativo, estacionamento_terceiros, estacionamento_terceiros_nome, estacionamento_terceiros_endereco, estacionamento_terceiros_valores, portaria_recepcao, doca_carga_descarga, documento_necessario_entrada, responsavel_local, telefone_responsavel_local, responsavel_local_nome, responsavel_local_contato_id, responsavel_local_telefone, responsavel_local_whatsapp, necessita_autorizacao_previa, possui_portaria_recepcao, possui_doca_carga_descarga, identificacao_doca, documentos_entrada, horario_funcionamento, horario_atendimento_tecnico, horario_coleta_entrega, atendimento_sabado, atendimento_domingo, atendimento_feriado, necessita_agendamento, prazo_minimo_agendamento, observacoes_operacionais, criado_em, atualizado_em, criado_por, atualizado_por"
       )
       .eq("id", id)
       .maybeSingle(),
@@ -166,6 +175,11 @@ export default async function EditarParceiroPage({
     supabase
       .from("organizacoes")
       .select("id, nome, codigo_interno, ativo")
+      .eq("ativo", true)
+      .order("nome"),
+    supabase
+      .from("slas")
+      .select("id, nome, codigo, ativo")
       .eq("ativo", true)
       .order("nome"),
   ]);
@@ -317,6 +331,13 @@ export default async function EditarParceiroPage({
   ]);
   const organizacoes =
     (organizacoesResposta.data as OrganizacaoParceiroOpcao[] | null) ?? [];
+  const slas: ParceiroSlaOpcao[] =
+    ((slasResposta.data as SlaRow[] | null) ?? []).map((sla) => ({
+      id: sla.id,
+      nome: sla.nome,
+      codigo: sla.codigo,
+      ativo: sla.ativo,
+    }));
   const organizacoesPorId = new Map(
     organizacoes.map((organizacao) => [organizacao.id, organizacao.nome])
   );
@@ -476,6 +497,7 @@ export default async function EditarParceiroPage({
         <ParceiroForm
           parceiro={parceiro}
           organizacoes={organizacoes}
+          slas={slas}
           erro={erro}
           sucesso={sucesso}
         />

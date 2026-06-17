@@ -3,6 +3,19 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.59",
+    data: "12/06/2026",
+    alteracoes: [
+      "Configurar > SLAs v1.0.0 sai do roadmap e passa a oferecer cadastro inicial de SLAs com calendário vinculado, metas básicas, histórico de versões, duplicação e inativação lógica.",
+      "Configurar > Calendários de SLA v1.0.0 adiciona calendário contratual de contagem com agenda semanal reutilizável e persistência própria.",
+      "Contratos v1.0.8 e Clientes / Parceiros v1.1.44 passam a aceitar vínculo por SLA cadastrado, mantendo os campos legados de texto como observação temporária.",
+    ],
+    correcoes: [
+      "A agenda semanal de atendimento foi extraída para componente e utilitário compartilhados, preservando o salvamento dos horários do cliente e evitando duplicação na nova tela de calendários de SLA.",
+      "A base de dados do MVP de SLAs cria RLS e grants explícitos sem liberar delete para authenticated.",
+    ],
+  },
+  {
     versao: "v0.9.58",
     data: "11/06/2026",
     alteracoes: [

@@ -9,6 +9,9 @@ import {
 } from "@/lib/supabase/server";
 import { isStatusContrato } from "../parceiros/types";
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function normalizarTexto(valor: FormDataEntryValue | null) {
   return String(valor ?? "").trim().replace(/\s+/g, " ");
 }
@@ -34,6 +37,11 @@ function inteiroOuNull(valor: FormDataEntryValue | null) {
   const numero = Number.parseInt(texto, 10);
 
   return Number.isFinite(numero) ? numero : null;
+}
+
+function uuidOuNull(valor: FormDataEntryValue | null) {
+  const texto = normalizarTexto(valor);
+  return UUID_REGEX.test(texto) ? texto : null;
 }
 
 function parseDateUtc(valor: string | null) {
@@ -140,6 +148,7 @@ export async function salvarContratoGerencia(formData: FormData) {
     cobrar_outro_contato: cobrarOutroContato,
     cobranca_parceiro_id: cobrarOutroContato ? cobrancaParceiroId : null,
     renovacao_automatica: formData.get("renovacao_automatica") === "on",
+    sla_id: uuidOuNull(formData.get("sla_id")),
     sla: textoOuNull(formData.get("sla")),
     status,
     observacoes: textoOuNull(formData.get("observacoes")),

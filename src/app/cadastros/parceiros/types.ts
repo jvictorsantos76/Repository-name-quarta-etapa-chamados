@@ -172,6 +172,7 @@ export type ParceiroResumo = {
   ativo: boolean;
   cliente_legado_id: string | null;
   organizacao_id: string | null;
+  sla_padrao_id?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   origem_geolocalizacao?: string | null;
@@ -326,6 +327,13 @@ export type ParceiroOperacional = {
   contato_escalonamento: string | null;
   grupo_tecnico_padrao: string | null;
   observacoes_operacionais: string | null;
+};
+
+export type ParceiroSlaOpcao = {
+  id: string;
+  nome: string;
+  codigo: string;
+  ativo: boolean;
 };
 
 export type ParceiroHorarioAtendimento = {

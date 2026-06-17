@@ -31,6 +31,8 @@ export type ContratoListItem = {
   cobranca_parceiro_id: string | null;
   cobranca_parceiro_nome: string | null;
   renovacao_automatica: boolean;
+  sla_id: string | null;
+  sla_nome: string | null;
   sla: string | null;
   status: StatusContrato;
   observacoes: string | null;
@@ -43,9 +45,17 @@ export type ContratoParceiroOpcao = {
   ativo: boolean;
 };
 
+export type ContratoSlaOpcao = {
+  id: string;
+  nome: string;
+  codigo: string;
+  ativo: boolean;
+};
+
 type Props = {
   contratos: ContratoListItem[];
   parceiros: ContratoParceiroOpcao[];
+  slas: ContratoSlaOpcao[];
   parceiroInicial?: string | null;
   pageVersion: string;
   erro?: string | null;
@@ -369,6 +379,10 @@ function labelParceiro(parceiro: ContratoParceiroOpcao) {
   return `${parceiro.nome}${parceiro.codigo_interno ? ` (${parceiro.codigo_interno})` : ""}`;
 }
 
+function labelSla(sla: ContratoSlaOpcao) {
+  return `${sla.nome} (${sla.codigo})`;
+}
+
 function ConsultaParceiro({
   name,
   label,
@@ -479,11 +493,13 @@ function StatusSelect({ defaultValue = "ativo" }: { defaultValue?: StatusContrat
 export function ContratoForm({
   contrato,
   parceiros,
+  slas,
   parceiroInicial,
   cancelHref = "/cadastros/contratos",
 }: {
   contrato: ContratoListItem | null;
   parceiros: ContratoParceiroOpcao[];
+  slas: ContratoSlaOpcao[];
   parceiroInicial?: string | null;
   cancelHref?: string;
 }) {
@@ -677,7 +693,21 @@ export function ContratoForm({
               <option value="nao">Não</option>
               <option value="sim">Sim</option>
             </CampoSelecao>
-            <CampoTexto name="sla" label="SLA" defaultValue={contrato?.sla} />
+            <CampoSelecao name="sla_id" label="SLA cadastrado" defaultValue={contrato?.sla_id}>
+              <option value="">Sem SLA cadastrado</option>
+              {slas.map((sla) => (
+                <option key={sla.id} value={sla.id}>
+                  {labelSla(sla)}
+                </option>
+              ))}
+            </CampoSelecao>
+            <div className="md:col-span-2">
+              <CampoTexto
+                name="sla"
+                label="SLA legado / observação"
+                defaultValue={contrato?.sla}
+              />
+            </div>
           </div>
         </div>
 
@@ -734,6 +764,7 @@ export function ContratosClient({
           textoFiltro(contrato.contrato).includes(textoFiltro(filtros.contrato)) ||
           textoFiltro(contrato.descricao_contrato).includes(textoFiltro(filtros.contrato)) ||
           textoFiltro(contrato.sla).includes(textoFiltro(filtros.contrato)) ||
+          textoFiltro(contrato.sla_nome).includes(textoFiltro(filtros.contrato)) ||
           textoFiltro(contrato.parceiro_nome).includes(textoFiltro(filtros.contrato));
         const statusMatch =
           filtros.status === "todos" || contrato.status === filtros.status;
@@ -902,7 +933,12 @@ export function ContratosClient({
                     </td>
                     <td className="px-4 py-3 text-gray-700">{contrato.contrato}</td>
                     <td className="px-4 py-3 text-gray-700">
-                      {contrato.descricao_contrato || contrato.observacoes || "-"}
+                      <div>{contrato.descricao_contrato || contrato.observacoes || "-"}</div>
+                      {contrato.sla_nome || contrato.sla ? (
+                        <div className="mt-1 text-xs font-semibold text-blue-700">
+                          SLA: {contrato.sla_nome ?? contrato.sla}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-gray-700">
                       {formatarMoeda(contrato.valor)}
