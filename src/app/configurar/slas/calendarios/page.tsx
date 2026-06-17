@@ -20,6 +20,9 @@ function isSchemaCacheError(message: string | undefined) {
   );
 }
 
+const SCHEMA_PENDENTE_MENSAGEM =
+  "A migration de SLAs ainda não foi aplicada no banco conectado ao localhost.";
+
 export default async function CalendariosSlaPage() {
   const perfilAtual = await requirePerfilAutenticado();
 
@@ -40,10 +43,14 @@ export default async function CalendariosSlaPage() {
       .order("ordem"),
     supabase.from("slas").select("id, calendario_sla_id"),
   ]);
+  const errosConsulta = [
+    calendariosResposta.error,
+    horariosResposta.error,
+    slasResposta.error,
+  ];
+  const erroSchema = errosConsulta.find((item) => item && isSchemaCacheError(item.message));
   const erro =
-    [calendariosResposta.error, horariosResposta.error, slasResposta.error].find(
-      (item) => item && !isSchemaCacheError(item.message)
-    ) ?? null;
+    errosConsulta.find((item) => item && !isSchemaCacheError(item.message)) ?? null;
   const horariosPorCalendario = new Map<string, CalendarioSlaHorarioItem[]>();
 
   for (const horario of
@@ -88,7 +95,13 @@ export default async function CalendariosSlaPage() {
       <CalendariosSlaClient
         calendarios={calendarios}
         pageVersion={CALENDARIOS_SLA_PAGE_VERSION}
-        erroCarregamento={erro ? "Não foi possível carregar calendários de SLA." : null}
+        erroCarregamento={
+          erroSchema
+            ? SCHEMA_PENDENTE_MENSAGEM
+            : erro
+              ? "Não foi possível carregar calendários de SLA."
+              : null
+        }
       />
     </main>
   );

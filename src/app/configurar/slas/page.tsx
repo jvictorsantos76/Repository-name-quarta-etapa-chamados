@@ -21,6 +21,9 @@ function isSchemaCacheError(message: string | undefined) {
   );
 }
 
+const SCHEMA_PENDENTE_MENSAGEM =
+  "A migration de SLAs ainda não foi aplicada no banco conectado ao localhost.";
+
 export default async function SlasPage() {
   const perfilAtual = await requirePerfilAutenticado();
 
@@ -54,15 +57,17 @@ export default async function SlasPage() {
     supabase.from("parceiros_contratos").select("id, sla_id"),
     supabase.from("parceiros").select("id, sla_padrao_id"),
   ]);
+  const errosConsulta = [
+    slasResposta.error,
+    calendariosResposta.error,
+    metasResposta.error,
+    versoesResposta.error,
+    contratosResposta.error,
+    parceirosResposta.error,
+  ];
+  const erroSchema = errosConsulta.find((item) => item && isSchemaCacheError(item.message));
   const erro =
-    [
-      slasResposta.error,
-      calendariosResposta.error,
-      metasResposta.error,
-      versoesResposta.error,
-      contratosResposta.error,
-      parceirosResposta.error,
-    ].find((item) => item && !isSchemaCacheError(item.message)) ?? null;
+    errosConsulta.find((item) => item && !isSchemaCacheError(item.message)) ?? null;
   const calendarios = ((calendariosResposta.data as CalendarioSlaOpcao[] | null) ?? []);
   const calendariosPorId = new Map(calendarios.map((item) => [item.id, item]));
   const metasPorSla = new Map<string, SlaMetaItem[]>();
@@ -126,7 +131,13 @@ export default async function SlasPage() {
         slas={slas}
         calendarios={calendarios}
         pageVersion={SLAS_PAGE_VERSION}
-        erroCarregamento={erro ? "Não foi possível carregar SLAs." : null}
+        erroCarregamento={
+          erroSchema
+            ? SCHEMA_PENDENTE_MENSAGEM
+            : erro
+              ? "Não foi possível carregar SLAs."
+              : null
+        }
       />
     </main>
   );

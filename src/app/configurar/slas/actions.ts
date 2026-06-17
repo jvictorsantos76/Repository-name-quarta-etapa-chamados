@@ -114,7 +114,23 @@ function mensagemErroUnico(error: { code?: string; message?: string }) {
     return "Sem permissão para salvar este cadastro.";
   }
 
+  if (
+    error.code === "PGRST205" ||
+    error.message?.includes("schema cache") ||
+    error.message?.includes("Could not find the table")
+  ) {
+    return "A migration de SLAs ainda não foi aplicada no banco conectado ao localhost.";
+  }
+
   return "Não foi possível salvar o cadastro.";
+}
+
+function mensagemErroDesconhecido(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
 }
 
 async function codigoSlaDisponivel(codigo: string, idAtual?: string) {
@@ -128,7 +144,7 @@ async function codigoSlaDisponivel(codigo: string, idAtual?: string) {
     const { data, error } = idAtual ? await query.neq("id", idAtual) : await query;
 
     if (error) {
-      throw new Error("Não foi possível validar o código do SLA.");
+      throw new Error(mensagemErroUnico(error));
     }
 
     if (!data || data.length === 0) {
@@ -155,7 +171,7 @@ async function codigoCalendarioDisponivel(codigo: string, idAtual?: string) {
     const { data, error } = idAtual ? await query.neq("id", idAtual) : await query;
 
     if (error) {
-      throw new Error("Não foi possível validar o código do calendário.");
+      throw new Error(mensagemErroUnico(error));
     }
 
     if (!data || data.length === 0) {
@@ -172,7 +188,20 @@ export async function salvarCalendarioSla(
 ): Promise<ActionResult> {
   const perfil = await requireGestorSla();
   const nome = normalizarTexto(input.nome);
-  const codigo = await codigoCalendarioDisponivel(input.codigo || nome, input.id);
+  let codigo: string;
+
+  try {
+    codigo = await codigoCalendarioDisponivel(input.codigo || nome, input.id);
+  } catch (error) {
+    return {
+      ok: false,
+      error: mensagemErroDesconhecido(
+        error,
+        "Não foi possível validar o código do calendário."
+      ),
+    };
+  }
+
   const fusoHorario = normalizarTexto(input.fuso_horario) || "America/Fortaleza";
   const erroHorarios = input.regime_24x7 ? "" : validarHorarios(input.horarios);
 
@@ -255,7 +284,16 @@ export async function salvarCalendarioSla(
 export async function salvarSla(input: SlaInput): Promise<ActionResult> {
   const perfil = await requireGestorSla();
   const nome = normalizarTexto(input.nome);
-  const codigo = await codigoSlaDisponivel(input.codigo || nome, input.id);
+  let codigo: string;
+
+  try {
+    codigo = await codigoSlaDisponivel(input.codigo || nome, input.id);
+  } catch (error) {
+    return {
+      ok: false,
+      error: mensagemErroDesconhecido(error, "Não foi possível validar o código do SLA."),
+    };
+  }
 
   if (!nome) {
     return { ok: false, error: "Informe o nome do SLA." };
@@ -412,7 +450,16 @@ export async function duplicarSla(id: string): Promise<ActionResult> {
     return { ok: false, error: "SLA original não encontrado." };
   }
 
-  const codigo = await codigoSlaDisponivel(`${sla.codigo}_copia`);
+  let codigo: string;
+
+  try {
+    codigo = await codigoSlaDisponivel(`${sla.codigo}_copia`);
+  } catch (error) {
+    return {
+      ok: false,
+      error: mensagemErroDesconhecido(error, "Não foi possível validar o código do SLA."),
+    };
+  }
   const { data: novoSla, error } = await supabase
     .from("slas")
     .insert({
