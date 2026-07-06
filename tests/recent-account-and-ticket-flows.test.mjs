@@ -684,6 +684,38 @@ test("sla configuration mvp keeps conservative data model and guarded pages", ()
   assert.match(slasActionsSource, /revalidatePath\(SLAS_PATH\)/);
 });
 
+test("sla configuration surfaces pending migration errors without throwing from code validation", () => {
+  const mensagemMigrationPendente =
+    "A migration de SLAs ainda não foi aplicada no banco conectado ao localhost.";
+
+  for (const pageSource of [slasPageSource, calendariosSlaPageSource]) {
+    assert.match(pageSource, /function isSchemaCacheError/);
+    assert.match(pageSource, /schema cache/);
+    assert.match(pageSource, /Could not find the table/);
+    assert.match(pageSource, /const SCHEMA_PENDENTE_MENSAGEM/);
+    assert.match(pageSource, new RegExp(mensagemMigrationPendente));
+    assert.match(pageSource, /erroSchema[\s\S]*\? SCHEMA_PENDENTE_MENSAGEM/);
+    assert.doesNotMatch(
+      pageSource,
+      /erroCarregamento=\{erro \? "Não foi possível carregar/
+    );
+  }
+
+  assert.match(slasActionsSource, /error\.code === "PGRST205"/);
+  assert.match(slasActionsSource, /schema cache/);
+  assert.match(slasActionsSource, /Could not find the table/);
+  assert.match(slasActionsSource, new RegExp(mensagemMigrationPendente));
+  assert.match(slasActionsSource, /function mensagemErroDesconhecido/);
+  assert.match(
+    slasActionsSource,
+    /try \{[\s\S]*codigo = await codigoCalendarioDisponivel[\s\S]*\} catch \(error\) \{[\s\S]*mensagemErroDesconhecido/
+  );
+  assert.match(
+    slasActionsSource,
+    /try \{[\s\S]*codigo = await codigoSlaDisponivel[\s\S]*\} catch \(error\) \{[\s\S]*mensagemErroDesconhecido/
+  );
+});
+
 test("operational partners module keeps legacy compatibility and guarded RLS", () => {
   for (const tabela of [
     "parceiros",
