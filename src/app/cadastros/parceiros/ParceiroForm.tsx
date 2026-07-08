@@ -45,7 +45,7 @@ import {
   TIPOS_PESSOA,
   UFS_BRASIL,
   type OrganizacaoParceiroOpcao,
-  type ParceiroCalendarioAtendimentoOpcao,
+  type ParceiroCalendarioFuncionamentoOpcao,
   type ParceiroDetalhe,
   type ParceiroOrganizacaoResumo,
   type ParceiroSlaOpcao,
@@ -56,7 +56,7 @@ type Props = {
   parceiro?: ParceiroDetalhe | null;
   organizacoes?: OrganizacaoParceiroOpcao[];
   slas?: ParceiroSlaOpcao[];
-  calendariosAtendimento?: ParceiroCalendarioAtendimentoOpcao[];
+  calendariosFuncionamento?: ParceiroCalendarioFuncionamentoOpcao[];
   erro?: string | null;
   sucesso?: string | null;
 };
@@ -888,17 +888,8 @@ function UnidadeAtualBadge({ unidade }: { unidade: ParceiroOrganizacaoResumo }) 
   ) : null;
 }
 
-const LABEL_TIPO_CALENDARIO_ATENDIMENTO: Record<
-  ParceiroCalendarioAtendimentoOpcao["tipo"],
-  string
-> = {
-  padrao: "Padrão",
-  especifico: "Específico",
-  excecao: "Exceção",
-};
-
 function agendaResumoCalendario(
-  calendario: ParceiroCalendarioAtendimentoOpcao | null | undefined
+  calendario: ParceiroCalendarioFuncionamentoOpcao | null | undefined
 ) {
   if (!calendario) {
     return [];
@@ -927,14 +918,14 @@ function agendaResumoCalendario(
 function GeralTab({
   parceiro,
   organizacoes,
-  calendariosAtendimento,
+  calendariosFuncionamento,
   densidade,
   erro,
   sucesso,
 }: {
   parceiro?: ParceiroDetalhe | null;
   organizacoes: OrganizacaoParceiroOpcao[];
-  calendariosAtendimento: ParceiroCalendarioAtendimentoOpcao[];
+  calendariosFuncionamento: ParceiroCalendarioFuncionamentoOpcao[];
   densidade: Densidade;
   erro?: string | null;
   sucesso?: string | null;
@@ -1020,14 +1011,14 @@ function GeralTab({
       Boolean(parceiro?.doca_carga_descarga?.trim())
   );
   const calendarioPadraoGlobal =
-    calendariosAtendimento.find((calendario) => calendario.padrao_global) ?? null;
+    calendariosFuncionamento.find((calendario) => calendario.ativo) ?? null;
   const calendarioInicial =
-    calendariosAtendimento.find(
-      (calendario) => calendario.id === parceiro?.calendario_atendimento_id
+    calendariosFuncionamento.find(
+      (calendario) => calendario.id === parceiro?.calendario_funcionamento_id
     ) ??
-    parceiro?.calendario_atendimento ??
+    parceiro?.calendario_funcionamento ??
     calendarioPadraoGlobal;
-  const [calendarioAtendimentoId, setCalendarioAtendimentoId] = useState(
+  const [calendarioFuncionamentoId, setCalendarioFuncionamentoId] = useState(
     calendarioInicial?.id ?? ""
   );
   const [estacionamentoTerceiros, setEstacionamentoTerceiros] = useState(
@@ -1104,10 +1095,10 @@ function GeralTab({
       : organizacoes;
   const feedbackOrigem = substituicaoPendente?.origem ?? consultaOrigem;
   const calendarioSelecionado =
-    calendariosAtendimento.find(
-      (calendario) => calendario.id === calendarioAtendimentoId
+    calendariosFuncionamento.find(
+      (calendario) => calendario.id === calendarioFuncionamentoId
     ) ??
-    parceiro?.calendario_atendimento ??
+    parceiro?.calendario_funcionamento ??
     calendarioPadraoGlobal;
   const agendaCalendarioSelecionado = agendaResumoCalendario(calendarioSelecionado);
   const dadosCadastraisGrid = canonicalFormGrid(densidade);
@@ -2293,20 +2284,20 @@ function GeralTab({
 
       <FormSection
         step={6}
-        title="Calendário de atendimento"
-        description="Agenda operacional usada como referência para atendimento técnico, visitas e agendamentos."
+        title="Horário de funcionamento"
+        description="Agenda usada como referência para funcionamento do parceiro e para contagem de SLA quando vinculada."
         densidade={densidade}
         gridClassName={dadosCadastraisGrid}
       >
         <CampoSelect
-          name="calendario_atendimento_id"
-          label="Calendário de atendimento"
-          value={calendarioAtendimentoId}
+          name="calendario_funcionamento_id"
+          label="Horário de funcionamento"
+          value={calendarioFuncionamentoId}
           densidade={densidade}
-          onChange={(event) => setCalendarioAtendimentoId(event.currentTarget.value)}
+          onChange={(event) => setCalendarioFuncionamentoId(event.currentTarget.value)}
         >
-          <option value="">Usar padrão global</option>
-          {calendariosAtendimento.map((calendario) => (
+          <option value="">Usar primeiro horário ativo</option>
+          {calendariosFuncionamento.map((calendario) => (
             <option key={calendario.id} value={calendario.id}>
               {calendario.codigo} - {calendario.nome}
             </option>
@@ -2318,18 +2309,10 @@ function GeralTab({
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                 <div>
                   <span className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                    Tipo
+                    Regime
                   </span>
                   <span className="font-semibold text-gray-950">
-                    {LABEL_TIPO_CALENDARIO_ATENDIMENTO[calendarioSelecionado.tipo]}
-                  </span>
-                </div>
-                <div>
-                  <span className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                    Fuso horário
-                  </span>
-                  <span className="font-semibold text-gray-950">
-                    {calendarioSelecionado.fuso_horario}
+                    {calendarioSelecionado.regime_24x7 ? "24x7" : "Agenda semanal"}
                   </span>
                 </div>
                 <div>
@@ -2342,10 +2325,10 @@ function GeralTab({
                 </div>
                 <div>
                   <span className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                    Necessita agendamento
+                    Status
                   </span>
                   <span className="font-semibold text-gray-950">
-                    {calendarioSelecionado.necessita_agendamento ? "Sim" : "Não"}
+                    {calendarioSelecionado.ativo ? "Ativo" : "Inativo"}
                   </span>
                 </div>
               </div>
@@ -2362,23 +2345,23 @@ function GeralTab({
             </div>
           ) : (
             <p className="font-semibold text-amber-800">
-              Nenhum calendário ativo disponível. Aplique a migration e cadastre o padrão global.
+              Nenhum horário de funcionamento ativo disponível. Cadastre um horário em Configurar &gt; Horários de Funcionamento.
             </p>
           )}
         </div>
         <div className="md:col-span-full flex flex-wrap gap-3 text-xs font-semibold">
           <Link
-            href="/gerencia/calendarios-atendimento"
+            href="/configurar/slas/calendarios"
             className="text-blue-700 underline-offset-2 hover:underline"
           >
-            Gerenciar calendários
+            Gerenciar horários de funcionamento
           </Link>
           {calendarioSelecionado ? (
             <Link
-              href={`/gerencia/calendarios-atendimento?editar=${calendarioSelecionado.id}`}
+              href={`/configurar/slas/calendarios?editar=${calendarioSelecionado.id}`}
               className="text-blue-700 underline-offset-2 hover:underline"
             >
-              Abrir calendário selecionado
+              Abrir horário selecionado
             </Link>
           ) : null}
         </div>
@@ -3037,7 +3020,7 @@ export function ParceiroForm({
   parceiro,
   organizacoes = [],
   slas = [],
-  calendariosAtendimento = [],
+  calendariosFuncionamento = [],
   erro,
   sucesso,
 }: Props) {
@@ -3106,7 +3089,7 @@ export function ParceiroForm({
         <GeralTab
           parceiro={parceiro}
           organizacoes={organizacoes}
-          calendariosAtendimento={calendariosAtendimento}
+          calendariosFuncionamento={calendariosFuncionamento}
           densidade={densidade}
           erro={erro}
           sucesso={sucesso}

@@ -5,12 +5,13 @@ import { PARCEIROS_PAGE_VERSION } from "@/config/version";
 import { podeGerenciarCatalogosChamado } from "@/lib/auth/permissions";
 import {
   createSupabaseAdminClient,
+  createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
 import { ParceiroForm } from "../ParceiroForm";
 import type {
   OrganizacaoParceiroOpcao,
-  ParceiroCalendarioAtendimentoOpcao,
+  ParceiroCalendarioFuncionamentoOpcao,
 } from "../types";
 
 type PageProps = {
@@ -45,25 +46,25 @@ export default async function NovoParceiroPage({ searchParams }: PageProps) {
       ? "Cadastro anterior salvo. Preencha os dados do novo cliente."
       : null;
   const supabase = createSupabaseAdminClient();
+  const supabaseUsuario = await createSupabaseServerClient();
   const [
     organizacoesResposta,
-    calendariosAtendimentoResposta,
-    calendariosAtendimentoHorariosResposta,
+    calendariosFuncionamentoResposta,
+    calendariosFuncionamentoHorariosResposta,
   ] = await Promise.all([
     supabase
       .from("organizacoes")
       .select("id, nome, codigo_interno, ativo")
       .eq("ativo", true)
       .order("nome"),
-    supabase
-      .from("calendarios_atendimento")
-      .select("id, nome, codigo, tipo, fuso_horario, atendimento_feriados, necessita_agendamento, ativo, padrao_global")
+    supabaseUsuario
+      .from("calendarios_sla")
+      .select("id, nome, codigo, ativo, regime_24x7, atendimento_feriados")
       .eq("ativo", true)
-      .order("padrao_global", { ascending: false })
       .order("nome"),
-    supabase
-      .from("calendarios_atendimento_horarios")
-      .select("calendario_atendimento_id, dia_semana, fechado, abre_as, fecha_as, ordem")
+    supabaseUsuario
+      .from("calendarios_sla_horarios")
+      .select("calendario_sla_id, dia_semana, fechado, abre_as, fecha_as, ordem")
       .order("dia_semana")
       .order("ordem"),
   ]);
@@ -71,16 +72,16 @@ export default async function NovoParceiroPage({ searchParams }: PageProps) {
     (organizacoesResposta.data as OrganizacaoParceiroOpcao[] | null) ?? [];
   const horariosPorCalendario = new Map<
     string,
-    ParceiroCalendarioAtendimentoOpcao["horarios"]
+    ParceiroCalendarioFuncionamentoOpcao["horarios"]
   >();
 
   for (const horario of
-    (calendariosAtendimentoHorariosResposta.data as
-      | (ParceiroCalendarioAtendimentoOpcao["horarios"][number] & {
-          calendario_atendimento_id: string;
+    (calendariosFuncionamentoHorariosResposta.data as
+      | (ParceiroCalendarioFuncionamentoOpcao["horarios"][number] & {
+          calendario_sla_id: string;
         })[]
       | null) ?? []) {
-    const atuais = horariosPorCalendario.get(horario.calendario_atendimento_id) ?? [];
+    const atuais = horariosPorCalendario.get(horario.calendario_sla_id) ?? [];
     atuais.push({
       dia_semana: horario.dia_semana,
       fechado: horario.fechado,
@@ -88,12 +89,12 @@ export default async function NovoParceiroPage({ searchParams }: PageProps) {
       fecha_as: horario.fecha_as,
       ordem: horario.ordem,
     });
-    horariosPorCalendario.set(horario.calendario_atendimento_id, atuais);
+    horariosPorCalendario.set(horario.calendario_sla_id, atuais);
   }
 
-  const calendariosAtendimento: ParceiroCalendarioAtendimentoOpcao[] =
-    ((calendariosAtendimentoResposta.data as
-      | Omit<ParceiroCalendarioAtendimentoOpcao, "horarios">[]
+  const calendariosFuncionamento: ParceiroCalendarioFuncionamentoOpcao[] =
+    ((calendariosFuncionamentoResposta.data as
+      | Omit<ParceiroCalendarioFuncionamentoOpcao, "horarios">[]
       | null) ?? []).map((calendario) => ({
       ...calendario,
       horarios: horariosPorCalendario.get(calendario.id) ?? [],
@@ -137,7 +138,7 @@ export default async function NovoParceiroPage({ searchParams }: PageProps) {
 
         <ParceiroForm
           organizacoes={organizacoes}
-          calendariosAtendimento={calendariosAtendimento}
+          calendariosFuncionamento={calendariosFuncionamento}
           erro={erro}
           sucesso={sucesso}
         />

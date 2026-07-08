@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { podeGerenciarCatalogosChamado } from "@/lib/auth/permissions";
 import {
   createSupabaseAdminClient,
+  createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
 import {
@@ -213,29 +214,50 @@ function uuidOuNull(valor: FormDataEntryValue | null) {
   return UUID_REGEX.test(texto) ? texto : null;
 }
 
-async function resolverCalendarioAtendimento(
-  supabase: ReturnType<typeof createSupabaseAdminClient>,
+async function resolverCalendarioFuncionamento(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   calendarioInformado: string | null
 ) {
-  const query = supabase
-    .from("calendarios_atendimento")
-    .select("id, atendimento_feriados, necessita_agendamento, padrao_global")
-    .eq("ativo", true);
+  const selecionarCalendario = () =>
+    supabase
+      .from("calendarios_sla")
+      .select("id, atendimento_feriados, regime_24x7")
+      .eq("ativo", true);
   const resposta = calendarioInformado
-    ? await query.eq("id", calendarioInformado).maybeSingle()
-    : await query.eq("padrao_global", true).order("criado_em").limit(1).maybeSingle();
+    ? await selecionarCalendario().eq("id", calendarioInformado).maybeSingle()
+    : await selecionarCalendario()
+        .order("nome")
+        .limit(1)
+        .maybeSingle();
 
   if (resposta.error) {
+    const mensagem = String(resposta.error.message ?? "");
+
+    if (
+      mensagem.includes("schema cache") ||
+      mensagem.includes("Could not find") ||
+      mensagem.includes("column")
+    ) {
+      return {
+        ok: true as const,
+        value: {
+          id: null,
+          atendimento_feriados: false,
+          necessita_agendamento: false,
+        },
+      };
+    }
+
     return {
       ok: false as const,
-      error: "Não foi possível validar o calendário de atendimento selecionado.",
+      error: `Não foi possível validar o horário de funcionamento selecionado: ${mensagem}`,
     };
   }
 
   if (!resposta.data && calendarioInformado) {
     return {
       ok: false as const,
-      error: "Selecione um calendário de atendimento ativo.",
+      error: "Selecione um horário de funcionamento ativo.",
     };
   }
 
@@ -243,9 +265,9 @@ async function resolverCalendarioAtendimento(
     return {
       ok: true as const,
       value: {
-        id: null,
-        atendimento_feriados: false,
-        necessita_agendamento: false,
+          id: null,
+          atendimento_feriados: false,
+          necessita_agendamento: false,
       },
     };
   }
@@ -253,9 +275,9 @@ async function resolverCalendarioAtendimento(
   return {
     ok: true as const,
     value: {
-      id: String(resposta.data.id),
-      atendimento_feriados: Boolean(resposta.data.atendimento_feriados),
-      necessita_agendamento: Boolean(resposta.data.necessita_agendamento),
+      id: resposta.data.id,
+      atendimento_feriados: resposta.data.atendimento_feriados,
+      necessita_agendamento: false,
     },
   };
 }
@@ -697,7 +719,9 @@ function montarPayloadParceiro(formData: FormData) {
       suframa: textoOuNull(formData.get("suframa")),
       website: website.value,
       organizacao_id: uuidOuNull(formData.get("organizacao_id")),
-      calendario_atendimento_id: uuidOuNull(formData.get("calendario_atendimento_id")),
+      calendario_funcionamento_id: uuidOuNull(
+        formData.get("calendario_funcionamento_id")
+      ),
       latitude: latitude.value,
       longitude: longitude.value,
       origem_geolocalizacao: textoOuNull(formData.get("origem_geolocalizacao")),
@@ -771,23 +795,24 @@ export async function salvarParceiroGeral(formData: FormData) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const calendarioAtendimentoId = uuidOuNull(
-    formData.get("calendario_atendimento_id")
+  const supabaseUsuario = await createSupabaseServerClient();
+  const calendarioFuncionamentoId = uuidOuNull(
+    formData.get("calendario_funcionamento_id")
   );
-  const calendarioAtendimento = await resolverCalendarioAtendimento(
-    supabase,
-    calendarioAtendimentoId
+  const calendarioFuncionamento = await resolverCalendarioFuncionamento(
+    supabaseUsuario,
+    calendarioFuncionamentoId
   );
 
-  if (!calendarioAtendimento.ok) {
-    redirectComErro(origem, calendarioAtendimento.error);
+  if (!calendarioFuncionamento.ok) {
+    redirectComErro(origem, calendarioFuncionamento.error);
   }
 
-  resultado.payload.calendario_atendimento_id = calendarioAtendimento.value.id;
+  resultado.payload.calendario_funcionamento_id = calendarioFuncionamento.value.id;
   resultado.payload.atendimento_feriado =
-    calendarioAtendimento.value.atendimento_feriados;
+    calendarioFuncionamento.value.atendimento_feriados;
   resultado.payload.necessita_agendamento =
-    calendarioAtendimento.value.necessita_agendamento;
+    calendarioFuncionamento.value.necessita_agendamento;
   const responsavelContatoId = uuidOuNull(formData.get("responsavel_local_contato_id"));
 
   if (responsavelContatoId) {

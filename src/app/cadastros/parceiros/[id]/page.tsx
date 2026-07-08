@@ -5,6 +5,7 @@ import { PARCEIROS_PAGE_VERSION } from "@/config/version";
 import { podeGerenciarCatalogosChamado } from "@/lib/auth/permissions";
 import {
   createSupabaseAdminClient,
+  createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
 import { alterarStatusParceiro } from "../actions";
@@ -23,7 +24,7 @@ import type {
   ParceiroOrganizacaoResumo,
   ParceiroSlaOpcao,
   OrganizacaoParceiroOpcao,
-  ParceiroCalendarioAtendimentoOpcao,
+  ParceiroCalendarioFuncionamentoOpcao,
 } from "../types";
 
 type PageProps = {
@@ -73,7 +74,7 @@ function isSchemaCacheError(message: string | undefined) {
   );
 }
 
-function selecionarParceiroDetalhe(incluirCalendarioAtendimento = true) {
+function selecionarParceiroDetalhe(incluirCalendarioFuncionamento = true) {
   return [
     "id",
     "tipo_parceiro",
@@ -94,7 +95,7 @@ function selecionarParceiroDetalhe(incluirCalendarioAtendimento = true) {
     "cliente_legado_id",
     "organizacao_id",
     "sla_padrao_id",
-    incluirCalendarioAtendimento ? "calendario_atendimento_id" : null,
+    incluirCalendarioFuncionamento ? "calendario_funcionamento_id" : null,
     "latitude",
     "longitude",
     "origem_geolocalizacao",
@@ -181,6 +182,7 @@ export default async function EditarParceiroPage({
 
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
+  const supabaseUsuario = await createSupabaseServerClient();
   let parceiroResposta = await supabase
     .from("parceiros")
     .select(selecionarParceiroDetalhe())
@@ -207,8 +209,8 @@ export default async function EditarParceiroPage({
     historicoResposta,
     organizacoesResposta,
     slasResposta,
-    calendariosAtendimentoResposta,
-    calendariosAtendimentoHorariosResposta,
+    calendariosFuncionamentoResposta,
+    calendariosFuncionamentoHorariosResposta,
   ] = await Promise.all([
     supabase
       .from("parceiros_enderecos")
@@ -268,15 +270,14 @@ export default async function EditarParceiroPage({
       .select("id, nome, codigo, ativo")
       .eq("ativo", true)
       .order("nome"),
-    supabase
-      .from("calendarios_atendimento")
-      .select("id, nome, codigo, tipo, fuso_horario, atendimento_feriados, necessita_agendamento, ativo, padrao_global")
+    supabaseUsuario
+      .from("calendarios_sla")
+      .select("id, nome, codigo, ativo, regime_24x7, atendimento_feriados")
       .eq("ativo", true)
-      .order("padrao_global", { ascending: false })
       .order("nome"),
-    supabase
-      .from("calendarios_atendimento_horarios")
-      .select("calendario_atendimento_id, dia_semana, fechado, abre_as, fecha_as, ordem")
+    supabaseUsuario
+      .from("calendarios_sla_horarios")
+      .select("calendario_sla_id, dia_semana, fechado, abre_as, fecha_as, ordem")
       .order("dia_semana")
       .order("ordem"),
   ]);
@@ -293,7 +294,7 @@ export default async function EditarParceiroPage({
     | "contatos"
     | "financeiro"
     | "operacional"
-    | "calendario_atendimento"
+    | "calendario_funcionamento"
     | "horarios_atendimento"
     | "contratos"
     | "anexos"
@@ -438,21 +439,21 @@ export default async function EditarParceiroPage({
     }));
   const horariosPorCalendario = new Map<
     string,
-    ParceiroCalendarioAtendimentoOpcao["horarios"]
+    ParceiroCalendarioFuncionamentoOpcao["horarios"]
   >();
 
   if (
-    !calendariosAtendimentoHorariosResposta.error ||
-    isSchemaCacheError(calendariosAtendimentoHorariosResposta.error?.message)
+    !calendariosFuncionamentoHorariosResposta.error ||
+    isSchemaCacheError(calendariosFuncionamentoHorariosResposta.error?.message)
   ) {
     for (const horario of
-      (calendariosAtendimentoHorariosResposta.data as
-        | (ParceiroCalendarioAtendimentoOpcao["horarios"][number] & {
-            calendario_atendimento_id: string;
+      (calendariosFuncionamentoHorariosResposta.data as
+        | (ParceiroCalendarioFuncionamentoOpcao["horarios"][number] & {
+            calendario_sla_id: string;
           })[]
         | null) ??
       []) {
-      const atuais = horariosPorCalendario.get(horario.calendario_atendimento_id) ?? [];
+      const atuais = horariosPorCalendario.get(horario.calendario_sla_id) ?? [];
       atuais.push({
         dia_semana: horario.dia_semana,
         fechado: horario.fechado,
@@ -460,16 +461,16 @@ export default async function EditarParceiroPage({
         fecha_as: horario.fecha_as,
         ordem: horario.ordem,
       });
-      horariosPorCalendario.set(horario.calendario_atendimento_id, atuais);
+      horariosPorCalendario.set(horario.calendario_sla_id, atuais);
     }
   }
 
-  const calendariosAtendimento: ParceiroCalendarioAtendimentoOpcao[] =
-    calendariosAtendimentoResposta.error &&
-    !isSchemaCacheError(calendariosAtendimentoResposta.error.message)
+  const calendariosFuncionamento: ParceiroCalendarioFuncionamentoOpcao[] =
+    calendariosFuncionamentoResposta.error &&
+    !isSchemaCacheError(calendariosFuncionamentoResposta.error.message)
       ? []
-      : ((calendariosAtendimentoResposta.data as
-          | Omit<ParceiroCalendarioAtendimentoOpcao, "horarios">[]
+      : ((calendariosFuncionamentoResposta.data as
+          | Omit<ParceiroCalendarioFuncionamentoOpcao, "horarios">[]
           | null) ?? []).map((calendario) => ({
           ...calendario,
           horarios: horariosPorCalendario.get(calendario.id) ?? [],
@@ -519,20 +520,20 @@ export default async function EditarParceiroPage({
   const chamadosRelacionadosCount =
     (chamadosDiretosResposta.error ? 0 : chamadosDiretosResposta.count ?? 0) +
     (chamadosFiliaisResposta.error ? 0 : chamadosFiliaisResposta.count ?? 0);
-  const calendarioAtendimentoSelecionado =
-    calendariosAtendimento.find(
-      (calendario) => calendario.id === parceiroBase.calendario_atendimento_id
+  const calendarioFuncionamentoSelecionado =
+    calendariosFuncionamento.find(
+      (calendario) => calendario.id === parceiroBase.calendario_funcionamento_id
     ) ??
-    calendariosAtendimento.find((calendario) => calendario.padrao_global) ??
+    calendariosFuncionamento.find((calendario) => calendario.ativo) ??
     null;
   const parceiro = {
     ...parceiroBase,
-    calendario_atendimento_id:
-      parceiroBase.calendario_atendimento_id ??
-      calendarioAtendimentoSelecionado?.id ??
+    calendario_funcionamento_id:
+      parceiroBase.calendario_funcionamento_id ??
+      calendarioFuncionamentoSelecionado?.id ??
       null,
-    calendario_atendimento_nome: calendarioAtendimentoSelecionado?.nome ?? null,
-    calendario_atendimento_codigo: calendarioAtendimentoSelecionado?.codigo ?? null,
+    calendario_funcionamento_nome: calendarioFuncionamentoSelecionado?.nome ?? null,
+    calendario_funcionamento_codigo: calendarioFuncionamentoSelecionado?.codigo ?? null,
     cliente_legado_nome: clienteLegado?.nome_fantasia ?? null,
     organizacao_legada_nome: clienteLegado?.organizacao?.nome ?? null,
     organizacao_nome: parceiroBase.organizacao_id
@@ -548,7 +549,7 @@ export default async function EditarParceiroPage({
     contatos,
     financeiro: (financeiroResposta.data as ParceiroFinanceiro | null) ?? null,
     operacional: (operacionalResposta.data as ParceiroOperacional | null) ?? null,
-    calendario_atendimento: calendarioAtendimentoSelecionado,
+    calendario_funcionamento: calendarioFuncionamentoSelecionado,
     horarios_atendimento:
       (horariosAtendimentoResposta.data as ParceiroHorarioAtendimento[] | null) ?? [],
     contratos: (contratosResposta.data as ParceiroContrato[] | null) ?? [],
@@ -647,7 +648,7 @@ export default async function EditarParceiroPage({
           parceiro={parceiro}
           organizacoes={organizacoes}
           slas={slas}
-          calendariosAtendimento={calendariosAtendimento}
+          calendariosFuncionamento={calendariosFuncionamento}
           erro={erro}
           sucesso={sucesso}
         />

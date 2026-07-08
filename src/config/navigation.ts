@@ -158,14 +158,6 @@ export const navigationGroups: NavigationGroup[] = [
         allowedRoles: ["super_admin", "admin", "analista"],
       },
       {
-        id: "gerencia-calendarios-atendimento",
-        label: "Calendários de atendimento",
-        href: "/gerencia/calendarios-atendimento",
-        status: "disponivel",
-        icon: "calendar",
-        allowedRoles: ["super_admin", "admin", "analista"],
-      },
-      {
         id: "gerencia-organizacoes",
         label: "Organizações",
         href: "/cadastros/organizacoes",
@@ -314,7 +306,7 @@ export const navigationGroups: NavigationGroup[] = [
       },
       {
         id: "configurar-calendarios-sla",
-        label: "Calendários de SLA",
+        label: "Horários de Funcionamento",
         href: "/configurar/slas/calendarios",
         status: "disponivel",
         icon: "calendar",

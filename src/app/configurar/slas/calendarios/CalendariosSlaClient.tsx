@@ -141,10 +141,10 @@ function CalendarioForm({
       <div className="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base font-bold text-gray-950">
-            {calendario ? "Editar calendário" : "Novo calendário"}
+            {calendario ? "Editar horário" : "Novo horário"}
           </h2>
           <p className="mt-1 text-xs text-gray-600">
-            Define quando o cronômetro contratual do SLA deve correr.
+            Define a agenda de funcionamento reutilizada por parceiros e SLAs.
           </p>
         </div>
       </div>
@@ -218,7 +218,7 @@ function CalendarioForm({
           />
         ) : (
           <p className="md:col-span-full rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
-            Calendário 24x7: a agenda semanal não limita a contagem contratual.
+            Funcionamento 24x7: a agenda semanal não limita a disponibilidade.
           </p>
         )}
       </div>
@@ -235,7 +235,7 @@ function CalendarioForm({
           disabled={isPending}
           className="min-h-10 rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-wait disabled:opacity-70"
         >
-          {isPending ? "Salvando..." : "Salvar calendário"}
+          {isPending ? "Salvando..." : "Salvar horário"}
         </button>
       </div>
     </section>
@@ -291,20 +291,20 @@ export function CalendariosSlaClient({
       <div className="mb-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <nav className="flex items-center gap-2 text-sm font-semibold text-gray-600">
-            <Link href="/configurar/slas" className="hover:text-gray-950">SLAs</Link>
+            <Link href="/configurar/slas" className="hover:text-gray-950">Configurar</Link>
             <span className="text-gray-400">&gt;</span>
-            <span className="text-gray-950">Calendários</span>
+            <span className="text-gray-950">Horários de Funcionamento</span>
           </nav>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <h1 className="text-xl font-bold text-gray-950 sm:text-2xl">
-              Calendários de SLA
+              Horários de Funcionamento
             </h1>
             <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
               {pageVersion}
             </span>
           </div>
           <p className="mt-1 max-w-3xl text-sm text-gray-600">
-            Calendários contratuais usados para contagem de prazos de SLA.
+            Cadastre agendas de trabalho reutilizadas no funcionamento dos parceiros e na contagem de SLA.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -316,7 +316,7 @@ export function CalendariosSlaClient({
             onClick={() => setEditandoId("")}
             className="inline-flex min-h-10 w-fit items-center justify-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
           >
-            Novo calendário
+            Novo horário
           </button>
         </div>
       </div>
@@ -340,7 +340,7 @@ export function CalendariosSlaClient({
           <div className="border-b border-gray-100 px-4 py-3">
             <h2 className="text-base font-bold text-gray-950">Registros</h2>
             <p className="mt-1 text-xs text-gray-600">
-              Filtre e edite calendários sem misturar com horários operacionais do cliente.
+              Filtre e edite horários de funcionamento reutilizáveis.
             </p>
           </div>
           <div className="grid gap-3 border-b border-gray-100 p-4 md:grid-cols-2 xl:grid-cols-[1.5fr_0.8fr_0.8fr_auto] xl:items-end">

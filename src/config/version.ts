@@ -1,4 +1,4 @@
-export const APP_VERSION = "v0.9.60";
+export const APP_VERSION = "v0.9.61";
 export const APP_UPDATED_AT = "2026-06-12";
 
 export const DASHBOARD_PAGE_VERSION = "v0.1.0";
@@ -16,9 +16,8 @@ export const TIPOS_CHAMADO_PAGE_VERSION = "v1.0.0";
 export const ORIGENS_CHAMADO_PAGE_VERSION = "v1.0.0";
 export const GRUPOS_ATENDIMENTO_PAGE_VERSION = "v1.0.0";
 export const SLAS_PAGE_VERSION = "v1.0.0";
-export const CALENDARIOS_SLA_PAGE_VERSION = "v1.0.0";
-export const CALENDARIOS_ATENDIMENTO_PAGE_VERSION = "v1.0.0";
+export const CALENDARIOS_SLA_PAGE_VERSION = "v1.0.1";
 export const ORGANIZACOES_PAGE_VERSION = "v1.1.2";
-export const PARCEIROS_PAGE_VERSION = "v1.1.45";
+export const PARCEIROS_PAGE_VERSION = "v1.1.46";
 export const CONTRATOS_PAGE_VERSION = "v1.0.8";
 export const LEGAL_DOCUMENTS_VERSION = "v0.7.0";
