@@ -147,14 +147,6 @@ function CalendarioForm({
             Define quando o cronômetro contratual do SLA deve correr.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={salvar}
-          disabled={isPending}
-          className="min-h-9 rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-wait disabled:opacity-70"
-        >
-          {isPending ? "Salvando..." : "Salvar calendário"}
-        </button>
       </div>
       <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
         <label className={labelClass}>
@@ -236,6 +228,16 @@ function CalendarioForm({
           {mensagem ? <p className="text-sm font-semibold text-emerald-700">{mensagem}</p> : null}
         </div>
       ) : null}
+      <div className="flex flex-col gap-2 border-t border-gray-100 px-4 py-3 sm:flex-row sm:justify-end">
+        <button
+          type="button"
+          onClick={salvar}
+          disabled={isPending}
+          className="min-h-10 rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-wait disabled:opacity-70"
+        >
+          {isPending ? "Salvando..." : "Salvar calendário"}
+        </button>
+      </div>
     </section>
   );
 }
@@ -305,12 +307,18 @@ export function CalendariosSlaClient({
             Calendários contratuais usados para contagem de prazos de SLA.
           </p>
         </div>
-        <Link
-          href="/configurar/slas"
-          className="inline-flex min-h-10 w-fit items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
-        >
-          Voltar para SLAs
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <span className="w-fit rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
+            Total: {calendarios.length}
+          </span>
+          <button
+            type="button"
+            onClick={() => setEditandoId("")}
+            className="inline-flex min-h-10 w-fit items-center justify-center rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+          >
+            Novo calendário
+          </button>
+        </div>
       </div>
 
       {erroCarregamento ? (
@@ -320,11 +328,13 @@ export function CalendariosSlaClient({
       ) : null}
 
       <div className="space-y-4">
-        <CalendarioForm
-          key={calendarioEmEdicao?.id ?? "novo"}
-          calendario={calendarioEmEdicao}
-          onSaved={() => setEditandoId("")}
-        />
+        {!erroCarregamento ? (
+          <CalendarioForm
+            key={calendarioEmEdicao?.id ?? "novo"}
+            calendario={calendarioEmEdicao}
+            onSaved={() => setEditandoId("")}
+          />
+        ) : null}
 
         <section className="rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 px-4 py-3">
