@@ -23,6 +23,7 @@ import type {
   ParceiroOrganizacaoResumo,
   ParceiroSlaOpcao,
   OrganizacaoParceiroOpcao,
+  ParceiroCalendarioAtendimentoOpcao,
 } from "../types";
 
 type PageProps = {
@@ -62,6 +63,83 @@ type SlaRow = {
   codigo: string;
   ativo: boolean;
 };
+
+function isSchemaCacheError(message: string | undefined) {
+  return Boolean(
+    message?.includes("schema cache") ||
+      message?.includes("Could not find the table") ||
+      message?.includes("Could not find") ||
+      message?.includes("column")
+  );
+}
+
+function selecionarParceiroDetalhe(incluirCalendarioAtendimento = true) {
+  return [
+    "id",
+    "tipo_parceiro",
+    "razao_social",
+    "nome_fantasia",
+    "codigo_interno",
+    "cnpj_cpf",
+    "inscricao_estadual",
+    "inscricao_municipal",
+    "crt",
+    "situacao",
+    "cliente_desde",
+    "segmento",
+    "cnae",
+    "suframa",
+    "website",
+    "ativo",
+    "cliente_legado_id",
+    "organizacao_id",
+    "sla_padrao_id",
+    incluirCalendarioAtendimento ? "calendario_atendimento_id" : null,
+    "latitude",
+    "longitude",
+    "origem_geolocalizacao",
+    "link_maps",
+    "localizacao_referencia",
+    "observacoes_acesso",
+    "ponto_referencia",
+    "restricoes_entrada",
+    "estacionamento",
+    "estacionamento_privativo",
+    "estacionamento_terceiros",
+    "estacionamento_terceiros_nome",
+    "estacionamento_terceiros_endereco",
+    "estacionamento_terceiros_valores",
+    "portaria_recepcao",
+    "doca_carga_descarga",
+    "documento_necessario_entrada",
+    "responsavel_local",
+    "telefone_responsavel_local",
+    "responsavel_local_nome",
+    "responsavel_local_contato_id",
+    "responsavel_local_telefone",
+    "responsavel_local_whatsapp",
+    "necessita_autorizacao_previa",
+    "possui_portaria_recepcao",
+    "possui_doca_carga_descarga",
+    "identificacao_doca",
+    "documentos_entrada",
+    "horario_funcionamento",
+    "horario_atendimento_tecnico",
+    "horario_coleta_entrega",
+    "atendimento_sabado",
+    "atendimento_domingo",
+    "atendimento_feriado",
+    "necessita_agendamento",
+    "prazo_minimo_agendamento",
+    "observacoes_operacionais",
+    "criado_em",
+    "atualizado_em",
+    "criado_por",
+    "atualizado_por",
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
 
 function textoResumo(valor: string | null | undefined) {
   const texto = String(valor ?? "").trim().replace(/\s+/g, " ");
@@ -103,8 +181,21 @@ export default async function EditarParceiroPage({
 
   const { id } = await params;
   const supabase = createSupabaseAdminClient();
+  let parceiroResposta = await supabase
+    .from("parceiros")
+    .select(selecionarParceiroDetalhe())
+    .eq("id", id)
+    .maybeSingle();
+
+  if (parceiroResposta.error && isSchemaCacheError(parceiroResposta.error.message)) {
+    parceiroResposta = await supabase
+      .from("parceiros")
+      .select(selecionarParceiroDetalhe(false))
+      .eq("id", id)
+      .maybeSingle();
+  }
+
   const [
-    parceiroResposta,
     enderecosResposta,
     contatosResposta,
     filiaisResposta,
@@ -116,14 +207,9 @@ export default async function EditarParceiroPage({
     historicoResposta,
     organizacoesResposta,
     slasResposta,
+    calendariosAtendimentoResposta,
+    calendariosAtendimentoHorariosResposta,
   ] = await Promise.all([
-    supabase
-      .from("parceiros")
-      .select(
-        "id, tipo_parceiro, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, inscricao_estadual, inscricao_municipal, crt, situacao, cliente_desde, segmento, cnae, suframa, website, ativo, cliente_legado_id, organizacao_id, sla_padrao_id, latitude, longitude, origem_geolocalizacao, link_maps, localizacao_referencia, observacoes_acesso, ponto_referencia, restricoes_entrada, estacionamento, estacionamento_privativo, estacionamento_terceiros, estacionamento_terceiros_nome, estacionamento_terceiros_endereco, estacionamento_terceiros_valores, portaria_recepcao, doca_carga_descarga, documento_necessario_entrada, responsavel_local, telefone_responsavel_local, responsavel_local_nome, responsavel_local_contato_id, responsavel_local_telefone, responsavel_local_whatsapp, necessita_autorizacao_previa, possui_portaria_recepcao, possui_doca_carga_descarga, identificacao_doca, documentos_entrada, horario_funcionamento, horario_atendimento_tecnico, horario_coleta_entrega, atendimento_sabado, atendimento_domingo, atendimento_feriado, necessita_agendamento, prazo_minimo_agendamento, observacoes_operacionais, criado_em, atualizado_em, criado_por, atualizado_por"
-      )
-      .eq("id", id)
-      .maybeSingle(),
     supabase
       .from("parceiros_enderecos")
       .select("*")
@@ -182,13 +268,24 @@ export default async function EditarParceiroPage({
       .select("id, nome, codigo, ativo")
       .eq("ativo", true)
       .order("nome"),
+    supabase
+      .from("calendarios_atendimento")
+      .select("id, nome, codigo, tipo, fuso_horario, atendimento_feriados, necessita_agendamento, ativo, padrao_global")
+      .eq("ativo", true)
+      .order("padrao_global", { ascending: false })
+      .order("nome"),
+    supabase
+      .from("calendarios_atendimento_horarios")
+      .select("calendario_atendimento_id, dia_semana, fechado, abre_as, fecha_as, ordem")
+      .order("dia_semana")
+      .order("ordem"),
   ]);
 
   if (parceiroResposta.error || !parceiroResposta.data) {
     notFound();
   }
 
-  const parceiroBase = parceiroResposta.data as Omit<
+  const parceiroBase = parceiroResposta.data as unknown as Omit<
     ParceiroDetalhe,
     | "endereco_principal"
     | "contato_principal"
@@ -196,6 +293,7 @@ export default async function EditarParceiroPage({
     | "contatos"
     | "financeiro"
     | "operacional"
+    | "calendario_atendimento"
     | "horarios_atendimento"
     | "contratos"
     | "anexos"
@@ -338,6 +436,44 @@ export default async function EditarParceiroPage({
       codigo: sla.codigo,
       ativo: sla.ativo,
     }));
+  const horariosPorCalendario = new Map<
+    string,
+    ParceiroCalendarioAtendimentoOpcao["horarios"]
+  >();
+
+  if (
+    !calendariosAtendimentoHorariosResposta.error ||
+    isSchemaCacheError(calendariosAtendimentoHorariosResposta.error?.message)
+  ) {
+    for (const horario of
+      (calendariosAtendimentoHorariosResposta.data as
+        | (ParceiroCalendarioAtendimentoOpcao["horarios"][number] & {
+            calendario_atendimento_id: string;
+          })[]
+        | null) ??
+      []) {
+      const atuais = horariosPorCalendario.get(horario.calendario_atendimento_id) ?? [];
+      atuais.push({
+        dia_semana: horario.dia_semana,
+        fechado: horario.fechado,
+        abre_as: horario.abre_as,
+        fecha_as: horario.fecha_as,
+        ordem: horario.ordem,
+      });
+      horariosPorCalendario.set(horario.calendario_atendimento_id, atuais);
+    }
+  }
+
+  const calendariosAtendimento: ParceiroCalendarioAtendimentoOpcao[] =
+    calendariosAtendimentoResposta.error &&
+    !isSchemaCacheError(calendariosAtendimentoResposta.error.message)
+      ? []
+      : ((calendariosAtendimentoResposta.data as
+          | Omit<ParceiroCalendarioAtendimentoOpcao, "horarios">[]
+          | null) ?? []).map((calendario) => ({
+          ...calendario,
+          horarios: horariosPorCalendario.get(calendario.id) ?? [],
+        }));
   const organizacoesPorId = new Map(
     organizacoes.map((organizacao) => [organizacao.id, organizacao.nome])
   );
@@ -383,8 +519,20 @@ export default async function EditarParceiroPage({
   const chamadosRelacionadosCount =
     (chamadosDiretosResposta.error ? 0 : chamadosDiretosResposta.count ?? 0) +
     (chamadosFiliaisResposta.error ? 0 : chamadosFiliaisResposta.count ?? 0);
+  const calendarioAtendimentoSelecionado =
+    calendariosAtendimento.find(
+      (calendario) => calendario.id === parceiroBase.calendario_atendimento_id
+    ) ??
+    calendariosAtendimento.find((calendario) => calendario.padrao_global) ??
+    null;
   const parceiro = {
     ...parceiroBase,
+    calendario_atendimento_id:
+      parceiroBase.calendario_atendimento_id ??
+      calendarioAtendimentoSelecionado?.id ??
+      null,
+    calendario_atendimento_nome: calendarioAtendimentoSelecionado?.nome ?? null,
+    calendario_atendimento_codigo: calendarioAtendimentoSelecionado?.codigo ?? null,
     cliente_legado_nome: clienteLegado?.nome_fantasia ?? null,
     organizacao_legada_nome: clienteLegado?.organizacao?.nome ?? null,
     organizacao_nome: parceiroBase.organizacao_id
@@ -400,6 +548,7 @@ export default async function EditarParceiroPage({
     contatos,
     financeiro: (financeiroResposta.data as ParceiroFinanceiro | null) ?? null,
     operacional: (operacionalResposta.data as ParceiroOperacional | null) ?? null,
+    calendario_atendimento: calendarioAtendimentoSelecionado,
     horarios_atendimento:
       (horariosAtendimentoResposta.data as ParceiroHorarioAtendimento[] | null) ?? [],
     contratos: (contratosResposta.data as ParceiroContrato[] | null) ?? [],
@@ -498,6 +647,7 @@ export default async function EditarParceiroPage({
           parceiro={parceiro}
           organizacoes={organizacoes}
           slas={slas}
+          calendariosAtendimento={calendariosAtendimento}
           erro={erro}
           sucesso={sucesso}
         />

@@ -8,7 +8,10 @@ import {
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
 import { ParceiroForm } from "../ParceiroForm";
-import type { OrganizacaoParceiroOpcao } from "../types";
+import type {
+  OrganizacaoParceiroOpcao,
+  ParceiroCalendarioAtendimentoOpcao,
+} from "../types";
 
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -42,13 +45,59 @@ export default async function NovoParceiroPage({ searchParams }: PageProps) {
       ? "Cadastro anterior salvo. Preencha os dados do novo cliente."
       : null;
   const supabase = createSupabaseAdminClient();
-  const { data: organizacoesData } = await supabase
-    .from("organizacoes")
-    .select("id, nome, codigo_interno, ativo")
-    .eq("ativo", true)
-    .order("nome");
+  const [
+    organizacoesResposta,
+    calendariosAtendimentoResposta,
+    calendariosAtendimentoHorariosResposta,
+  ] = await Promise.all([
+    supabase
+      .from("organizacoes")
+      .select("id, nome, codigo_interno, ativo")
+      .eq("ativo", true)
+      .order("nome"),
+    supabase
+      .from("calendarios_atendimento")
+      .select("id, nome, codigo, tipo, fuso_horario, atendimento_feriados, necessita_agendamento, ativo, padrao_global")
+      .eq("ativo", true)
+      .order("padrao_global", { ascending: false })
+      .order("nome"),
+    supabase
+      .from("calendarios_atendimento_horarios")
+      .select("calendario_atendimento_id, dia_semana, fechado, abre_as, fecha_as, ordem")
+      .order("dia_semana")
+      .order("ordem"),
+  ]);
   const organizacoes =
-    (organizacoesData as OrganizacaoParceiroOpcao[] | null) ?? [];
+    (organizacoesResposta.data as OrganizacaoParceiroOpcao[] | null) ?? [];
+  const horariosPorCalendario = new Map<
+    string,
+    ParceiroCalendarioAtendimentoOpcao["horarios"]
+  >();
+
+  for (const horario of
+    (calendariosAtendimentoHorariosResposta.data as
+      | (ParceiroCalendarioAtendimentoOpcao["horarios"][number] & {
+          calendario_atendimento_id: string;
+        })[]
+      | null) ?? []) {
+    const atuais = horariosPorCalendario.get(horario.calendario_atendimento_id) ?? [];
+    atuais.push({
+      dia_semana: horario.dia_semana,
+      fechado: horario.fechado,
+      abre_as: horario.abre_as,
+      fecha_as: horario.fecha_as,
+      ordem: horario.ordem,
+    });
+    horariosPorCalendario.set(horario.calendario_atendimento_id, atuais);
+  }
+
+  const calendariosAtendimento: ParceiroCalendarioAtendimentoOpcao[] =
+    ((calendariosAtendimentoResposta.data as
+      | Omit<ParceiroCalendarioAtendimentoOpcao, "horarios">[]
+      | null) ?? []).map((calendario) => ({
+      ...calendario,
+      horarios: horariosPorCalendario.get(calendario.id) ?? [],
+    }));
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">
@@ -86,7 +135,12 @@ export default async function NovoParceiroPage({ searchParams }: PageProps) {
           </p>
         </div>
 
-        <ParceiroForm organizacoes={organizacoes} erro={erro} sucesso={sucesso} />
+        <ParceiroForm
+          organizacoes={organizacoes}
+          calendariosAtendimento={calendariosAtendimento}
+          erro={erro}
+          sucesso={sucesso}
+        />
       </section>
     </main>
   );

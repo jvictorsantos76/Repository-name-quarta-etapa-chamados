@@ -208,194 +208,56 @@ function boolForm(formData: FormData, campo: string) {
   return formData.get(campo) === "on";
 }
 
-type HorarioAtendimentoEntrada = {
-  dia_semana: number;
-  fechado: boolean;
-  abre_as: string | null;
-  fecha_as: string | null;
-  ordem: number;
-};
-
-function horarioMinutos(valor: string) {
-  const match = /^(\d{2}):(\d{2})$/.exec(valor);
-
-  if (!match) {
-    return null;
-  }
-
-  const horas = Number(match[1]);
-  const minutos = Number(match[2]);
-
-  if (horas > 23 || minutos > 59) {
-    return null;
-  }
-
-  return horas * 60 + minutos;
+function uuidOuNull(valor: FormDataEntryValue | null) {
+  const texto = normalizarTexto(valor);
+  return UUID_REGEX.test(texto) ? texto : null;
 }
 
-function normalizarHorario(valor: unknown) {
-  const texto = typeof valor === "string" ? valor.trim() : "";
+async function resolverCalendarioAtendimento(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  calendarioInformado: string | null
+) {
+  const query = supabase
+    .from("calendarios_atendimento")
+    .select("id, atendimento_feriados, necessita_agendamento, padrao_global")
+    .eq("ativo", true);
+  const resposta = calendarioInformado
+    ? await query.eq("id", calendarioInformado).maybeSingle()
+    : await query.eq("padrao_global", true).order("criado_em").limit(1).maybeSingle();
 
-  if (/^\d{2}:\d{2}:\d{2}$/.test(texto)) {
-    return texto.slice(0, 5);
-  }
-
-  return /^\d{2}:\d{2}$/.test(texto) ? texto : "";
-}
-
-function montarHorariosAtendimento(formData: FormData) {
-  const bruto = normalizarTexto(formData.get("horarios_atendimento_json"));
-
-  if (!bruto) {
+  if (resposta.error) {
     return {
       ok: false as const,
-      error: "Informe os horários de atendimento.",
+      error: "Não foi possível validar o calendário de atendimento selecionado.",
     };
   }
 
-  let dados: unknown;
-
-  try {
-    dados = JSON.parse(bruto);
-  } catch {
+  if (!resposta.data && calendarioInformado) {
     return {
       ok: false as const,
-      error: "Revise os horários de atendimento antes de salvar.",
+      error: "Selecione um calendário de atendimento ativo.",
     };
   }
 
-  if (!Array.isArray(dados)) {
+  if (!resposta.data) {
     return {
-      ok: false as const,
-      error: "Revise os horários de atendimento antes de salvar.",
+      ok: true as const,
+      value: {
+        id: null,
+        atendimento_feriados: false,
+        necessita_agendamento: false,
+      },
     };
-  }
-
-  const porDia = new Map<number, HorarioAtendimentoEntrada[]>();
-
-  for (const item of dados) {
-    if (!item || typeof item !== "object") {
-      return {
-        ok: false as const,
-        error: "Revise os horários de atendimento antes de salvar.",
-      };
-    }
-
-    const entrada = item as Record<string, unknown>;
-    const diaSemana = Number(entrada.dia_semana);
-    const fechado = entrada.fechado === true;
-    const abreAs = normalizarHorario(entrada.abre_as);
-    const fechaAs = normalizarHorario(entrada.fecha_as);
-
-    if (!Number.isInteger(diaSemana) || diaSemana < 0 || diaSemana > 6) {
-      return {
-        ok: false as const,
-        error: "Informe um dia da semana válido nos horários de atendimento.",
-      };
-    }
-
-    const dia = porDia.get(diaSemana) ?? [];
-
-    if (fechado) {
-      dia.push({
-        dia_semana: diaSemana,
-        fechado: true,
-        abre_as: null,
-        fecha_as: null,
-        ordem: 1,
-      });
-      porDia.set(diaSemana, dia);
-      continue;
-    }
-
-    const inicio = horarioMinutos(abreAs);
-    const fim = horarioMinutos(fechaAs);
-
-    if (inicio === null || fim === null) {
-      return {
-        ok: false as const,
-        error: "Informe abertura e fechamento para todos os dias abertos.",
-      };
-    }
-
-    if (fim <= inicio) {
-      return {
-        ok: false as const,
-        error: "O horário de fechamento deve ser maior que o de abertura.",
-      };
-    }
-
-    dia.push({
-      dia_semana: diaSemana,
-      fechado: false,
-      abre_as: abreAs,
-      fecha_as: fechaAs,
-      ordem: dia.length + 1,
-    });
-    porDia.set(diaSemana, dia);
-  }
-
-  const horarios: HorarioAtendimentoEntrada[] = [];
-
-  for (let diaSemana = 0; diaSemana <= 6; diaSemana += 1) {
-    const intervalos = porDia.get(diaSemana) ?? [];
-
-    if (intervalos.length === 0) {
-      return {
-        ok: false as const,
-        error: "Informe a agenda de todos os dias da semana.",
-      };
-    }
-
-    if (intervalos.some((intervalo) => intervalo.fechado) && intervalos.length > 1) {
-      return {
-        ok: false as const,
-        error: "Dia fechado não pode ter intervalos de atendimento.",
-      };
-    }
-
-    if (intervalos[0]?.fechado) {
-      horarios.push(intervalos[0]);
-      continue;
-    }
-
-    const ordenados = [...intervalos].sort((a, b) => {
-      const inicioA = horarioMinutos(a.abre_as ?? "") ?? 0;
-      const inicioB = horarioMinutos(b.abre_as ?? "") ?? 0;
-      return inicioA - inicioB;
-    });
-
-    for (let index = 0; index < ordenados.length; index += 1) {
-      const atual = ordenados[index];
-      const anterior = ordenados[index - 1];
-
-      if (
-        anterior &&
-        (horarioMinutos(atual.abre_as ?? "") ?? 0) <
-          (horarioMinutos(anterior.fecha_as ?? "") ?? 0)
-      ) {
-        return {
-          ok: false as const,
-          error: "Não é permitido sobrepor intervalos no mesmo dia.",
-        };
-      }
-
-      horarios.push({
-        ...atual,
-        ordem: index + 1,
-      });
-    }
   }
 
   return {
     ok: true as const,
-    value: horarios,
+    value: {
+      id: String(resposta.data.id),
+      atendimento_feriados: Boolean(resposta.data.atendimento_feriados),
+      necessita_agendamento: Boolean(resposta.data.necessita_agendamento),
+    },
   };
-}
-
-function uuidOuNull(valor: FormDataEntryValue | null) {
-  const texto = normalizarTexto(valor);
-  return UUID_REGEX.test(texto) ? texto : null;
 }
 
 function montarDocumentosEntrada(formData: FormData) {
@@ -835,6 +697,7 @@ function montarPayloadParceiro(formData: FormData) {
       suframa: textoOuNull(formData.get("suframa")),
       website: website.value,
       organizacao_id: uuidOuNull(formData.get("organizacao_id")),
+      calendario_atendimento_id: uuidOuNull(formData.get("calendario_atendimento_id")),
       latitude: latitude.value,
       longitude: longitude.value,
       origem_geolocalizacao: textoOuNull(formData.get("origem_geolocalizacao")),
@@ -888,42 +751,12 @@ async function registrarHistorico(
   });
 }
 
-async function salvarHorariosAtendimento(
-  supabase: ReturnType<typeof createSupabaseAdminClient>,
-  parceiroId: string,
-  usuarioId: string,
-  horarios: HorarioAtendimentoEntrada[]
-) {
-  const exclusao = await supabase
-    .from("parceiro_horarios_atendimento")
-    .delete()
-    .eq("parceiro_id", parceiroId);
-
-  if (exclusao.error) {
-    return exclusao;
-  }
-
-  return supabase.from("parceiro_horarios_atendimento").insert(
-    horarios.map((horario) => ({
-      parceiro_id: parceiroId,
-      dia_semana: horario.dia_semana,
-      fechado: horario.fechado,
-      abre_as: horario.abre_as,
-      fecha_as: horario.fecha_as,
-      ordem: horario.ordem,
-      criado_por: usuarioId,
-      atualizado_por: usuarioId,
-    }))
-  );
-}
-
 export async function salvarParceiroGeral(formData: FormData) {
   const perfil = await requireGestorParceiros();
   const id = normalizarTexto(formData.get("id"));
   const origem = id ? detalhePath(id) : `${LISTAGEM_PARCEIROS_PATH}/nova`;
   const acaoPosSalvar = normalizarTexto(formData.get("acao_pos_salvar"));
   const resultado = montarPayloadParceiro(formData);
-  const horariosResultado = montarHorariosAtendimento(formData);
   let organizacaoId = uuidOuNull(formData.get("organizacao_id"));
   const organizacaoAlterada = formData.get("organizacao_id_alterado") === "1";
   const criarOrganizacaoVinculada =
@@ -933,15 +766,28 @@ export async function salvarParceiroGeral(formData: FormData) {
     redirectComErro(origem, resultado.error);
   }
 
-  if (!horariosResultado.ok) {
-    redirectComErro(origem, horariosResultado.error);
-  }
-
   if (!normalizarTexto(formData.get("contato_nome"))) {
     redirectComErro(origem, "Informe o nome do contato principal.");
   }
 
   const supabase = createSupabaseAdminClient();
+  const calendarioAtendimentoId = uuidOuNull(
+    formData.get("calendario_atendimento_id")
+  );
+  const calendarioAtendimento = await resolverCalendarioAtendimento(
+    supabase,
+    calendarioAtendimentoId
+  );
+
+  if (!calendarioAtendimento.ok) {
+    redirectComErro(origem, calendarioAtendimento.error);
+  }
+
+  resultado.payload.calendario_atendimento_id = calendarioAtendimento.value.id;
+  resultado.payload.atendimento_feriado =
+    calendarioAtendimento.value.atendimento_feriados;
+  resultado.payload.necessita_agendamento =
+    calendarioAtendimento.value.necessita_agendamento;
   const responsavelContatoId = uuidOuNull(formData.get("responsavel_local_contato_id"));
 
   if (responsavelContatoId) {
@@ -1061,19 +907,6 @@ export async function salvarParceiroGeral(formData: FormData) {
       : "";
   const enderecoId = normalizarTexto(formData.get("endereco_id"));
   const contatoId = normalizarTexto(formData.get("contato_id"));
-  const respostaHorarios = await salvarHorariosAtendimento(
-    supabase,
-    parceiroId,
-    perfil.id,
-    horariosResultado.value
-  );
-
-  if (respostaHorarios.error) {
-    redirectComErro(
-      detalhePath(parceiroId),
-      "Parceiro salvo, mas os horários de atendimento não foram gravados."
-    );
-  }
 
   if ((organizacaoAlterada || criarOrganizacaoVinculada) && clienteLegadoId) {
     const { data: clienteLegado, error: erroClienteLegado } = await supabase

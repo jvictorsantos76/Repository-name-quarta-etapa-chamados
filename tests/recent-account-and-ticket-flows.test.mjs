@@ -158,6 +158,10 @@ const versionSource = await readFile(
   new URL("../src/config/version.ts", import.meta.url),
   "utf8"
 );
+const changelogSource = await readFile(
+  new URL("../src/app/changelog/page.tsx", import.meta.url),
+  "utf8"
+);
 const contratosPageSource = await readFile(
   new URL("../src/app/cadastros/contratos/page.tsx", import.meta.url),
   "utf8"
@@ -227,6 +231,28 @@ const calendariosSlaClientSource = await readFile(
     "../src/app/configurar/slas/calendarios/CalendariosSlaClient.tsx",
     import.meta.url
   ),
+  "utf8"
+);
+const calendariosAtendimentoMigration = await readFile(
+  new URL(
+    "../supabase/migrations/202607080001_create_calendarios_atendimento.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
+const calendariosAtendimentoPageSource = await readFile(
+  new URL("../src/app/gerencia/calendarios-atendimento/page.tsx", import.meta.url),
+  "utf8"
+);
+const calendariosAtendimentoClientSource = await readFile(
+  new URL(
+    "../src/app/gerencia/calendarios-atendimento/CalendariosAtendimentoClient.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
+const calendariosAtendimentoActionsSource = await readFile(
+  new URL("../src/app/gerencia/calendarios-atendimento/actions.ts", import.meta.url),
   "utf8"
 );
 const agendaSemanalSource = await readFile(
@@ -662,9 +688,18 @@ test("sla configuration mvp keeps conservative data model and guarded pages", ()
 
   assert.match(navigationSource, /id: "configurar-slas"[\s\S]*href: "\/configurar\/slas"/);
   assert.match(navigationSource, /id: "configurar-slas"[\s\S]*status: "disponivel"/);
-  assert.match(versionSource, /APP_VERSION = "v0\.9\.59"/);
+  assert.match(
+    navigationSource,
+    /id: "configurar-calendarios-sla"[\s\S]*href: "\/configurar\/slas\/calendarios"/
+  );
+  assert.match(
+    navigationSource,
+    /id: "configurar-calendarios-sla"[\s\S]*status: "disponivel"/
+  );
+  assert.match(versionSource, /APP_VERSION = "v0\.9\.60"/);
   assert.match(versionSource, /SLAS_PAGE_VERSION = "v1\.0\.0"/);
   assert.match(versionSource, /CALENDARIOS_SLA_PAGE_VERSION = "v1\.0\.0"/);
+  assert.match(versionSource, /CALENDARIOS_ATENDIMENTO_PAGE_VERSION = "v1\.0\.0"/);
   assert.match(versionBadgeSource, /\/configurar\/slas/);
   assert.match(versionBadgeSource, /\/configurar\/slas\/calendarios/);
 
@@ -679,6 +714,9 @@ test("sla configuration mvp keeps conservative data model and guarded pages", ()
   assert.match(slasClientSource, /alterarStatusSla/);
   assert.doesNotMatch(slasClientSource, /delete/i);
   assert.match(calendariosSlaClientSource, /AgendaSemanalAtendimento/);
+  assert.match(calendariosSlaClientSource, /Novo calendário/);
+  assert.match(calendariosSlaClientSource, /Total: \{calendarios\.length\}/);
+  assert.match(calendariosSlaClientSource, /Salvar calendário[\s\S]*<\/button>[\s\S]*<\/div>[\s\S]*<\/section>/);
   assert.match(slasActionsSource, /requirePerfilAutenticado/);
   assert.match(slasActionsSource, /podeGerenciarCatalogosChamado/);
   assert.match(slasActionsSource, /revalidatePath\(SLAS_PATH\)/);
@@ -718,7 +756,7 @@ test("operational partners module keeps legacy compatibility and guarded RLS", (
   assert.match(parceirosPageSource, /organizações seguem como agrupamento interno/i);
   assert.match(parceirosPageSource, /cliente_legado_nome/);
   assert.match(parceirosPageSource, /filiais_count/);
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.44"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.45"/);
   assert.match(versionSource, /CONTRATOS_PAGE_VERSION = "v1\.0\.8"/);
   assert.match(versionBadgeSource, /\/cadastros\/parceiros/);
   assert.match(versionBadgeSource, /\/cadastros\/contratos/);
@@ -911,7 +949,7 @@ test("partner operational location keeps address independent and route links ext
   assert.match(parceirosFormSource, /Abrir WhatsApp/);
   assert.match(parceirosFormSource, /Identificação da doca/);
   assert.doesNotMatch(parceirosFormSource, /name="restricoes_entrada"/);
-  assert.match(parceirosFormSource, /Horários de atendimento/);
+  assert.match(parceirosFormSource, /Calendário de atendimento/);
   assert.match(parceirosFormSource, /maps\.app\.goo\.gl/);
   assert.match(parceirosFormSource, /parceiro\?\.link_maps \?\?[\s\S]*parceiro\?\.localizacao_referencia \?\?/);
   assert.match(parceirosFormSource, /latitude: coordenadas \? String\(coordenadas\.latitude\) : ""/);
@@ -962,7 +1000,7 @@ test("partner operational location keeps address independent and route links ext
     parceirosEstacionamentoMigration,
     /drop column|disable row level security|drop policy|grant .* to anon|revoke delete/i
   );
-  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.44"/);
+  assert.match(versionSource, /PARCEIROS_PAGE_VERSION = "v1\.1\.45"/);
   assert.match(parceirosTypesSource, /export type ParceiroOrganizacaoResumo = \{/);
   assert.match(parceirosTypesSource, /unidades_organizacao: ParceiroOrganizacaoResumo\[\]/);
   assert.doesNotMatch(filiaisTabSource, /action=\{salvarParceiroFilial\}/);
@@ -1116,18 +1154,24 @@ test("partner service hours use weekly structured agenda without deleting legacy
     /public\.usuario_acesso_chamados_ativo\(\)/
   );
 
-  assert.match(parceirosFormSource, /AgendaSemanalAtendimento/);
+  assert.doesNotMatch(parceirosFormSource, /AgendaSemanalAtendimento/);
   assert.doesNotMatch(parceirosFormSource, /const DIAS_ATENDIMENTO/);
   assert.match(agendaSemanalSource, /export const DIAS_ATENDIMENTO/);
   assert.match(agendaSemanalComponentSource, /export function AgendaSemanalAtendimento/);
-  assert.match(parceirosFormSource, /horarios_atendimento_json/);
+  assert.doesNotMatch(parceirosFormSource, /horarios_atendimento_json/);
+  assert.match(parceirosFormSource, /name="calendario_atendimento_id"/);
+  assert.match(parceirosFormSource, /Calendário de atendimento/);
+  assert.match(parceirosFormSource, /\/gerencia\/calendarios-atendimento/);
   assert.match(agendaSemanalSource, /"09:00"/);
   assert.match(agendaSemanalSource, /"17:00"/);
   assert.match(agendaSemanalSource, /Não é permitido|não podem se sobrepor/);
-  assert.match(parceirosActionsSource, /montarHorariosAtendimento/);
-  assert.match(parceirosActionsSource, /salvarHorariosAtendimento/);
-  assert.match(parceirosActionsSource, /\.from\("parceiro_horarios_atendimento"\)[\s\S]*\.delete\(\)/);
-  assert.match(parceirosActionsSource, /\.from\("parceiro_horarios_atendimento"\)[\s\S]*\.insert\(/);
+  assert.match(parceirosActionsSource, /resolverCalendarioAtendimento/);
+  assert.match(parceirosActionsSource, /calendario_atendimento_id/);
+  assert.match(parceirosActionsSource, /\.from\("calendarios_atendimento"\)/);
+  assert.doesNotMatch(parceirosActionsSource, /montarHorariosAtendimento/);
+  assert.doesNotMatch(parceirosActionsSource, /salvarHorariosAtendimento/);
+  assert.doesNotMatch(parceirosActionsSource, /\.from\("parceiro_horarios_atendimento"\)[\s\S]*\.delete\(\)/);
+  assert.doesNotMatch(parceirosActionsSource, /\.from\("parceiro_horarios_atendimento"\)[\s\S]*\.insert\(/);
   assert.doesNotMatch(parceirosFormSource, /name="horario_funcionamento"/);
   assert.doesNotMatch(parceirosFormSource, /name="horario_atendimento_tecnico"/);
   assert.doesNotMatch(parceirosFormSource, /name="horario_coleta_entrega"/);
@@ -1148,6 +1192,61 @@ test("partners can select a registered default sla while preserving legacy note"
     parceirosActionsSource,
     /sla_padrao_id: uuidOuNull\(formData\.get\("sla_padrao_id"\)\)/
   );
+});
+
+test("attendance calendars are managed separately from SLA calendars and linked to partners", () => {
+  assert.match(calendariosAtendimentoMigration, /create table if not exists public\.calendarios_atendimento/i);
+  assert.match(calendariosAtendimentoMigration, /create table if not exists public\.calendarios_atendimento_horarios/i);
+  assert.match(calendariosAtendimentoMigration, /add column if not exists calendario_atendimento_id uuid/i);
+  assert.match(calendariosAtendimentoMigration, /calendarios_atendimento_um_padrao_global_ativo_idx/i);
+  assert.match(calendariosAtendimentoMigration, /where padrao_global = true and ativo = true/i);
+  assert.match(calendariosAtendimentoMigration, /alter table public\.calendarios_atendimento enable row level security/i);
+  assert.match(calendariosAtendimentoMigration, /alter table public\.calendarios_atendimento_horarios enable row level security/i);
+  assert.match(calendariosAtendimentoMigration, /grant select, insert, update on table public\.calendarios_atendimento to authenticated/i);
+  assert.match(calendariosAtendimentoMigration, /revoke all on table public\.calendarios_atendimento from anon/i);
+  assert.match(calendariosAtendimentoMigration, /revoke delete on table public\.calendarios_atendimento from authenticated/i);
+  assert.match(calendariosAtendimentoMigration, /public\.usuario_acesso_chamados_ativo\(\)/);
+  assert.match(calendariosAtendimentoMigration, /public\.usuario_catalogo_chamados_ativo\(\)/);
+  assert.match(calendariosAtendimentoMigration, /Comercial padrão/);
+  assert.doesNotMatch(calendariosAtendimentoMigration, /drop table public\.parceiro_horarios_atendimento/i);
+  assert.doesNotMatch(calendariosAtendimentoMigration, /service_role/i);
+
+  assert.match(calendariosAtendimentoPageSource, /requirePerfilAutenticado/);
+  assert.match(calendariosAtendimentoPageSource, /podeGerenciarCatalogosChamado/);
+  assert.match(calendariosAtendimentoPageSource, /\.from\("calendarios_atendimento"\)/);
+  assert.match(calendariosAtendimentoPageSource, /\.from\("calendarios_atendimento_horarios"\)/);
+  assert.match(calendariosAtendimentoPageSource, /\.from\("parceiros"\)/);
+  assert.match(calendariosAtendimentoPageSource, /migration de calendários de atendimento/i);
+
+  assert.match(calendariosAtendimentoClientSource, /AgendaSemanalAtendimento/);
+  assert.match(calendariosAtendimentoClientSource, /serializarAgendaAtendimento/);
+  assert.match(calendariosAtendimentoClientSource, /validarAgendaAtendimento/);
+  assert.match(calendariosAtendimentoClientSource, /CatalogoPaginacao/);
+  assert.match(calendariosAtendimentoClientSource, /salvarCalendarioAtendimento/);
+  assert.match(calendariosAtendimentoClientSource, /alterarStatusCalendarioAtendimento/);
+  assert.match(calendariosAtendimentoClientSource, /Novo calendário/);
+
+  assert.match(calendariosAtendimentoActionsSource, /requirePerfilAutenticado/);
+  assert.match(calendariosAtendimentoActionsSource, /podeGerenciarCatalogosChamado/);
+  assert.match(calendariosAtendimentoActionsSource, /revalidatePath\(CALENDARIOS_ATENDIMENTO_PATH\)/);
+  assert.match(calendariosAtendimentoActionsSource, /revalidatePath\(PARCEIROS_PATH\)/);
+  assert.match(calendariosAtendimentoActionsSource, /padrao_global/);
+
+  assert.match(parceirosTypesSource, /export type ParceiroCalendarioAtendimentoOpcao/);
+  assert.match(parceiroNovaPageSource, /\.from\("calendarios_atendimento"\)/);
+  assert.match(parceiroNovaPageSource, /\.from\("calendarios_atendimento_horarios"\)/);
+  assert.match(parceiroDetailPageSource, /\.from\("calendarios_atendimento"\)/);
+  assert.match(parceiroDetailPageSource, /\.from\("calendarios_atendimento_horarios"\)/);
+  assert.match(parceiroDetailPageSource, /calendariosAtendimento=\{calendariosAtendimento\}/);
+  assert.match(parceirosFormSource, /calendariosAtendimento\?: ParceiroCalendarioAtendimentoOpcao\[\]/);
+  assert.doesNotMatch(parceirosFormSource, /calendario_sla_modelo_id/);
+  assert.doesNotMatch(parceirosFormSource, /calendariosSla\?: ParceiroCalendarioSlaOpcao\[\]/);
+
+  assert.match(navigationSource, /id: "gerencia-calendarios-atendimento"/);
+  assert.match(navigationSource, /href: "\/gerencia\/calendarios-atendimento"/);
+  assert.match(navigationSource, /label: "Calendários de atendimento"/);
+  assert.match(changelogSource, /v0\.9\.60/);
+  assert.match(changelogSource, /Gerência \/ Calendários de Atendimento/);
 });
 
 test("organizations link to clients without replacing operational ticket fields", () => {

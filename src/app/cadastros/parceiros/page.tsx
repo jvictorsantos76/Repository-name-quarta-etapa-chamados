@@ -16,8 +16,33 @@ type PageProps = {
 
 function isSchemaCacheError(message: string | undefined) {
   return Boolean(
-    message?.includes("schema cache") || message?.includes("Could not find the table")
+    message?.includes("schema cache") ||
+      message?.includes("Could not find the table") ||
+      message?.includes("Could not find") ||
+      message?.includes("column")
   );
+}
+
+function selecionarParceiros(incluirCalendarioAtendimento = true) {
+  return [
+    "id",
+    "tipo_parceiro",
+    "tipo_pessoa",
+    "razao_social",
+    "nome_fantasia",
+    "codigo_interno",
+    "cnpj_cpf",
+    "situacao",
+    "segmento",
+    "ativo",
+    "cliente_legado_id",
+    "organizacao_id",
+    incluirCalendarioAtendimento ? "calendario_atendimento_id" : null,
+    "criado_em",
+    "atualizado_em",
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 async function getSearchParam(
@@ -38,13 +63,22 @@ export default async function ParceirosPage({ searchParams }: PageProps) {
   }
 
   const supabase = await createSupabaseServerClient();
-  const [parceirosResposta, clientesResposta, filiaisResposta] = await Promise.all([
-    supabase
+  let parceirosResposta = await supabase
+    .from("parceiros")
+    .select(selecionarParceiros())
+    .order("nome_fantasia");
+  const calendarioAtendimentoPendente = Boolean(
+    parceirosResposta.error && isSchemaCacheError(parceirosResposta.error.message)
+  );
+
+  if (calendarioAtendimentoPendente) {
+    parceirosResposta = await supabase
       .from("parceiros")
-      .select(
-        "id, tipo_parceiro, tipo_pessoa, razao_social, nome_fantasia, codigo_interno, cnpj_cpf, situacao, segmento, ativo, cliente_legado_id, organizacao_id, criado_em, atualizado_em"
-      )
-      .order("nome_fantasia"),
+      .select(selecionarParceiros(false))
+      .order("nome_fantasia");
+  }
+
+  const [clientesResposta, filiaisResposta] = await Promise.all([
     supabase.from("clientes").select("id, nome_fantasia"),
     supabase.from("parceiros_filiais").select("id, parceiro_id"),
   ]);
@@ -128,6 +162,12 @@ export default async function ParceirosPage({ searchParams }: PageProps) {
         <div className="mb-4 rounded-lg border border-sky-100 bg-sky-50 p-3 text-sm text-sky-900">
           <strong className="font-semibold">Domínio:</strong> organizações seguem como agrupamento interno do sistema; parceiros concentram o cadastro mestre operacional usado por atendimento, SLA, contratos, filiais e faturamento.
         </div>
+
+        {calendarioAtendimentoPendente && !error ? (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+            A migration de calendários de atendimento ainda não foi aplicada. A listagem foi carregada em modo de compatibilidade.
+          </div>
+        ) : null}
 
         {error && !isSchemaCacheError(error.message) ? (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">

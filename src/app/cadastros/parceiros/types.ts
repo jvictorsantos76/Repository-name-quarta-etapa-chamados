@@ -204,6 +204,9 @@ export type ParceiroResumo = {
   horario_funcionamento?: string | null;
   horario_atendimento_tecnico?: string | null;
   horario_coleta_entrega?: string | null;
+  calendario_atendimento_id?: string | null;
+  calendario_atendimento_nome?: string | null;
+  calendario_atendimento_codigo?: string | null;
   atendimento_sabado?: boolean | null;
   atendimento_domingo?: boolean | null;
   atendimento_feriado?: boolean | null;
@@ -336,6 +339,45 @@ export type ParceiroSlaOpcao = {
   ativo: boolean;
 };
 
+export type ParceiroCalendarioSlaHorarioOpcao = {
+  dia_semana: number;
+  fechado: boolean;
+  abre_as: string | null;
+  fecha_as: string | null;
+  ordem: number;
+};
+
+export type ParceiroCalendarioSlaOpcao = {
+  id: string;
+  nome: string;
+  codigo: string;
+  ativo: boolean;
+  regime_24x7: boolean;
+  atendimento_feriados: boolean;
+  horarios: ParceiroCalendarioSlaHorarioOpcao[];
+};
+
+export type ParceiroCalendarioAtendimentoHorarioOpcao = {
+  dia_semana: number;
+  fechado: boolean;
+  abre_as: string | null;
+  fecha_as: string | null;
+  ordem: number;
+};
+
+export type ParceiroCalendarioAtendimentoOpcao = {
+  id: string;
+  nome: string;
+  codigo: string;
+  tipo: "padrao" | "especifico" | "excecao";
+  fuso_horario: string;
+  atendimento_feriados: boolean;
+  necessita_agendamento: boolean;
+  ativo: boolean;
+  padrao_global: boolean;
+  horarios: ParceiroCalendarioAtendimentoHorarioOpcao[];
+};
+
 export type ParceiroHorarioAtendimento = {
   id: string;
   parceiro_id: string;
@@ -398,6 +440,7 @@ export type ParceiroDetalhe = ParceiroResumo & {
   contatos: ParceiroContato[];
   financeiro: ParceiroFinanceiro | null;
   operacional: ParceiroOperacional | null;
+  calendario_atendimento?: ParceiroCalendarioAtendimentoOpcao | null;
   horarios_atendimento: ParceiroHorarioAtendimento[];
   contratos: ParceiroContrato[];
   anexos: ParceiroAnexo[];

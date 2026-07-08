@@ -3,6 +3,18 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.60",
+    data: "12/06/2026",
+    alteracoes: [
+      "v0.9.60 — Gerência / Calendários de Atendimento cria o cadastro próprio v1.0.0 para agendas operacionais de atendimento técnico.",
+      "Clientes / Parceiros v1.1.45 deixa de editar horários diretamente e passa a selecionar e consultar um calendário de atendimento vinculado.",
+      "Calendário operacional de atendimento fica separado do calendário contratual de SLA, preservando a contagem de prazos em Configurar > SLAs.",
+    ],
+    correcoes: [
+      "Migration cria calendário padrão global ativo, mantém a tabela antiga de horários por parceiro para compatibilidade e habilita RLS sem liberar delete físico para usuários autenticados.",
+    ],
+  },
+  {
     versao: "v0.9.59",
     data: "12/06/2026",
     alteracoes: [
