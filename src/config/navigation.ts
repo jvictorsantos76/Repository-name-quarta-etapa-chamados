@@ -49,7 +49,7 @@ export const ROADMAP_MONTHS = [
   "Assistência essencial",
   "Gerência comercial e cadastral",
   "Administração, usuários e permissões",
-  "Configurações operacionais de chamados",
+  "Identificação do chamado com popups rápidos dos cadastros",
   "Ativos prioritários de campo",
   "Ferramentas de padronização operacional",
   "Planejamento, agenda e recorrência",

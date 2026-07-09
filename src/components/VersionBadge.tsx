@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import {
   APP_UPDATED_AT,
   APP_VERSION,
+  BASE_CONHECIMENTO_PAGE_VERSION,
   CADASTRO_USUARIO_PAGE_VERSION,
   CALENDARIOS_SLA_PAGE_VERSION,
   CONTA_APARENCIA_PAGE_VERSION,
@@ -143,6 +144,10 @@ function getPageVersion(pathname: string) {
 
   if (pathname.startsWith("/cadastros/organizacoes")) {
     return `Tela | Organizações ${ORGANIZACOES_PAGE_VERSION}`;
+  }
+
+  if (pathname === "/ferramentas/base-conhecimento") {
+    return `Tela | Base de Conhecimento ${BASE_CONHECIMENTO_PAGE_VERSION}`;
   }
 
   return null;
