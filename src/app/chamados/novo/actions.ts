@@ -29,6 +29,7 @@ export type BaseConhecimentoItem = {
   titulo: string;
   url: string | null;
   resumo: string | null;
+  conteudo: string | null;
 };
 
 export type ClienteItem = {
@@ -108,6 +109,45 @@ function isSchemaCacheError(message: string | undefined) {
 
 function normalizarTexto(valor: string) {
   return valor.trim().replace(/\s+/g, " ");
+}
+
+function normalizarCodigo(valor: string) {
+  return valor
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
+function normalizarCorHex(valor: string) {
+  const cor = valor.trim().toLowerCase();
+
+  if (!cor) {
+    return null;
+  }
+
+  return /^#[0-9a-f]{6}$/i.test(cor) ? cor : null;
+}
+
+function revalidarCatalogoChamado(
+  tabela:
+    | "chamado_tipos"
+    | "chamado_origens"
+    | "grupos_atendimento"
+    | "bases_conhecimento"
+) {
+  revalidatePath("/chamados/novo");
+
+  if (tabela === "chamado_tipos") {
+    revalidatePath("/configurar/tipos-chamado");
+  } else if (tabela === "chamado_origens") {
+    revalidatePath("/configurar/origens-chamado");
+  } else if (tabela === "grupos_atendimento") {
+    revalidatePath("/configurar/grupos-atendimento");
+  } else {
+    revalidatePath("/ferramentas/base-conhecimento");
+  }
 }
 
 function mensagemErroBanco(error: { code?: string; message: string }) {
@@ -212,7 +252,7 @@ export async function carregarDadosNovoChamado(): Promise<
     podeVerBase
       ? supabase
           .from("bases_conhecimento")
-          .select("id, titulo, url, resumo")
+          .select("id, titulo, url, resumo, conteudo")
           .eq("ativo", true)
           .order("ordem")
           .order("titulo")
@@ -427,7 +467,7 @@ async function criarCatalogoSimples(
     };
   }
 
-  revalidatePath("/chamados/novo");
+  revalidarCatalogoChamado(tabela);
 
   return {
     status: "success",
@@ -444,7 +484,7 @@ export async function criarStatusChamado(campos: {
   nome: string;
   descricao: string;
   cor: string;
-}): Promise<MutationResult<CatalogoItem>> {
+}): Promise<MutationResult<ChamadoStatusItem>> {
   const perfilAtual = await requirePerfilAutenticado();
 
   if (!podeGerenciarCatalogosChamado(perfilAtual.papel)) {
@@ -463,12 +503,18 @@ export async function criarStatusChamado(campos: {
     };
   }
 
-  const codigo = nome
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
+  const codigo = normalizarCodigo(nome) || "status";
+  const corInformada = campos.cor.trim();
+  const corNormalizada = normalizarCorHex(corInformada);
+
+  if (corInformada && !corNormalizada) {
+    return {
+      status: "validation_error",
+      message: "Informe a cor no formato hexadecimal, por exemplo #2563eb.",
+    };
+  }
+
+  const cor = corNormalizada ?? "#2563eb";
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("chamado_status")
@@ -476,11 +522,12 @@ export async function criarStatusChamado(campos: {
       codigo,
       nome,
       descricao: normalizarTexto(campos.descricao) || null,
-      cor: normalizarTexto(campos.cor) || null,
+      cor,
+      ativo: true,
       criado_por: perfilAtual.id,
       atualizado_por: perfilAtual.id,
     })
-    .select("id, nome, descricao")
+    .select("id, codigo, nome, descricao, cor")
     .single();
 
   if (error) {
@@ -496,7 +543,7 @@ export async function criarStatusChamado(campos: {
   return {
     status: "success",
     message: "Status criado.",
-    data: data as CatalogoItem,
+    data: data as ChamadoStatusItem,
   };
 }
 
@@ -635,6 +682,8 @@ export async function criarBaseConhecimento(campos: {
   titulo: string;
   url: string;
   resumo: string;
+  conteudo: string;
+  ativo: boolean;
 }): Promise<MutationResult<BaseConhecimentoItem>> {
   const perfilAtual = await requirePerfilAutenticado();
 
@@ -669,9 +718,11 @@ export async function criarBaseConhecimento(campos: {
       titulo,
       url: url || null,
       resumo: normalizarTexto(campos.resumo) || null,
+      conteudo: campos.conteudo.trim() || null,
+      ativo: campos.ativo,
       criado_por: perfilAtual.id,
     })
-    .select("id, titulo, url, resumo")
+    .select("id, titulo, url, resumo, conteudo")
     .single();
 
   if (error) {
@@ -681,7 +732,7 @@ export async function criarBaseConhecimento(campos: {
     };
   }
 
-  revalidatePath("/chamados/novo");
+  revalidarCatalogoChamado("bases_conhecimento");
 
   return {
     status: "success",

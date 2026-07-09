@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { PapelUsuario, PerfilAutenticado } from "@/lib/auth/types";
 import {
@@ -29,6 +29,7 @@ import {
   criarTipoChamado,
   type BaseConhecimentoItem,
   type CatalogoItem,
+  type ChamadoStatusItem,
   type ClienteItem,
   type LojaItem,
   type MutationResult,
@@ -398,6 +399,8 @@ function InlineModal({
     descricao: string;
     url: string;
     cor: string;
+    conteudo: string;
+    ativo: boolean;
   }) => void;
   salvando: boolean;
   erro: string;
@@ -406,6 +409,9 @@ function InlineModal({
   const [descricao, setDescricao] = useState("");
   const [url, setUrl] = useState("");
   const [cor, setCor] = useState("");
+  const [conteudo, setConteudo] = useState("");
+  const [ativo, setAtivo] = useState(true);
+  const nomeInputRef = useRef<HTMLInputElement>(null);
   const config: Record<InlineTipo, { titulo: string; label: string }> = {
     status: { titulo: "Novo status de chamado", label: "Nome do status" },
     tipo: { titulo: "Novo tipo de chamado", label: "Nome do tipo" },
@@ -416,16 +422,43 @@ function InlineModal({
     base: { titulo: "Novo artigo", label: "Título do artigo" },
   };
 
+  useEffect(() => {
+    nomeInputRef.current?.focus();
+
+    function fecharComEsc(event: KeyboardEvent) {
+      if (event.key === "Escape" && !salvando) {
+        onClose();
+      }
+    }
+
+    document.addEventListener("keydown", fecharComEsc);
+
+    return () => {
+      document.removeEventListener("keydown", fecharComEsc);
+    };
+  }, [onClose, salvando]);
+
+  const tituloId = `cadastro-rapido-${tipo}-titulo`;
+  const descricaoLabel =
+    tipo === "base" ? "Resumo" : "Descrição ou resumo";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+    <div
+      aria-labelledby={tituloId}
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+      role="dialog"
+    >
+      <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl bg-white p-5 shadow-xl">
         <div className="flex items-start justify-between gap-4">
-          <h3 className="text-base font-bold text-gray-950">
+          <h3 id={tituloId} className="text-base font-bold text-gray-950">
             {config[tipo].titulo}
           </h3>
           <button
             type="button"
             onClick={onClose}
+            disabled={salvando}
+            aria-label={`Fechar ${config[tipo].titulo}`}
             className="rounded-lg border border-gray-300 px-3 py-1 text-sm font-semibold text-gray-700"
           >
             Fechar
@@ -444,6 +477,7 @@ function InlineModal({
               {config[tipo].label}
             </label>
             <input
+              ref={nomeInputRef}
               value={nome}
               onChange={(event) => setNome(event.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
@@ -471,21 +505,49 @@ function InlineModal({
           {tipo !== "cliente" && tipo !== "filial" && (
             <div>
               <label className="mb-2 block text-sm font-semibold">
-                Descrição ou resumo
+                {descricaoLabel}
               </label>
               <textarea
                 value={descricao}
                 onChange={(event) => setDescricao(event.target.value)}
                 rows={3}
+                aria-label={descricaoLabel}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
           )}
 
+          {tipo === "base" && (
+            <>
+              <div>
+                <label className="mb-2 block text-sm font-semibold">
+                  Conteúdo
+                </label>
+                <textarea
+                  value={conteudo}
+                  onChange={(event) => setConteudo(event.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                <input
+                  type="checkbox"
+                  checked={ativo}
+                  onChange={(event) => setAtivo(event.target.checked)}
+                />
+                Ativo
+              </label>
+            </>
+          )}
+
           <button
             type="button"
             disabled={salvando}
-            onClick={() => onSubmit({ nome, descricao, url, cor })}
+            onClick={() =>
+              onSubmit({ nome, descricao, url, cor, conteudo, ativo })
+            }
             className="inline-flex min-h-10 items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {salvando ? "Salvando..." : "Salvar cadastro"}
@@ -689,6 +751,8 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
     descricao: string;
     url: string;
     cor: string;
+    conteudo: string;
+    ativo: boolean;
   }) {
     if (!modalAberto) {
       return;
@@ -730,6 +794,8 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
           titulo: campos.nome,
           url: campos.url,
           resumo: campos.descricao,
+          conteudo: campos.conteudo,
+          ativo: campos.ativo,
         });
       }
 
@@ -739,16 +805,10 @@ export function NovoChamadoForm({ perfilAtual }: NovoChamadoFormProps) {
       }
 
       if (modalAberto === "status") {
-        const item = resultado.data as CatalogoItem;
+        const item = resultado.data as ChamadoStatusItem;
         setDados((atual) => ({
           ...atual,
-          statusPadrao: {
-            id: item.id,
-            codigo: "novo_status",
-            nome: item.nome,
-            descricao: item.descricao,
-            cor: campos.cor || null,
-          },
+          statusPadrao: atual.statusPadrao ?? item,
         }));
       } else if (modalAberto === "tipo") {
         const item = resultado.data as CatalogoItem;
