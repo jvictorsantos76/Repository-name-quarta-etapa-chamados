@@ -86,6 +86,21 @@ async function gerarCodigoUnico(codigoBase: string, idAtual?: string) {
   }
 }
 
+async function obterCodigoStatusExistente(id: string) {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("base_conhecimento_status")
+    .select("codigo")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error("Não foi possível localizar o status de artigo.");
+  }
+
+  return (data?.codigo as string | undefined) ?? null;
+}
+
 function revalidarStatusArtigos() {
   revalidatePath(STATUS_ARTIGOS_PATH);
   revalidatePath(BASE_CONHECIMENTO_PATH);
@@ -115,7 +130,14 @@ export async function salvarStatusArtigo(
   }
 
   const supabase = createSupabaseAdminClient();
-  const codigo = await gerarCodigoUnico(nome, input.id);
+  const codigo = input.id
+    ? await obterCodigoStatusExistente(input.id)
+    : await gerarCodigoUnico(nome);
+
+  if (!codigo) {
+    return { ok: false, error: "Status de artigo não encontrado para atualização." };
+  }
+
   const payload = {
     codigo,
     nome,

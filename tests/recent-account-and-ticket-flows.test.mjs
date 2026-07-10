@@ -146,6 +146,14 @@ const statusChamadosClientSource = await readFile(
   ),
   "utf8"
 );
+const statusArtigosActionsSource = await readFile(
+  new URL("../src/app/configurar/status-artigos/actions.ts", import.meta.url),
+  "utf8"
+);
+const tiposArtigoActionsSource = await readFile(
+  new URL("../src/app/configurar/tipos-artigo/actions.ts", import.meta.url),
+  "utf8"
+);
 const versionBadgeSource = await readFile(
   new URL("../src/components/VersionBadge.tsx", import.meta.url),
   "utf8"
@@ -645,6 +653,15 @@ test("small configuration catalogs follow the canonical ticket status pattern", 
   assert.match(versionBadgeSource, /\/configurar\/grupos-atendimento/);
 });
 
+test("article catalog updates keep technical codes stable", () => {
+  assert.match(statusArtigosActionsSource, /obterCodigoStatusExistente/);
+  assert.match(statusArtigosActionsSource, /input\.id\s*\?\s*await obterCodigoStatusExistente\(input\.id\)/);
+  assert.match(tiposArtigoActionsSource, /obterCodigoTipoExistente/);
+  assert.match(tiposArtigoActionsSource, /id\s*\?\s*await obterCodigoTipoExistente\(id\)/);
+  assert.match(versionSource, /STATUS_ARTIGOS_PAGE_VERSION = "v1\.0\.1"/);
+  assert.match(versionSource, /TIPOS_ARTIGO_PAGE_VERSION = "v1\.0\.1"/);
+});
+
 test("sla configuration mvp keeps conservative data model and guarded pages", () => {
   for (const tabela of [
     "calendarios_sla",
@@ -692,7 +709,7 @@ test("sla configuration mvp keeps conservative data model and guarded pages", ()
     navigationSource,
     /id: "configurar-calendarios-sla"[\s\S]*status: "disponivel"/
   );
-  assert.match(versionSource, /APP_VERSION = "v0\.9\.66"/);
+  assert.match(versionSource, /APP_VERSION = "v0\.9\.67"/);
   assert.match(versionSource, /SLAS_PAGE_VERSION = "v1\.0\.0"/);
   assert.match(versionSource, /CALENDARIOS_SLA_PAGE_VERSION = "v1\.0\.1"/);
   assert.match(versionBadgeSource, /\/configurar\/slas/);

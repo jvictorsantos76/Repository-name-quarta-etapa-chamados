@@ -3,6 +3,16 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.67",
+    data: "09/07/2026",
+    alteracoes: [
+      "Status de Artigos v1.0.1 e Tipos de Artigo v1.0.1 preservam o codigo tecnico ao atualizar cadastros ja existentes.",
+    ],
+    correcoes: [
+      "A edicao de cadastros referenciados por artigos deixa de tentar alterar a chave usada por bases_conhecimento, evitando erro de chave estrangeira ao salvar.",
+    ],
+  },
+  {
     versao: "v0.9.66",
     data: "09/07/2026",
     alteracoes: [

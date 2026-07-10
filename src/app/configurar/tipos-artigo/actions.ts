@@ -57,6 +57,21 @@ async function gerarCodigoUnico(nome: string, idAtual: string) {
   }
 }
 
+async function obterCodigoTipoExistente(id: string) {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("base_conhecimento_tipos")
+    .select("codigo")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error("Não foi possível localizar o tipo de artigo.");
+  }
+
+  return (data?.codigo as string | undefined) ?? null;
+}
+
 function revalidarTiposArtigo() {
   revalidatePath("/configurar/tipos-artigo");
   revalidatePath("/ferramentas/base-conhecimento");
@@ -77,7 +92,11 @@ export async function salvarTipoArtigo(formData: FormData) {
   }
 
   const supabase = createSupabaseAdminClient();
-  const codigo = await gerarCodigoUnico(nome, id);
+  const codigo = id ? await obterCodigoTipoExistente(id) : await gerarCodigoUnico(nome, id);
+
+  if (!codigo) {
+    throw new Error("Tipo de artigo não encontrado para atualização.");
+  }
 
   if (ehPadrao) {
     await supabase
@@ -108,4 +127,3 @@ export async function salvarTipoArtigo(formData: FormData) {
 
   revalidarTiposArtigo();
 }
-
