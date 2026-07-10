@@ -1,4 +1,4 @@
-export const APP_VERSION = "v0.9.63";
+export const APP_VERSION = "v0.9.66";
 export const APP_UPDATED_AT = "2026-07-09";
 
 export const DASHBOARD_PAGE_VERSION = "v0.1.0";
@@ -10,9 +10,11 @@ export const CONTA_PAGE_VERSION = "v0.1.1";
 export const CONTA_PERFIL_PAGE_VERSION = "v0.2.0";
 export const CONTA_APARENCIA_PAGE_VERSION = "v0.1.0";
 export const CONTA_PERMISSOES_PAGE_VERSION = "v0.1.2";
-export const NOVO_CHAMADO_PAGE_VERSION = "v0.2.9";
+export const NOVO_CHAMADO_PAGE_VERSION = "v0.3.0";
 export const STATUS_CHAMADOS_PAGE_VERSION = "v1.0.1";
+export const STATUS_ARTIGOS_PAGE_VERSION = "v1.0.0";
 export const TIPOS_CHAMADO_PAGE_VERSION = "v1.0.1";
+export const TIPOS_ARTIGO_PAGE_VERSION = "v1.0.0";
 export const ORIGENS_CHAMADO_PAGE_VERSION = "v1.0.1";
 export const GRUPOS_ATENDIMENTO_PAGE_VERSION = "v1.0.1";
 export const SLAS_PAGE_VERSION = "v1.0.0";
@@ -20,5 +22,5 @@ export const CALENDARIOS_SLA_PAGE_VERSION = "v1.0.1";
 export const ORGANIZACOES_PAGE_VERSION = "v1.1.2";
 export const PARCEIROS_PAGE_VERSION = "v1.1.46";
 export const CONTRATOS_PAGE_VERSION = "v1.0.8";
-export const BASE_CONHECIMENTO_PAGE_VERSION = "v1.0.0";
+export const BASE_CONHECIMENTO_PAGE_VERSION = "v1.2.1";
 export const LEGAL_DOCUMENTS_VERSION = "v0.7.0";

@@ -274,6 +274,22 @@ export const navigationGroups: NavigationGroup[] = [
         allowedRoles: ["super_admin", "admin", "analista"],
       },
       {
+        id: "configurar-status-artigos",
+        label: "Status de artigos",
+        href: "/configurar/status-artigos",
+        status: "disponivel",
+        icon: "checkSquare",
+        allowedRoles: ["super_admin", "admin", "analista"],
+      },
+      {
+        id: "configurar-tipos-artigo",
+        label: "Tipos de artigo",
+        href: "/configurar/tipos-artigo",
+        status: "disponivel",
+        icon: "database",
+        allowedRoles: ["super_admin", "admin", "analista"],
+      },
+      {
         id: "configurar-origens-chamado",
         label: "Origem do chamado",
         href: "/configurar/origens-chamado",

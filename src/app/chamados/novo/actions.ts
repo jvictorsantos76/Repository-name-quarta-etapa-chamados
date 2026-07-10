@@ -11,6 +11,8 @@ import {
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
 
+type SupabaseServerClient = Awaited<ReturnType<typeof createSupabaseServerClient>>;
+
 type ActionStatus = "success" | "validation_error" | "permission_error" | "error";
 
 export type CatalogoItem = {
@@ -30,6 +32,7 @@ export type BaseConhecimentoItem = {
   url: string | null;
   resumo: string | null;
   conteudo: string | null;
+  status?: string | null;
 };
 
 export type ClienteItem = {
@@ -204,6 +207,23 @@ function validarUrlOpcional(url: string) {
   }
 }
 
+async function obterCodigoStatusArtigoPublicado(supabase: SupabaseServerClient) {
+  const { data, error } = await supabase
+    .from("base_conhecimento_status")
+    .select("codigo")
+    .eq("ativo", true)
+    .eq("publica_artigo", true)
+    .order("ordem")
+    .limit(1)
+    .maybeSingle();
+
+  if (error && !isSchemaCacheError(error.message)) {
+    throw new Error("Não foi possível identificar o status publicável da Base de Conhecimento.");
+  }
+
+  return (data?.codigo as string | undefined) ?? "publicado";
+}
+
 export async function carregarDadosNovoChamado(): Promise<
   MutationResult<NovoChamadoDados>
 > {
@@ -211,6 +231,7 @@ export async function carregarDadosNovoChamado(): Promise<
   const supabase = await createSupabaseServerClient();
   const usuarioClienteOuParceiro = isClienteOuParceiro(perfilAtual.papel);
   const podeVerBase = podeConsultarBaseConhecimento(perfilAtual.papel);
+  const codigoStatusArtigoPublicado = await obterCodigoStatusArtigoPublicado(supabase);
 
   const [
     statusResposta,
@@ -252,8 +273,9 @@ export async function carregarDadosNovoChamado(): Promise<
     podeVerBase
       ? supabase
           .from("bases_conhecimento")
-          .select("id, titulo, url, resumo, conteudo")
+          .select("id, titulo, url, resumo, conteudo, status")
           .eq("ativo", true)
+          .eq("status", codigoStatusArtigoPublicado)
           .order("ordem")
           .order("titulo")
       : Promise.resolve({ data: [], error: null }),
@@ -696,6 +718,8 @@ export async function criarBaseConhecimento(campos: {
 
   const titulo = normalizarTexto(campos.titulo);
   const url = campos.url.trim();
+  const resumo = normalizarTexto(campos.resumo);
+  const conteudo = campos.conteudo.trim();
 
   if (!titulo) {
     return {
@@ -712,23 +736,117 @@ export async function criarBaseConhecimento(campos: {
   }
 
   const supabase = await createSupabaseServerClient();
+  const [
+    { data: categoriaPadrao, error: erroCategoriaPadrao },
+    { data: tipoPadrao, error: erroTipoPadrao },
+  ] = await Promise.all([
+    supabase
+      .from("base_conhecimento_categorias")
+      .select("id")
+      .eq("slug", "procedimentos-tecnicos")
+      .eq("ativo", true)
+      .maybeSingle(),
+    supabase
+      .from("base_conhecimento_tipos")
+      .select("codigo")
+      .eq("ativo", true)
+      .or("eh_padrao.eq.true,codigo.eq.procedimento")
+      .order("eh_padrao", { ascending: false })
+      .order("ordem")
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (erroCategoriaPadrao || !categoriaPadrao) {
+    return {
+      status: "error",
+      message:
+        "Não foi possível localizar a categoria padrão da Base de Conhecimento.",
+    };
+  }
+
+  if (erroTipoPadrao && !isSchemaCacheError(erroTipoPadrao.message)) {
+    return {
+      status: "error",
+      message: "Não foi possível localizar o tipo padrão da Base de Conhecimento.",
+    };
+  }
+
+  const codigoStatusArtigoPublicado = await obterCodigoStatusArtigoPublicado(supabase);
+  const codigoTipoArtigo = (tipoPadrao?.codigo as string | undefined) ?? "procedimento";
+
   const { data, error } = await supabase
     .from("bases_conhecimento")
     .insert({
       titulo,
+      slug: normalizarCodigo(titulo).replace(/_/g, "-"),
+      tipo: codigoTipoArtigo,
+      status: codigoStatusArtigoPublicado,
+      confidencialidade: "tecnico",
+      publico_alvo: "tecnico",
+      categoria_id: categoriaPadrao.id,
       url: url || null,
-      resumo: normalizarTexto(campos.resumo) || null,
-      conteudo: campos.conteudo.trim() || null,
+      resumo: resumo || titulo,
+      conteudo: conteudo || resumo || titulo,
       ativo: campos.ativo,
       criado_por: perfilAtual.id,
+      atualizado_por: perfilAtual.id,
+      publicado_em: new Date().toISOString(),
+      publicado_por: perfilAtual.id,
+      revisado_em: new Date().toISOString(),
+      revisado_por: perfilAtual.id,
     })
-    .select("id, titulo, url, resumo, conteudo")
+    .select("id, titulo, url, resumo, conteudo, status")
     .single();
 
   if (error) {
     return {
       status: error.code === "42501" ? "permission_error" : "error",
       message: mensagemErroBanco(error),
+    };
+  }
+
+  const { data: tagPadrao, error: erroTagPadrao } = await supabase
+    .from("base_conhecimento_tags")
+    .upsert(
+      {
+        nome: "Chamado",
+        slug: "chamado",
+        tipo: "processo",
+        ativo: true,
+        criado_por: perfilAtual.id,
+        atualizado_por: perfilAtual.id,
+      },
+      { onConflict: "slug" }
+    )
+    .select("id")
+    .single();
+
+  if (erroTagPadrao || !tagPadrao) {
+    return {
+      status: "error",
+      message: "Artigo criado, mas não foi possível registrar a tag padrão.",
+      data: data as BaseConhecimentoItem,
+    };
+  }
+
+  const { error: erroVinculoTag } = await supabase
+    .from("base_conhecimento_artigo_tags")
+    .upsert(
+      {
+        artigo_id: data.id,
+        tag_id: tagPadrao.id,
+        ativo: true,
+        criado_por: perfilAtual.id,
+      },
+      { onConflict: "artigo_id,tag_id" }
+    );
+
+  if (erroVinculoTag) {
+    return {
+      status: "error",
+      message: "Artigo criado, mas não foi possível vincular a tag padrão.",
+      data: data as BaseConhecimentoItem,
     };
   }
 
@@ -895,11 +1013,13 @@ export async function criarChamadoIdentificacao(
   }
 
   if (basesSelecionadas.length > 0) {
+    const codigoStatusArtigoPublicado = await obterCodigoStatusArtigoPublicado(supabase);
     const { data: basesAtivas, error: erroBasesAtivas } = await supabase
       .from("bases_conhecimento")
       .select("id")
       .in("id", basesSelecionadas)
-      .eq("ativo", true);
+      .eq("ativo", true)
+      .eq("status", codigoStatusArtigoPublicado);
 
     if (erroBasesAtivas) {
       return {

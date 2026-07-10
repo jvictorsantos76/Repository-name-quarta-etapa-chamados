@@ -9,21 +9,32 @@ import {
   createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
-import { salvarArtigoBaseConhecimento } from "./actions";
+import {
+  BaseConhecimentoClient,
+  type BaseConhecimentoAnexo,
+  type BaseConhecimentoArtigo,
+  type BaseConhecimentoCategoria,
+  type BaseConhecimentoOrganizacao,
+  type BaseConhecimentoStatus,
+  type BaseConhecimentoTag,
+  type BaseConhecimentoTipo,
+} from "./BaseConhecimentoClient";
 
-type ArtigoBase = {
-  id: string;
-  titulo: string;
-  resumo: string | null;
-  conteudo: string | null;
-  url: string | null;
-  ordem: number | null;
-  ativo: boolean;
+type ArtigoTagRow = {
+  artigo_id: string;
+  tag_id: string;
+};
+
+type ArtigoOrganizacaoRow = {
+  artigo_id: string;
+  organizacao_id: string;
 };
 
 function isSchemaCacheError(message: string | undefined) {
   return Boolean(
-    message?.includes("schema cache") || message?.includes("Could not find the table")
+    message?.includes("schema cache") ||
+      message?.includes("Could not find") ||
+      message?.includes("does not exist")
   );
 }
 
@@ -36,167 +47,196 @@ export default async function BaseConhecimentoPage() {
 
   const podeEditar = podeGerenciarCatalogosChamado(perfilAtual.papel);
   const supabase = await createSupabaseServerClient();
-  const query = supabase
-    .from("bases_conhecimento")
-    .select("id, titulo, resumo, conteudo, url, ordem, ativo")
-    .order("ordem")
-    .order("titulo");
-  const { data, error } = podeEditar ? await query : await query.eq("ativo", true);
-  const artigos = isSchemaCacheError(error?.message)
+
+  const [
+    artigosResposta,
+    categoriasResposta,
+    tagsResposta,
+    statusResposta,
+    tiposResposta,
+    organizacoesResposta,
+    artigoTagsResposta,
+    artigoOrganizacoesResposta,
+    anexosResposta,
+  ] = await Promise.all([
+      supabase
+        .from("bases_conhecimento")
+        .select(
+          [
+            "id",
+            "titulo",
+            "slug",
+            "tipo",
+            "status",
+            "confidencialidade",
+            "publico_alvo",
+            "categoria_id",
+            "resumo",
+            "conteudo",
+            "url",
+            "ordem",
+            "ativo",
+            "atualizado_em",
+            "publicado_em",
+            "revisado_em",
+            "proxima_revisao_em",
+          ].join(", ")
+        )
+        .order("ordem")
+        .order("titulo"),
+      supabase
+        .from("base_conhecimento_categorias")
+        .select("id, nome, slug, cor, ativo")
+        .order("ordem")
+        .order("nome"),
+      supabase
+        .from("base_conhecimento_tags")
+        .select("id, nome, slug, cor, ativo")
+        .eq("ativo", true)
+        .order("nome"),
+      supabase
+        .from("base_conhecimento_status")
+        .select("id, codigo, nome, descricao, cor, ordem, ativo, eh_padrao, publica_artigo, arquiva_artigo")
+        .eq("ativo", true)
+        .order("ordem")
+        .order("nome"),
+      supabase
+        .from("base_conhecimento_tipos")
+        .select("id, codigo, nome, descricao, ordem, ativo, eh_padrao")
+        .eq("ativo", true)
+        .order("ordem")
+        .order("nome"),
+      supabase
+        .from("organizacoes")
+        .select("id, nome, tipo_organizacao, ativo")
+        .eq("ativo", true)
+        .order("nome"),
+      supabase
+        .from("base_conhecimento_artigo_tags")
+        .select("artigo_id, tag_id")
+        .eq("ativo", true),
+      supabase
+        .from("base_conhecimento_organizacoes")
+        .select("artigo_id, organizacao_id")
+        .eq("ativo", true),
+      supabase
+        .from("base_conhecimento_anexos")
+        .select("id, artigo_id, nome_arquivo, tipo_mime, tamanho_bytes, criado_em")
+        .eq("ativo", true)
+        .order("criado_em", { ascending: false }),
+    ]);
+
+  const respostas = [
+    artigosResposta,
+    categoriasResposta,
+    tagsResposta,
+    statusResposta,
+    tiposResposta,
+    organizacoesResposta,
+    artigoTagsResposta,
+    artigoOrganizacoesResposta,
+    anexosResposta,
+  ];
+  const erro = respostas.find((resposta) => resposta.error)?.error;
+  const migrationPendente = isSchemaCacheError(erro?.message);
+  const erroCarregamento =
+    erro && !migrationPendente
+      ? "Não foi possível carregar a Base de Conhecimento."
+      : migrationPendente
+        ? "A estrutura editorial da Base de Conhecimento ainda não foi aplicada no banco."
+        : null;
+
+  const categorias = migrationPendente
     ? []
-    : (data as ArtigoBase[] | null) ?? [];
+    : ((categoriasResposta.data as BaseConhecimentoCategoria[] | null) ?? []);
+  const tags = migrationPendente
+    ? []
+    : ((tagsResposta.data as BaseConhecimentoTag[] | null) ?? []);
+  const statusOptions = migrationPendente
+    ? []
+    : ((statusResposta.data as BaseConhecimentoStatus[] | null) ?? []);
+  const tipoOptions = migrationPendente
+    ? []
+    : ((tiposResposta.data as BaseConhecimentoTipo[] | null) ?? []);
+  const organizacoes = migrationPendente
+    ? []
+    : ((organizacoesResposta.data as BaseConhecimentoOrganizacao[] | null) ?? []);
+  const artigoTags = migrationPendente
+    ? []
+    : ((artigoTagsResposta.data as ArtigoTagRow[] | null) ?? []);
+  const artigoOrganizacoes = migrationPendente
+    ? []
+    : ((artigoOrganizacoesResposta.data as ArtigoOrganizacaoRow[] | null) ?? []);
+  const anexos = migrationPendente
+    ? []
+    : ((anexosResposta.data as BaseConhecimentoAnexo[] | null) ?? []);
+  const tagsPorId = new Map(tags.map((tag) => [tag.id, tag]));
+  const tagsPorArtigo = new Map<string, BaseConhecimentoTag[]>();
+  const organizacoesPorArtigo = new Map<string, string[]>();
+  const anexosPorArtigo = new Map<string, BaseConhecimentoAnexo[]>();
+
+  artigoTags.forEach((vinculo) => {
+    const tag = tagsPorId.get(vinculo.tag_id);
+    if (!tag) {
+      return;
+    }
+
+    const lista = tagsPorArtigo.get(vinculo.artigo_id) ?? [];
+    lista.push(tag);
+    tagsPorArtigo.set(vinculo.artigo_id, lista);
+  });
+
+  artigoOrganizacoes.forEach((vinculo) => {
+    const lista = organizacoesPorArtigo.get(vinculo.artigo_id) ?? [];
+    lista.push(vinculo.organizacao_id);
+    organizacoesPorArtigo.set(vinculo.artigo_id, lista);
+  });
+
+  anexos.forEach((anexo) => {
+    const lista = anexosPorArtigo.get(anexo.artigo_id) ?? [];
+    lista.push(anexo);
+    anexosPorArtigo.set(anexo.artigo_id, lista);
+  });
+
+  const artigosBase = migrationPendente
+    ? []
+    : ((artigosResposta.data as Omit<BaseConhecimentoArtigo, "tags" | "anexos" | "organizacao_ids">[] | null) ??
+        []);
+  const artigos = artigosBase.map((artigo) => ({
+    ...artigo,
+    tags: tagsPorArtigo.get(artigo.id) ?? [],
+    anexos: anexosPorArtigo.get(artigo.id) ?? [],
+    organizacao_ids: organizacoesPorArtigo.get(artigo.id) ?? [],
+  }));
 
   return (
     <main className="min-h-screen bg-gray-100 text-gray-900">
       <AppHeader perfil={perfilAtual} />
-      <section className="mx-auto max-w-6xl px-6 pb-10 md:px-8">
+      <section className="mx-auto max-w-7xl px-6 pb-10 md:px-8">
         <div className="mb-6">
           <Link href="/chamados/novo" className="text-sm font-semibold text-blue-600">
             Voltar para novo chamado
           </Link>
           <h1 className="mt-3 text-2xl font-bold text-gray-950">
-            Base de conhecimento
+            Base de Conhecimento
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-gray-600">
-            Artigos operacionais para triagem, diagnóstico, atendimento e encerramento de chamados.
+            Gestão de artigos técnicos, procedimentos, checklists, anexos e soluções
+            recorrentes para apoiar triagem e atendimento de chamados.
           </p>
         </div>
 
-        {error && !isSchemaCacheError(error.message) ? (
-          <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            Não foi possível carregar os artigos.
-          </div>
-        ) : null}
-
-        {podeEditar ? (
-          <section className="mb-6 rounded-xl bg-white p-5 shadow">
-            <h2 className="text-lg font-bold">Novo artigo</h2>
-            <ArtigoForm />
-          </section>
-        ) : null}
-
-        <section className="rounded-xl bg-white p-5 shadow">
-          <h2 className="text-lg font-bold">Artigos</h2>
-          <div className="mt-4 space-y-3">
-            {artigos.map((artigo) =>
-              podeEditar ? (
-                <ArtigoForm key={artigo.id} artigo={artigo} />
-              ) : (
-                <article key={artigo.id} className="rounded-lg border border-gray-200 p-4">
-                  <h3 className="font-bold">{artigo.titulo}</h3>
-                  {artigo.resumo ? (
-                    <p className="mt-2 text-sm text-gray-600">{artigo.resumo}</p>
-                  ) : null}
-                  {artigo.conteudo ? (
-                    <p className="mt-3 whitespace-pre-line text-sm text-gray-700">
-                      {artigo.conteudo}
-                    </p>
-                  ) : null}
-                  {artigo.url ? (
-                    <a
-                      href={artigo.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-3 block break-all text-sm font-semibold text-blue-600"
-                    >
-                      {artigo.url}
-                    </a>
-                  ) : null}
-                </article>
-              )
-            )}
-
-            {artigos.length === 0 ? (
-              <p className="rounded-lg border border-gray-200 p-4 text-sm text-gray-600">
-                Nenhum artigo ativo cadastrado.
-              </p>
-            ) : null}
-          </div>
-        </section>
+        <BaseConhecimentoClient
+          artigos={artigos}
+          categorias={categorias}
+          tags={tags}
+          statusOptions={statusOptions}
+          tipoOptions={tipoOptions}
+          organizacoes={organizacoes}
+          podeEditar={podeEditar}
+          erroCarregamento={erroCarregamento}
+        />
       </section>
     </main>
-  );
-}
-
-function ArtigoForm({ artigo }: { artigo?: ArtigoBase }) {
-  return (
-    <form
-      action={salvarArtigoBaseConhecimento}
-      className="mt-4 grid gap-4 rounded-lg border border-gray-200 p-4"
-    >
-      <input type="hidden" name="id" value={artigo?.id ?? ""} />
-      <div className="grid gap-4 md:grid-cols-3">
-        <CampoTexto
-          name="titulo"
-          label="Título"
-          defaultValue={artigo?.titulo ?? ""}
-          required
-        />
-        <CampoTexto
-          name="url"
-          label="URL"
-          defaultValue={artigo?.url ?? ""}
-          placeholder="https://..."
-        />
-        <CampoTexto
-          name="ordem"
-          label="Ordem"
-          defaultValue={String(artigo?.ordem ?? 0)}
-        />
-      </div>
-      <CampoTexto
-        name="resumo"
-        label="Resumo"
-        defaultValue={artigo?.resumo ?? ""}
-      />
-      <label className="block text-sm font-semibold">
-        Conteúdo
-        <textarea
-          name="conteudo"
-          defaultValue={artigo?.conteudo ?? ""}
-          rows={4}
-          className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-normal"
-        />
-      </label>
-      <div className="flex flex-wrap items-center gap-4">
-        <label className="flex items-center gap-2 text-sm font-semibold">
-          <input type="checkbox" name="ativo" defaultChecked={artigo?.ativo ?? true} />
-          Ativo
-        </label>
-        <button
-          type="submit"
-          className="min-h-10 rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800"
-        >
-          {artigo ? "Atualizar artigo" : "Salvar artigo"}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function CampoTexto({
-  name,
-  label,
-  defaultValue = "",
-  placeholder,
-  required = false,
-}: {
-  name: string;
-  label: string;
-  defaultValue?: string;
-  placeholder?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block text-sm font-semibold">
-      {label}
-      <input
-        name={name}
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        required={required}
-        className="mt-1 min-h-10 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-normal"
-      />
-    </label>
   );
 }

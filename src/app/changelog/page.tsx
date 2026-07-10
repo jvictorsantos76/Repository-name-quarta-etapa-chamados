@@ -3,6 +3,51 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.66",
+    data: "09/07/2026",
+    alteracoes: [
+      "Base de Conhecimento v1.2.1 recebe o artigo publicado MANUAL S4M com categoria, tipo, status, confidencialidade, publico, tags, organizacoes, conteudo HTML controlado e anexo privado.",
+    ],
+    correcoes: [
+      "Migration corretiva ajusta o tamanho registrado do anexo manual-s4m.html conforme o arquivo enviado ao Storage.",
+    ],
+  },
+  {
+    versao: "v0.9.65",
+    data: "09/07/2026",
+    alteracoes: [
+      "Base de Conhecimento v1.2.0 passa a consumir status e tipos de artigo por catálogo administrativo, removendo selects hardcoded do formulário editorial.",
+      "Configurar ganha Status de Artigos v1.0.0 e Tipos de Artigo v1.0.0 com cadastro, edição, ativação lógica, flags editoriais e revalidação da Base e do Novo Chamado.",
+      "O formulário de artigo passa a criar tags por Tab/Enter/vírgula, exibir organizações quando a confidencialidade for cliente específico e oferecer toolbar básica para conteúdo HTML controlado.",
+    ],
+    correcoes: [
+      "Novo Chamado deixa de depender do literal publicado e passa a relacionar artigos pelo status marcado como publicável no catálogo.",
+      "Migration adiciona grants explícitos e RLS para os novos catálogos e vínculo de organizações, mantendo delete fechado para authenticated.",
+    ],
+  },
+  {
+    versao: "v0.9.64",
+    data: "09/07/2026",
+    alteracoes: [
+      "Base de Conhecimento v1.1.0 passa a operar como módulo editorial com status, tipo, confidencialidade, categorias, tags, anexos privados e detalhe técnico do artigo.",
+      "Novo Chamado v0.3.0 mantém o relacionamento manual com artigos, agora restrito a conteúdos ativos e publicados.",
+    ],
+    correcoes: [
+      "Migration versionada adiciona tabelas auxiliares, grants explícitos, RLS por perfil ativo em public.perfis e bucket privado para anexos sem liberar delete para usuários comuns.",
+    ],
+  },
+  {
+    versao: "v0.9.61",
+    data: "12/06/2026",
+    alteracoes: [
+      "Configurar > Horários de Funcionamento v1.0.1 consolida o cadastro de agendas para uso compartilhado por parceiros e SLAs.",
+      "Clientes / Parceiros v1.1.46 passa a salvar o vínculo de horário de funcionamento em calendarios_sla, removendo a dependência da tela redundante de Calendários de Atendimento.",
+    ],
+    correcoes: [
+      "A tela redundante de Calendários de Atendimento sai da navegação e o formulário de parceiro passa a consultar o cadastro único de horários.",
+    ],
+  },
+  {
     versao: "v0.9.60",
     data: "12/06/2026",
     alteracoes: [

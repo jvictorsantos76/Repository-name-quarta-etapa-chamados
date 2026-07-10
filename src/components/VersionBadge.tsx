@@ -23,8 +23,10 @@ import {
   ORIGENS_CHAMADO_PAGE_VERSION,
   PERFIL_USUARIO_PAGE_VERSION,
   SLAS_PAGE_VERSION,
+  STATUS_ARTIGOS_PAGE_VERSION,
   STATUS_CHAMADOS_PAGE_VERSION,
   SOLICITACOES_ACESSO_PAGE_VERSION,
+  TIPOS_ARTIGO_PAGE_VERSION,
   TIPOS_CHAMADO_PAGE_VERSION,
 } from "@/config/version";
 
@@ -58,7 +60,15 @@ const footerGroups = [
   },
 ];
 
-const appChromePrefixes = ["/chamados", "/admin", "/conta", "/roadmap", "/configurar", "/cadastros"];
+const appChromePrefixes = [
+  "/chamados",
+  "/admin",
+  "/conta",
+  "/roadmap",
+  "/configurar",
+  "/cadastros",
+  "/ferramentas",
+];
 
 function formatarDataVersao(data: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -114,8 +124,16 @@ function getPageVersion(pathname: string) {
     return `Tela | Status de Chamados ${STATUS_CHAMADOS_PAGE_VERSION}`;
   }
 
+  if (pathname === "/configurar/status-artigos") {
+    return `Tela | Status de Artigos ${STATUS_ARTIGOS_PAGE_VERSION}`;
+  }
+
   if (pathname === "/configurar/tipos-chamado") {
     return `Tela | Tipos de Chamado ${TIPOS_CHAMADO_PAGE_VERSION}`;
+  }
+
+  if (pathname === "/configurar/tipos-artigo") {
+    return `Tela | Tipos de Artigo ${TIPOS_ARTIGO_PAGE_VERSION}`;
   }
 
   if (pathname === "/configurar/origens-chamado") {
@@ -131,7 +149,7 @@ function getPageVersion(pathname: string) {
   }
 
   if (pathname === "/configurar/slas/calendarios") {
-    return `Tela | Calendários de SLA ${CALENDARIOS_SLA_PAGE_VERSION}`;
+    return `Tela | Horários de Funcionamento ${CALENDARIOS_SLA_PAGE_VERSION}`;
   }
 
   if (pathname.startsWith("/cadastros/parceiros")) {
