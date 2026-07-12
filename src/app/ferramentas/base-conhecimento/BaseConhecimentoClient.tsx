@@ -456,6 +456,17 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
   const editorRef = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState(defaultValue);
   const [modoFonte, setModoFonte] = useState(false);
+  const htmlRef = useRef(html);
+
+  useEffect(() => {
+    htmlRef.current = html;
+  }, [html]);
+
+  useEffect(() => {
+    if (!modoFonte && editorRef.current && editorRef.current.innerHTML !== htmlRef.current) {
+      editorRef.current.innerHTML = htmlRef.current;
+    }
+  }, [modoFonte]);
 
   function sincronizar() {
     setHtml(editorRef.current?.innerHTML ?? "");
@@ -516,7 +527,7 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
         {modoFonte ? (
           <textarea value={html} onChange={(event) => setHtml(event.target.value)} rows={14} className="w-full resize-y border-0 bg-gray-950 px-3 py-3 font-mono text-xs leading-5 text-gray-100 outline-none" aria-label="HTML e estilo controlados" />
         ) : (
-          <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={sincronizar} dangerouslySetInnerHTML={{ __html: html }} className="min-h-56 w-full px-3 py-3 text-sm leading-6 text-gray-800 outline-none prose-headings:font-bold" />
+          <div ref={editorRef} contentEditable dir="ltr" suppressContentEditableWarning onInput={sincronizar} dangerouslySetInnerHTML={{ __html: defaultValue }} className="min-h-56 w-full px-3 py-3 text-left text-sm leading-6 text-gray-800 outline-none prose-headings:font-bold" />
         )}
       </div>
     </label>

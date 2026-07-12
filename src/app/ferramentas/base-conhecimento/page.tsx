@@ -146,7 +146,7 @@ export default async function BaseConhecimentoPage() {
         .order("criado_em", { ascending: false }),
     ]);
 
-  const respostas = [
+  const respostasPrincipais = [
     artigosResposta,
     categoriasResposta,
     tagsResposta,
@@ -155,12 +155,16 @@ export default async function BaseConhecimentoPage() {
     organizacoesResposta,
     artigoTagsResposta,
     artigoOrganizacoesResposta,
-    usuariosResposta,
-    artigoUsuariosResposta,
     anexosResposta,
   ];
-  const erro = respostas.find((resposta) => resposta.error)?.error;
-  const migrationPendente = isSchemaCacheError(erro?.message);
+  const erro = respostasPrincipais.find((resposta) => resposta.error)?.error;
+  const migrationPendente =
+    isSchemaCacheError(erro?.message) &&
+    !statusResposta.data?.length &&
+    !tiposResposta.data?.length;
+  const usuariosEditorialIndisponiveis = Boolean(
+    usuariosResposta.error || artigoUsuariosResposta.error
+  );
   const erroCarregamento =
     erro && !migrationPendente
       ? "Não foi possível carregar a Base de Conhecimento."
@@ -192,7 +196,7 @@ export default async function BaseConhecimentoPage() {
   const artigoOrganizacoes = migrationPendente
     ? []
     : ((artigoOrganizacoesResposta.data as ArtigoOrganizacaoRow[] | null) ?? []);
-  const artigoUsuarios = migrationPendente
+  const artigoUsuarios = migrationPendente || usuariosEditorialIndisponiveis
     ? []
     : ((artigoUsuariosResposta.data as ArtigoUsuarioRow[] | null) ?? []);
   const anexos = migrationPendente

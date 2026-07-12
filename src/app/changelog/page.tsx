@@ -3,6 +3,17 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.69",
+    data: "11/07/2026",
+    alteracoes: [
+      "Base de Conhecimento v1.3.1 mantém Status, Tipos e demais catálogos carregados quando apenas o vínculo editorial de usuários ainda não existe no banco consultado.",
+    ],
+    correcoes: [
+      "A ausência isolada de base_conhecimento_usuarios deixa de esvaziar os selects de Status e Tipo do formulário.",
+      "O editor preserva a posição do cursor durante a digitação e mantém a direção do texto da esquerda para a direita.",
+    ],
+  },
+  {
     versao: "v0.9.68",
     data: "11/07/2026",
     alteracoes: [
