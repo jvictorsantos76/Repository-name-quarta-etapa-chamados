@@ -3,6 +3,17 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.68",
+    data: "11/07/2026",
+    alteracoes: [
+      "Base de Conhecimento v1.3.0 corrige a edição de conteúdo, amplia a barra de ferramentas e inclui modo HTML com estilos controlados.",
+      "A seleção de organizações e usuários técnicos passa a ter pesquisa, seleção múltipla e persistência por artigo.",
+    ],
+    correcoes: [
+      "O salvamento e os anexos agora retornam mensagens claras de sucesso ou falha, validam formatos e suportam PDFs de até 20 MB.",
+    ],
+  },
+  {
     versao: "v0.9.67",
     data: "09/07/2026",
     alteracoes: [

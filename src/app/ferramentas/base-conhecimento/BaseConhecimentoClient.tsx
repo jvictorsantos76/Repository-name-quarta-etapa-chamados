@@ -1,12 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   CatalogoPaginacao,
   OPCOES_CATALOGOS_ITENS_POR_PAGINA,
 } from "@/app/configurar/CatalogoConfiguracaoClient";
-import { salvarArtigoBaseConhecimento } from "./actions";
+import {
+  salvarArtigoBaseConhecimento,
+} from "./actions";
+
+const ESTADO_INICIAL_ARTIGO = {
+  status: "idle" as const,
+  message: "",
+};
 
 export type BaseConhecimentoCategoria = {
   id: string;
@@ -54,6 +62,13 @@ export type BaseConhecimentoOrganizacao = {
   ativo: boolean;
 };
 
+export type BaseConhecimentoUsuario = {
+  id: string;
+  nome_completo: string;
+  email: string | null;
+  papel: string;
+};
+
 export type BaseConhecimentoAnexo = {
   id: string;
   artigo_id: string;
@@ -84,6 +99,7 @@ export type BaseConhecimentoArtigo = {
   tags: BaseConhecimentoTag[];
   anexos: BaseConhecimentoAnexo[];
   organizacao_ids: string[];
+  usuario_ids: string[];
 };
 
 type Props = {
@@ -93,6 +109,7 @@ type Props = {
   statusOptions: BaseConhecimentoStatus[];
   tipoOptions: BaseConhecimentoTipo[];
   organizacoes: BaseConhecimentoOrganizacao[];
+  usuarios: BaseConhecimentoUsuario[];
   podeEditar: boolean;
   erroCarregamento?: string | null;
 };
@@ -358,27 +375,124 @@ function TagInput({ tagsIniciais }: { tagsIniciais: BaseConhecimentoTag[] }) {
   );
 }
 
+function SelecaoMultiplaPesquisa({
+  label,
+  name,
+  opcoes,
+  idsIniciais,
+}: {
+  label: string;
+  name: string;
+  opcoes: Array<{ id: string; nome: string; descricao?: string | null }>;
+  idsIniciais: string[];
+}) {
+  const [busca, setBusca] = useState("");
+  const [idsSelecionados, setIdsSelecionados] = useState(idsIniciais);
+  const opcoesFiltradas = useMemo(() => {
+    const termo = textoFiltro(busca);
+    return opcoes.filter((opcao) =>
+      !termo || `${opcao.nome} ${opcao.descricao ?? ""}`.toLowerCase().includes(termo)
+    );
+  }, [busca, opcoes]);
+  const selecionados = opcoes.filter((opcao) => idsSelecionados.includes(opcao.id));
+
+  function alternar(id: string) {
+    setIdsSelecionados((atuais) =>
+      atuais.includes(id) ? atuais.filter((item) => item !== id) : [...atuais, id]
+    );
+  }
+
+  return (
+    <fieldset className={labelClass}>
+      <legend>{label}</legend>
+      {idsSelecionados.map((id) => (
+        <input key={id} type="hidden" name={name} value={id} />
+      ))}
+      <div className="mt-1 rounded-md border border-gray-200 bg-white p-3">
+        <input
+          value={busca}
+          onChange={(event) => setBusca(event.target.value)}
+          placeholder="Localizar para selecionar"
+          className="min-h-9 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-950 outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100"
+        />
+        {selecionados.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {selecionados.map((opcao) => (
+              <button
+                key={opcao.id}
+                type="button"
+                onClick={() => alternar(opcao.id)}
+                className="inline-flex min-h-7 items-center rounded-full border border-blue-100 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700"
+                title={`Remover ${opcao.nome}`}
+              >
+                {opcao.nome}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        <div className="mt-2 max-h-44 overflow-y-auto rounded-md border border-gray-100">
+          {opcoesFiltradas.map((opcao) => {
+            const selecionada = idsSelecionados.includes(opcao.id);
+            return (
+              <label key={opcao.id} className="flex cursor-pointer items-start gap-2 border-b border-gray-100 px-3 py-2 last:border-0 hover:bg-gray-50">
+                <input type="checkbox" checked={selecionada} onChange={() => alternar(opcao.id)} className="mt-0.5 h-4 w-4" />
+                <span className="text-sm font-semibold normal-case text-gray-800">
+                  {opcao.nome}
+                  {opcao.descricao ? <span className="ml-1 font-medium text-gray-500">{opcao.descricao}</span> : null}
+                </span>
+              </label>
+            );
+          })}
+          {opcoesFiltradas.length === 0 ? (
+            <p className="px-3 py-3 text-sm font-medium normal-case text-gray-500">Nenhum resultado localizado.</p>
+          ) : null}
+        </div>
+      </div>
+    </fieldset>
+  );
+}
+
 function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string }) {
+  const editorRef = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState(defaultValue);
+  const [modoFonte, setModoFonte] = useState(false);
+
+  function sincronizar() {
+    setHtml(editorRef.current?.innerHTML ?? "");
+  }
 
   function executar(comando: string, valor?: string) {
+    editorRef.current?.focus();
     document.execCommand(comando, false, valor);
-    setHtml(document.querySelector<HTMLElement>("[data-conteudo-editor]")?.innerHTML ?? "");
+    sincronizar();
   }
 
   function inserirLink() {
     const url = window.prompt("URL do link");
-    if (url?.trim()) {
-      executar("createLink", url.trim());
-    }
+    if (url?.trim()) executar("createLink", url.trim());
   }
 
   function inserirImagem() {
     const url = window.prompt("URL da imagem");
-    if (url?.trim()) {
-      executar("insertImage", url.trim());
-    }
+    if (url?.trim()) executar("insertImage", url.trim());
   }
+
+  const botoes = [
+    ["bold", "B", "Negrito"],
+    ["italic", "I", "Itálico"],
+    ["underline", "U", "Sublinhado"],
+    ["strikeThrough", "S", "Tachado"],
+    ["insertUnorderedList", "Lista", "Lista com marcadores"],
+    ["insertOrderedList", "1.", "Lista numerada"],
+    ["formatBlock", "H2", "Título nível 2", "h2"],
+    ["formatBlock", "H3", "Título nível 3", "h3"],
+    ["formatBlock", "P", "Parágrafo", "p"],
+    ["formatBlock", "Citação", "Citação", "blockquote"],
+    ["formatBlock", "Código", "Bloco de código", "pre"],
+    ["justifyLeft", "Esq.", "Alinhar à esquerda"],
+    ["justifyCenter", "Centro", "Centralizar"],
+    ["justifyRight", "Dir.", "Alinhar à direita"],
+  ];
 
   return (
     <label className={labelClass}>
@@ -386,58 +500,24 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
       <input type="hidden" name="conteudo" value={html} />
       <div className="mt-1 overflow-hidden rounded-md border border-gray-200 bg-white">
         <div className="flex flex-wrap gap-1 border-b border-gray-100 bg-gray-50 p-2">
-          {[
-            ["bold", "B"],
-            ["italic", "I"],
-            ["insertUnorderedList", "Lista"],
-            ["insertOrderedList", "1."],
-          ].map(([comando, label]) => (
-            <button
-              key={comando}
-              type="button"
-              onClick={() => executar(comando)}
-              className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
-            >
-              {label}
+          {botoes.map(([comando, texto, titulo, valor]) => (
+            <button key={`${comando}-${texto}`} type="button" onClick={() => executar(comando, valor)} title={titulo} className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">
+              {texto}
             </button>
           ))}
-          <button
-            type="button"
-            onClick={() => executar("formatBlock", "h2")}
-            className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
-          >
-            H2
-          </button>
-          <button
-            type="button"
-            onClick={() => executar("formatBlock", "h3")}
-            className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
-          >
-            H3
-          </button>
-          <button
-            type="button"
-            onClick={inserirLink}
-            className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
-          >
-            Link
-          </button>
-          <button
-            type="button"
-            onClick={inserirImagem}
-            className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100"
-          >
-            Imagem
+          <button type="button" onClick={inserirLink} className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">Link</button>
+          <button type="button" onClick={inserirImagem} className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">Imagem</button>
+          <button type="button" onClick={() => executar("undo")} title="Desfazer" className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">Desfazer</button>
+          <button type="button" onClick={() => executar("redo")} title="Refazer" className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">Refazer</button>
+          <button type="button" onClick={() => setModoFonte((atual) => !atual)} className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">
+            {modoFonte ? "Visual" : "HTML"}
           </button>
         </div>
-        <div
-          data-conteudo-editor
-          contentEditable
-          suppressContentEditableWarning
-          onInput={(event) => setHtml(event.currentTarget.innerHTML)}
-          dangerouslySetInnerHTML={{ __html: defaultValue }}
-          className="min-h-56 w-full px-3 py-3 text-sm leading-6 text-gray-800 outline-none prose-headings:font-bold"
-        />
+        {modoFonte ? (
+          <textarea value={html} onChange={(event) => setHtml(event.target.value)} rows={14} className="w-full resize-y border-0 bg-gray-950 px-3 py-3 font-mono text-xs leading-5 text-gray-100 outline-none" aria-label="HTML e estilo controlados" />
+        ) : (
+          <div ref={editorRef} contentEditable suppressContentEditableWarning onInput={sincronizar} dangerouslySetInnerHTML={{ __html: html }} className="min-h-56 w-full px-3 py-3 text-sm leading-6 text-gray-800 outline-none prose-headings:font-bold" />
+        )}
       </div>
     </label>
   );
@@ -449,15 +529,23 @@ function ArtigoForm({
   statusOptions,
   tipoOptions,
   organizacoes,
+  usuarios,
   onCancel,
+  onSuccess,
 }: {
   artigo?: BaseConhecimentoArtigo;
   categorias: BaseConhecimentoCategoria[];
   statusOptions: BaseConhecimentoStatus[];
   tipoOptions: BaseConhecimentoTipo[];
   organizacoes: BaseConhecimentoOrganizacao[];
+  usuarios: BaseConhecimentoUsuario[];
   onCancel: () => void;
+  onSuccess: (artigoId: string, mensagem: string) => void;
 }) {
+  const [estado, acaoForm, pendente] = useActionState(
+    salvarArtigoBaseConhecimento,
+    ESTADO_INICIAL_ARTIGO
+  );
   const [titulo, setTitulo] = useState(artigo?.titulo ?? "");
   const [confidencialidade, setConfidencialidade] = useState(
     artigo?.confidencialidade ?? "tecnico"
@@ -474,10 +562,19 @@ function ArtigoForm({
     tipoOptions[0]?.codigo ??
     "";
 
+  const [nomeArquivo, setNomeArquivo] = useState("");
+  const sucessoNotificadoRef = useRef(false);
+
+  useEffect(() => {
+    if (estado.status === "success" && estado.artigoId && !sucessoNotificadoRef.current) {
+      sucessoNotificadoRef.current = true;
+      onSuccess(estado.artigoId, estado.message);
+    }
+  }, [estado, onSuccess]);
+
   return (
     <form
-      action={salvarArtigoBaseConhecimento}
-      encType="multipart/form-data"
+      action={acaoForm}
       className="grid gap-4 rounded-lg border border-gray-200 bg-white p-4"
     >
       <input type="hidden" name="id" value={artigo?.id ?? ""} />
@@ -577,22 +674,11 @@ function ArtigoForm({
       </div>
 
       {confidencialidade === "cliente_especifico" ? (
-        <label className={labelClass}>
-          Organizações autorizadas
-          <select
-            name="organizacao_ids"
-            multiple
-            defaultValue={artigo?.organizacao_ids ?? []}
-            size={Math.min(6, Math.max(3, organizacoes.length))}
-            className={selectClass}
-          >
-            {organizacoes.map((organizacao) => (
-              <option key={organizacao.id} value={organizacao.id}>
-                {organizacao.nome}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelecaoMultiplaPesquisa label="Organizações autorizadas" name="organizacao_ids" idsIniciais={artigo?.organizacao_ids ?? []} opcoes={organizacoes.map((organizacao) => ({ id: organizacao.id, nome: organizacao.nome, descricao: organizacao.tipo_organizacao }))} />
+      ) : null}
+
+      {confidencialidade === "tecnico" ? (
+        <SelecaoMultiplaPesquisa label="Usuários técnicos autorizados" name="usuario_ids" idsIniciais={artigo?.usuario_ids ?? []} opcoes={usuarios.map((usuario) => ({ id: usuario.id, nome: usuario.nome_completo, descricao: usuario.email ? `${usuario.papel} · ${usuario.email}` : usuario.papel }))} />
       ) : null}
 
       <TagInput tagsIniciais={artigo?.tags ?? []} />
@@ -615,9 +701,24 @@ function ArtigoForm({
           name="anexo"
           type="file"
           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.csv,.xlsx"
+          onChange={(event) => setNomeArquivo(event.target.files?.[0]?.name ?? "")}
           className="mt-1 w-full rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-3 text-sm font-medium text-gray-700"
         />
+        <span className="mt-1 block text-xs font-medium normal-case text-gray-500">
+          {nomeArquivo ? `Selecionado: ${nomeArquivo}` : "PDF, documentos, imagens e planilhas de até 20 MB."}
+        </span>
+        {artigo?.anexos.length ? (
+          <span className="mt-2 block text-xs font-semibold normal-case text-gray-700">
+            Anexos atuais: {artigo.anexos.map((anexo) => anexo.nome_arquivo).join(", ")}
+          </span>
+        ) : null}
       </label>
+
+      {estado.status !== "idle" ? (
+        <p aria-live="polite" className={`rounded-md border px-3 py-2 text-sm font-semibold ${estado.status === "success" ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+          {estado.message}
+        </p>
+      ) : null}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
         <button
@@ -629,9 +730,10 @@ function ArtigoForm({
         </button>
         <button
           type="submit"
+          disabled={pendente}
           className="min-h-10 rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
         >
-          {artigo ? "Atualizar artigo" : "Salvar artigo"}
+          {pendente ? "Salvando..." : artigo ? "Atualizar artigo" : "Salvar artigo"}
         </button>
       </div>
     </form>
@@ -645,15 +747,18 @@ export function BaseConhecimentoClient({
   statusOptions,
   tipoOptions,
   organizacoes,
+  usuarios,
   podeEditar,
   erroCarregamento,
 }: Props) {
+  const router = useRouter();
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_INICIAIS);
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina, setItensPorPagina] = useState(10);
   const [artigoSelecionadoId, setArtigoSelecionadoId] = useState(artigos[0]?.id ?? "");
   const [artigoEmEdicaoId, setArtigoEmEdicaoId] = useState<string | null>(null);
   const [criando, setCriando] = useState(false);
+  const [mensagem, setMensagem] = useState<string | null>(null);
 
   const categoriasPorId = useMemo(
     () => new Map(categorias.map((categoria) => [categoria.id, categoria])),
@@ -718,6 +823,12 @@ export function BaseConhecimentoClient({
       {erroCarregamento ? (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
           {erroCarregamento}
+        </div>
+      ) : null}
+
+      {mensagem ? (
+        <div aria-live="polite" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-700">
+          {mensagem}
         </div>
       ) : null}
 
@@ -853,14 +964,23 @@ export function BaseConhecimentoClient({
             {artigoEmEdicao ? "Editar artigo" : "Novo artigo"}
           </h2>
           <ArtigoForm
+            key={artigoEmEdicao?.id ?? "novo"}
             artigo={artigoEmEdicao}
             categorias={categorias}
             statusOptions={statusOptions}
             tipoOptions={tipoOptions}
             organizacoes={organizacoes}
+            usuarios={usuarios}
             onCancel={() => {
               setCriando(false);
               setArtigoEmEdicaoId(null);
+            }}
+            onSuccess={(artigoId, mensagemSucesso) => {
+              setMensagem(mensagemSucesso);
+              setArtigoSelecionadoId(artigoId);
+              setCriando(false);
+              setArtigoEmEdicaoId(null);
+              router.refresh();
             }}
           />
         </section>

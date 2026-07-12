@@ -18,6 +18,7 @@ import {
   type BaseConhecimentoStatus,
   type BaseConhecimentoTag,
   type BaseConhecimentoTipo,
+  type BaseConhecimentoUsuario,
 } from "./BaseConhecimentoClient";
 
 type ArtigoTagRow = {
@@ -28,6 +29,11 @@ type ArtigoTagRow = {
 type ArtigoOrganizacaoRow = {
   artigo_id: string;
   organizacao_id: string;
+};
+
+type ArtigoUsuarioRow = {
+  artigo_id: string;
+  usuario_id: string;
 };
 
 function isSchemaCacheError(message: string | undefined) {
@@ -57,6 +63,8 @@ export default async function BaseConhecimentoPage() {
     organizacoesResposta,
     artigoTagsResposta,
     artigoOrganizacoesResposta,
+    usuariosResposta,
+    artigoUsuariosResposta,
     anexosResposta,
   ] = await Promise.all([
       supabase
@@ -119,6 +127,18 @@ export default async function BaseConhecimentoPage() {
         .from("base_conhecimento_organizacoes")
         .select("artigo_id, organizacao_id")
         .eq("ativo", true),
+      podeEditar
+        ? supabase
+            .from("perfis")
+            .select("id, nome_completo, email, papel")
+            .eq("ativo", true)
+            .in("papel", ["super_admin", "admin", "analista", "tecnico_quarta", "tecnico_terceirizado"])
+            .order("nome_completo")
+        : Promise.resolve({ data: [], error: null }),
+      supabase
+        .from("base_conhecimento_usuarios")
+        .select("artigo_id, usuario_id")
+        .eq("ativo", true),
       supabase
         .from("base_conhecimento_anexos")
         .select("id, artigo_id, nome_arquivo, tipo_mime, tamanho_bytes, criado_em")
@@ -135,6 +155,8 @@ export default async function BaseConhecimentoPage() {
     organizacoesResposta,
     artigoTagsResposta,
     artigoOrganizacoesResposta,
+    usuariosResposta,
+    artigoUsuariosResposta,
     anexosResposta,
   ];
   const erro = respostas.find((resposta) => resposta.error)?.error;
@@ -161,18 +183,25 @@ export default async function BaseConhecimentoPage() {
   const organizacoes = migrationPendente
     ? []
     : ((organizacoesResposta.data as BaseConhecimentoOrganizacao[] | null) ?? []);
+  const usuarios = migrationPendente
+    ? []
+    : ((usuariosResposta.data as BaseConhecimentoUsuario[] | null) ?? []);
   const artigoTags = migrationPendente
     ? []
     : ((artigoTagsResposta.data as ArtigoTagRow[] | null) ?? []);
   const artigoOrganizacoes = migrationPendente
     ? []
     : ((artigoOrganizacoesResposta.data as ArtigoOrganizacaoRow[] | null) ?? []);
+  const artigoUsuarios = migrationPendente
+    ? []
+    : ((artigoUsuariosResposta.data as ArtigoUsuarioRow[] | null) ?? []);
   const anexos = migrationPendente
     ? []
     : ((anexosResposta.data as BaseConhecimentoAnexo[] | null) ?? []);
   const tagsPorId = new Map(tags.map((tag) => [tag.id, tag]));
   const tagsPorArtigo = new Map<string, BaseConhecimentoTag[]>();
   const organizacoesPorArtigo = new Map<string, string[]>();
+  const usuariosPorArtigo = new Map<string, string[]>();
   const anexosPorArtigo = new Map<string, BaseConhecimentoAnexo[]>();
 
   artigoTags.forEach((vinculo) => {
@@ -192,6 +221,12 @@ export default async function BaseConhecimentoPage() {
     organizacoesPorArtigo.set(vinculo.artigo_id, lista);
   });
 
+  artigoUsuarios.forEach((vinculo) => {
+    const lista = usuariosPorArtigo.get(vinculo.artigo_id) ?? [];
+    lista.push(vinculo.usuario_id);
+    usuariosPorArtigo.set(vinculo.artigo_id, lista);
+  });
+
   anexos.forEach((anexo) => {
     const lista = anexosPorArtigo.get(anexo.artigo_id) ?? [];
     lista.push(anexo);
@@ -200,13 +235,14 @@ export default async function BaseConhecimentoPage() {
 
   const artigosBase = migrationPendente
     ? []
-    : ((artigosResposta.data as Omit<BaseConhecimentoArtigo, "tags" | "anexos" | "organizacao_ids">[] | null) ??
+    : ((artigosResposta.data as Omit<BaseConhecimentoArtigo, "tags" | "anexos" | "organizacao_ids" | "usuario_ids">[] | null) ??
         []);
   const artigos = artigosBase.map((artigo) => ({
     ...artigo,
     tags: tagsPorArtigo.get(artigo.id) ?? [],
     anexos: anexosPorArtigo.get(artigo.id) ?? [],
     organizacao_ids: organizacoesPorArtigo.get(artigo.id) ?? [],
+    usuario_ids: usuariosPorArtigo.get(artigo.id) ?? [],
   }));
 
   return (
@@ -233,6 +269,7 @@ export default async function BaseConhecimentoPage() {
           statusOptions={statusOptions}
           tipoOptions={tipoOptions}
           organizacoes={organizacoes}
+          usuarios={usuarios}
           podeEditar={podeEditar}
           erroCarregamento={erroCarregamento}
         />
