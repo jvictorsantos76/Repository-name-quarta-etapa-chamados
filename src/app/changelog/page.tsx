@@ -3,6 +3,16 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.71",
+    data: "11/07/2026",
+    alteracoes: [
+      "Base de Conhecimento v1.3.3 consulta organizações pelo contexto administrativo já validado ao definir acesso para cliente específico.",
+    ],
+    correcoes: [
+      "A seleção de organizações deixa de depender da leitura operacional da sessão e informa claramente quando não há organização ativa cadastrada.",
+    ],
+  },
+  {
     versao: "v0.9.70",
     data: "11/07/2026",
     alteracoes: [

@@ -6,6 +6,7 @@ import {
   podeGerenciarCatalogosChamado,
 } from "@/lib/auth/permissions";
 import {
+  createSupabaseAdminClient,
   createSupabaseServerClient,
   requirePerfilAutenticado,
 } from "@/lib/supabase/server";
@@ -53,6 +54,7 @@ export default async function BaseConhecimentoPage() {
 
   const podeEditar = podeGerenciarCatalogosChamado(perfilAtual.papel);
   const supabase = await createSupabaseServerClient();
+  const supabaseAdmin = podeEditar ? createSupabaseAdminClient() : null;
 
   const [
     artigosResposta,
@@ -114,7 +116,7 @@ export default async function BaseConhecimentoPage() {
         .eq("ativo", true)
         .order("ordem")
         .order("nome"),
-      supabase
+      (supabaseAdmin ?? supabase)
         .from("organizacoes")
         .select("id, nome, tipo_organizacao, ativo")
         .eq("ativo", true)

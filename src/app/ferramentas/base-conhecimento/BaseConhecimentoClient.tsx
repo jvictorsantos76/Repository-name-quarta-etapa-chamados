@@ -685,7 +685,14 @@ function ArtigoForm({
       </div>
 
       {confidencialidade === "cliente_especifico" ? (
-        <SelecaoMultiplaPesquisa label="Organizações autorizadas" name="organizacao_ids" idsIniciais={artigo?.organizacao_ids ?? []} opcoes={organizacoes.map((organizacao) => ({ id: organizacao.id, nome: organizacao.nome, descricao: organizacao.tipo_organizacao }))} />
+        <>
+          <SelecaoMultiplaPesquisa label="Organizações autorizadas" name="organizacao_ids" idsIniciais={artigo?.organizacao_ids ?? []} opcoes={organizacoes.map((organizacao) => ({ id: organizacao.id, nome: organizacao.nome, descricao: organizacao.tipo_organizacao }))} />
+          {organizacoes.length === 0 ? (
+            <p className="-mt-2 text-sm font-medium text-amber-800">
+              Nenhuma organização ativa está disponível. <Link href="/cadastros/organizacoes/nova" className="font-semibold underline underline-offset-2">Cadastrar organização</Link>
+            </p>
+          ) : null}
+        </>
       ) : null}
 
       {confidencialidade === "tecnico" ? (
