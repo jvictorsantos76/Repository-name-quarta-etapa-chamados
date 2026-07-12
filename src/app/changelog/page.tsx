@@ -3,6 +3,17 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.72",
+    data: "11/07/2026",
+    alteracoes: [
+      "Base de Conhecimento v1.3.4 destaca Título e campos de seleção obrigatórios; resumo, tags, conteúdo, URL e anexo permanecem opcionais.",
+    ],
+    correcoes: [
+      "O salvamento não tenta atualizar usuários autorizados quando a relação ainda não existe no banco e nenhum usuário foi selecionado.",
+      "A seleção de usuários técnicos bloqueia antes de criar artigo parcial quando a migration remota necessária ainda não foi aplicada.",
+    ],
+  },
+  {
     versao: "v0.9.71",
     data: "11/07/2026",
     alteracoes: [

@@ -270,7 +270,10 @@ function CampoTexto({
 }) {
   return (
     <label className={labelClass}>
-      {label}
+      <span>
+        {label}
+        {required ? <span className="ml-1 text-red-600" title="Campo obrigatório">*</span> : null}
+      </span>
       <input
         name={name}
         defaultValue={value === undefined ? defaultValue : undefined}
@@ -300,7 +303,10 @@ function CampoSelecao({
 }) {
   return (
     <label className={labelClass}>
-      {label}
+      <span>
+        {label}
+        {required ? <span className="ml-1 text-red-600" title="Campo obrigatório">*</span> : null}
+      </span>
       <select
         name={name}
         defaultValue={defaultValue}
@@ -607,6 +613,7 @@ function ArtigoForm({
           name="status"
           label="Status"
           defaultValue={statusPadrao}
+          required
         >
           {statusOptions.map((status) => (
             <option key={status.id} value={status.codigo}>
@@ -617,7 +624,7 @@ function ArtigoForm({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-4">
-        <CampoSelecao name="tipo" label="Tipo" defaultValue={tipoPadrao}>
+        <CampoSelecao name="tipo" label="Tipo" defaultValue={tipoPadrao} required>
           {tipoOptions.map((tipo) => (
             <option key={tipo.id} value={tipo.codigo}>
               {tipo.nome}
@@ -628,6 +635,7 @@ function ArtigoForm({
           name="categoria_id"
           label="Categoria"
           defaultValue={artigo?.categoria_id ?? ""}
+          required
         >
           <option value="">Selecione</option>
           {categorias.map((categoria) => (
@@ -637,11 +645,12 @@ function ArtigoForm({
           ))}
         </CampoSelecao>
         <label className={labelClass}>
-          Confidencialidade
+          <span>Confidencialidade<span className="ml-1 text-red-600" title="Campo obrigatório">*</span></span>
           <select
             name="confidencialidade"
             value={confidencialidade}
             onChange={(event) => setConfidencialidade(event.target.value)}
+            required
             className={selectClass}
           >
             {CONFIDENCIALIDADES.map(([value, label]) => (
@@ -655,6 +664,7 @@ function ArtigoForm({
           name="publico_alvo"
           label="Público"
           defaultValue={artigo?.publico_alvo ?? "tecnico"}
+          required
         >
           {PUBLICOS.map(([value, label]) => (
             <option key={value} value={value}>

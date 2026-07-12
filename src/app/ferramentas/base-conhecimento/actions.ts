@@ -67,10 +67,6 @@ function validarUrlOpcional(url: string) {
   }
 }
 
-function normalizarOpcao(valor: string, opcoes: Set<string>, fallback: string) {
-  return opcoes.has(valor) ? valor : fallback;
-}
-
 function normalizarEstilo(valor: string) {
   const propriedadesPermitidas = new Set([
     "text-align",
@@ -219,6 +215,27 @@ async function assertPodeGerenciarBase() {
   return perfil;
 }
 
+function erroTabelaAusente(message: string | undefined) {
+  return Boolean(
+    message?.includes("schema cache") ||
+      message?.includes("Could not find") ||
+      message?.includes("does not exist") ||
+      message?.includes("relation")
+  );
+}
+
+async function relacionamentoUsuariosDisponivel() {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from("base_conhecimento_usuarios")
+    .select("artigo_id")
+    .limit(1);
+
+  if (!error) return true;
+  if (erroTabelaAusente(error.message)) return false;
+  throw new Error("Não foi possível validar os usuários autorizados do artigo.");
+}
+
 export async function salvarArtigoBaseConhecimento(
   _estadoAnterior: ArtigoActionState,
   formData: FormData
@@ -235,16 +252,8 @@ export async function salvarArtigoBaseConhecimento(
     const categoriaId = normalizarTexto(formData.get("categoria_id")) || null;
     const tipoInformado = normalizarTexto(formData.get("tipo"));
     const statusInformado = normalizarTexto(formData.get("status"));
-    const confidencialidade = normalizarOpcao(
-      normalizarTexto(formData.get("confidencialidade")),
-      CONFIDENCIALIDADES_VALIDAS,
-      "tecnico"
-    );
-    const publicoAlvo = normalizarOpcao(
-      normalizarTexto(formData.get("publico_alvo")),
-      PUBLICOS_VALIDOS,
-      "tecnico"
-    );
+    const confidencialidade = normalizarTexto(formData.get("confidencialidade"));
+    const publicoAlvo = normalizarTexto(formData.get("publico_alvo"));
     const proximaRevisao = normalizarTexto(formData.get("proxima_revisao_em")) || null;
     const tags = parseTags(normalizarTexto(formData.get("tags")));
     const arquivo = getArquivo(formData);
@@ -252,6 +261,13 @@ export async function salvarArtigoBaseConhecimento(
     const usuarioIds = valoresFormLista(formData, "usuario_ids");
 
     if (!titulo || !slug) return erro("Informe o título do artigo.");
+    if (!CONFIDENCIALIDADES_VALIDAS.has(confidencialidade)) {
+      return erro("Selecione a confidencialidade do artigo.");
+    }
+    if (!PUBLICOS_VALIDOS.has(publicoAlvo)) {
+      return erro("Selecione o público do artigo.");
+    }
+    if (!categoriaId) return erro("Selecione uma categoria para o artigo.");
     if (!validarUrlOpcional(url)) return erro("Informe uma URL complementar válida.");
     if (proximaRevisao && !/^\d{4}-\d{2}-\d{2}$/.test(proximaRevisao)) {
       return erro("Informe a próxima revisão no formato AAAA-MM-DD.");
@@ -280,20 +296,20 @@ export async function salvarArtigoBaseConhecimento(
     if (confidencialidade === "cliente_especifico" && organizacaoIds.length === 0) {
       return erro("Selecione ao menos uma organização autorizada.");
     }
-
-    const { data: anexoExistente } = id
-      ? await supabase
-          .from("base_conhecimento_anexos")
-          .select("id")
-          .eq("artigo_id", id)
-          .eq("ativo", true)
-          .limit(1)
-          .maybeSingle()
-      : { data: null };
-    const publicado = Boolean(statusCatalogo.publica_artigo);
-    if (publicado && (!resumo || !categoriaId || tags.length === 0 || (!conteudo && !url && !arquivo && !anexoExistente))) {
-      return erro("Para publicar, informe resumo, categoria, ao menos uma tag e conteúdo, URL ou anexo.");
+    const usuariosRelacionamentoDisponivel =
+      confidencialidade === "tecnico"
+        ? await relacionamentoUsuariosDisponivel()
+        : false;
+    if (
+      confidencialidade === "tecnico" &&
+      usuarioIds.length > 0 &&
+      !usuariosRelacionamentoDisponivel
+    ) {
+      return erro(
+        "A seleção de usuários técnicos exige uma migration pendente no banco remoto. Salve sem usuários autorizados ou aplique a migration antes de selecioná-los."
+      );
     }
+    const publicado = Boolean(statusCatalogo.publica_artigo);
 
     const agora = new Date().toISOString();
     const payload = {
@@ -341,7 +357,9 @@ export async function salvarArtigoBaseConhecimento(
     const resultados = await Promise.all([
       sincronizarTagsArtigo(artigoId, tags, perfil.id),
       sincronizarOrganizacoesArtigo(artigoId, confidencialidade === "cliente_especifico" ? organizacaoIds : [], perfil.id),
-      sincronizarUsuariosArtigo(artigoId, confidencialidade === "tecnico" ? usuarioIds : [], perfil.id),
+      usuariosRelacionamentoDisponivel
+        ? sincronizarUsuariosArtigo(artigoId, usuarioIds, perfil.id)
+        : Promise.resolve(null),
     ]);
     const erroVinculo = resultados.find((resultado) => resultado);
     if (erroVinculo) return erro(erroVinculo);

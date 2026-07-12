@@ -709,7 +709,7 @@ test("sla configuration mvp keeps conservative data model and guarded pages", ()
     navigationSource,
     /id: "configurar-calendarios-sla"[\s\S]*status: "disponivel"/
   );
-  assert.match(versionSource, /APP_VERSION = "v0\.9\.71"/);
+  assert.match(versionSource, /APP_VERSION = "v0\.9\.72"/);
   assert.match(versionSource, /SLAS_PAGE_VERSION = "v1\.0\.0"/);
   assert.match(versionSource, /CALENDARIOS_SLA_PAGE_VERSION = "v1\.0\.1"/);
   assert.match(versionBadgeSource, /\/configurar\/slas/);
