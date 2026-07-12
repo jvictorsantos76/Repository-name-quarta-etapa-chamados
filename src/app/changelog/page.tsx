@@ -3,6 +3,16 @@ import { APP_UPDATED_AT, APP_VERSION } from "@/config/version";
 
 const versoes = [
   {
+    versao: "v0.9.70",
+    data: "11/07/2026",
+    alteracoes: [
+      "Base de Conhecimento v1.3.2 informa a ausencia de catalogos obrigatorios e direciona para o cadastro de Status e Tipos de artigo.",
+    ],
+    correcoes: [
+      "Migration corretiva repoe somente os Status e Tipos padrao ausentes, sem sobrescrever configuracoes administrativas existentes.",
+    ],
+  },
+  {
     versao: "v0.9.69",
     data: "11/07/2026",
     alteracoes: [

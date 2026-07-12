@@ -823,6 +823,8 @@ export function BaseConhecimentoClient({
     artigosPaginados[0] ??
     artigos[0];
   const artigoEmEdicao = artigos.find((artigo) => artigo.id === artigoEmEdicaoId);
+  const catalogosObrigatoriosIndisponiveis =
+    statusOptions.length === 0 || tipoOptions.length === 0;
 
   function atualizarFiltro<K extends keyof Filtros>(key: K, value: Filtros[K]) {
     setFiltros((atuais) => ({ ...atuais, [key]: value }));
@@ -840,6 +842,20 @@ export function BaseConhecimentoClient({
       {mensagem ? (
         <div aria-live="polite" className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-700">
           {mensagem}
+        </div>
+      ) : null}
+
+      {podeEditar && catalogosObrigatoriosIndisponiveis ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Cadastre ou ative ao menos um Status e um Tipo de artigo antes de criar um artigo.
+          <div className="mt-2 flex flex-wrap gap-3 font-semibold">
+            <Link href="/configurar/status-artigos" className="text-amber-900 underline underline-offset-2">
+              Configurar status
+            </Link>
+            <Link href="/configurar/tipos-artigo" className="text-amber-900 underline underline-offset-2">
+              Configurar tipos
+            </Link>
+          </div>
         </div>
       ) : null}
 
@@ -867,11 +883,12 @@ export function BaseConhecimentoClient({
               </Link>
               <button
                 type="button"
+                disabled={catalogosObrigatoriosIndisponiveis}
                 onClick={() => {
                   setCriando(true);
                   setArtigoEmEdicaoId(null);
                 }}
-                className="min-h-10 rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800"
+                className="min-h-10 rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-400"
               >
                 Novo artigo
               </button>
