@@ -49,3 +49,6 @@ supabase/.temp/
 supabase/.branches/
 
 supabase/.branches/
+
+graphify-out/
+graph.json
