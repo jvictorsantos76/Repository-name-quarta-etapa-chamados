@@ -472,13 +472,16 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
   const [erroInsercao, setErroInsercao] = useState("");
 
   useLayoutEffect(() => {
-    if (editorRef.current && editorRef.current.innerHTML !== defaultValue) {
-      editorRef.current.innerHTML = defaultValue;
-    }
     if (valorFormRef.current) {
       valorFormRef.current.value = defaultValue;
     }
   }, [defaultValue]);
+
+  useLayoutEffect(() => {
+    if (!modoFonte && editorRef.current && editorRef.current.innerHTML !== html) {
+      editorRef.current.innerHTML = html;
+    }
+  }, [html, modoFonte]);
 
   function atualizarConteudo(valor: string) {
     if (valorFormRef.current) {
@@ -561,6 +564,17 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
     sincronizar();
   }
 
+  function alternarBloco(valor: "h2" | "blockquote") {
+    editorRef.current?.focus();
+    const formatoAtual = String(document.queryCommandValue("formatBlock")).toLowerCase();
+    document.execCommand(
+      "formatBlock",
+      false,
+      formatoAtual.includes(valor) ? "p" : valor
+    );
+    sincronizar();
+  }
+
   function preservarSelecao(event: React.MouseEvent<HTMLButtonElement>) {
     event.preventDefault();
   }
@@ -597,9 +611,6 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
       return;
     }
 
-    if (editorRef.current) {
-      editorRef.current.innerHTML = html;
-    }
     setModoFonte(false);
     requestAnimationFrame(atualizarFormatacoesAtivas);
   }
@@ -644,7 +655,7 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
             </div>
             <div className="flex items-center gap-1 border-l border-gray-200 pl-3" aria-label="Estrutura do texto">
               {botoes.slice(3).map((botao) => (
-                <button key={botao.id} type="button" onMouseDown={preservarSelecao} onClick={() => executar(botao.comando, botao.valor)} title={botao.titulo} aria-label={botao.titulo} aria-pressed={formatacoesAtivas.includes(botao.id)} className={botaoClass(formatacoesAtivas.includes(botao.id))}>
+                <button key={botao.id} type="button" onMouseDown={preservarSelecao} onClick={() => botao.id === "heading-2" || botao.id === "blockquote" ? alternarBloco(botao.valor as "h2" | "blockquote") : executar(botao.comando, botao.valor)} title={botao.titulo} aria-label={botao.titulo} aria-pressed={formatacoesAtivas.includes(botao.id)} className={botaoClass(formatacoesAtivas.includes(botao.id))}>
                   {botao.texto}
                 </button>
               ))}

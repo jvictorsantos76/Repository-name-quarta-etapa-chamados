@@ -679,6 +679,9 @@ test("article catalog updates keep technical codes stable", () => {
 test("technical content editor keeps browser-managed visual content", () => {
   assert.match(baseConhecimentoClientSource, /useLayoutEffect/);
   assert.match(baseConhecimentoClientSource, /function alternarModo\(\)/);
+  assert.match(baseConhecimentoClientSource, /function alternarBloco\(valor: "h2" \| "blockquote"\)/);
+  assert.match(baseConhecimentoClientSource, /formatoAtual\.includes\(valor\) \? "p" : valor/);
+  assert.match(baseConhecimentoClientSource, /\}, \[html, modoFonte\]\);/);
   assert.match(baseConhecimentoClientSource, /function preservarSelecao/);
   assert.match(baseConhecimentoClientSource, /function atualizarConteudo\(valor: string\)/);
   assert.match(baseConhecimentoClientSource, /valorFormRef\.current\.value = valor/);
