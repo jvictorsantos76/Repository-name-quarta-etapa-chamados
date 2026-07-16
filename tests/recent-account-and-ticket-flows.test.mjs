@@ -10,6 +10,13 @@ const statusFormSource = await readFile(
   new URL("../src/app/chamados/[numero]/StatusUpdateForm.tsx", import.meta.url),
   "utf8"
 );
+const baseConhecimentoClientSource = await readFile(
+  new URL(
+    "../src/app/ferramentas/base-conhecimento/BaseConhecimentoClient.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
 const perfilGrantMigration = await readFile(
   new URL(
     "../supabase/migrations/202605060004_perfis_self_update_cargo.sql",
@@ -660,6 +667,18 @@ test("article catalog updates keep technical codes stable", () => {
   assert.match(tiposArtigoActionsSource, /id\s*\?\s*await obterCodigoTipoExistente\(id\)/);
   assert.match(versionSource, /STATUS_ARTIGOS_PAGE_VERSION = "v1\.0\.1"/);
   assert.match(versionSource, /TIPOS_ARTIGO_PAGE_VERSION = "v1\.0\.1"/);
+});
+
+test("technical content editor keeps browser-managed visual content", () => {
+  assert.match(baseConhecimentoClientSource, /useLayoutEffect/);
+  assert.match(baseConhecimentoClientSource, /function alternarModo\(\)/);
+  assert.match(baseConhecimentoClientSource, /function preservarSelecao/);
+  assert.match(baseConhecimentoClientSource, /Modo de escrita/);
+  assert.match(baseConhecimentoClientSource, /aria-label="Editor visual do conteúdo técnico"/);
+  assert.doesNotMatch(
+    baseConhecimentoClientSource,
+    /dangerouslySetInnerHTML=\{\{ __html: defaultValue \}\}/
+  );
 });
 
 test("sla configuration mvp keeps conservative data model and guarded pages", () => {

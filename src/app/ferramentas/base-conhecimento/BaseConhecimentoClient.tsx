@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CatalogoPaginacao,
@@ -462,17 +462,12 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
   const editorRef = useRef<HTMLDivElement>(null);
   const [html, setHtml] = useState(defaultValue);
   const [modoFonte, setModoFonte] = useState(false);
-  const htmlRef = useRef(html);
 
-  useEffect(() => {
-    htmlRef.current = html;
-  }, [html]);
-
-  useEffect(() => {
-    if (!modoFonte && editorRef.current && editorRef.current.innerHTML !== htmlRef.current) {
-      editorRef.current.innerHTML = htmlRef.current;
+  useLayoutEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== defaultValue) {
+      editorRef.current.innerHTML = defaultValue;
     }
-  }, [modoFonte]);
+  }, [defaultValue]);
 
   function sincronizar() {
     setHtml(editorRef.current?.innerHTML ?? "");
@@ -482,6 +477,10 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
     editorRef.current?.focus();
     document.execCommand(comando, false, valor);
     sincronizar();
+  }
+
+  function preservarSelecao(event: React.MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
   }
 
   function inserirLink() {
@@ -494,46 +493,77 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
     if (url?.trim()) executar("insertImage", url.trim());
   }
 
+  function alternarModo() {
+    if (!modoFonte) {
+      setHtml(editorRef.current?.innerHTML ?? "");
+      setModoFonte(true);
+      return;
+    }
+
+    if (editorRef.current) {
+      editorRef.current.innerHTML = html;
+    }
+    setModoFonte(false);
+  }
+
   const botoes = [
     ["bold", "B", "Negrito"],
     ["italic", "I", "Itálico"],
     ["underline", "U", "Sublinhado"],
-    ["strikeThrough", "S", "Tachado"],
     ["insertUnorderedList", "Lista", "Lista com marcadores"],
     ["insertOrderedList", "1.", "Lista numerada"],
     ["formatBlock", "H2", "Título nível 2", "h2"],
-    ["formatBlock", "H3", "Título nível 3", "h3"],
-    ["formatBlock", "P", "Parágrafo", "p"],
     ["formatBlock", "Citação", "Citação", "blockquote"],
-    ["formatBlock", "Código", "Bloco de código", "pre"],
-    ["justifyLeft", "Esq.", "Alinhar à esquerda"],
-    ["justifyCenter", "Centro", "Centralizar"],
-    ["justifyRight", "Dir.", "Alinhar à direita"],
   ];
+
+  const botaoClass = "min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
 
   return (
     <label className={labelClass}>
       Conteúdo técnico
       <input type="hidden" name="conteudo" value={html} />
       <div className="mt-1 overflow-hidden rounded-md border border-gray-200 bg-white">
-        <div className="flex flex-wrap gap-1 border-b border-gray-100 bg-gray-50 p-2">
-          {botoes.map(([comando, texto, titulo, valor]) => (
-            <button key={`${comando}-${texto}`} type="button" onClick={() => executar(comando, valor)} title={titulo} className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">
-              {texto}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-2 py-2">
+          <span className="text-xs font-semibold text-gray-600">Modo de escrita</span>
+          <div className="inline-flex rounded-md border border-gray-200 bg-white p-0.5" role="group" aria-label="Modo do editor">
+            <button type="button" onClick={() => modoFonte && alternarModo()} aria-pressed={!modoFonte} className={`min-h-8 rounded px-3 text-xs font-semibold ${!modoFonte ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-100"}`}>
+              Visual
             </button>
-          ))}
-          <button type="button" onClick={inserirLink} className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">Link</button>
-          <button type="button" onClick={inserirImagem} className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">Imagem</button>
-          <button type="button" onClick={() => executar("undo")} title="Desfazer" className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">Desfazer</button>
-          <button type="button" onClick={() => executar("redo")} title="Refazer" className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">Refazer</button>
-          <button type="button" onClick={() => setModoFonte((atual) => !atual)} className="min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-bold text-gray-700 hover:bg-gray-100">
-            {modoFonte ? "Visual" : "HTML"}
-          </button>
+            <button type="button" onClick={() => !modoFonte && alternarModo()} aria-pressed={modoFonte} className={`min-h-8 rounded px-3 text-xs font-semibold ${modoFonte ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-100"}`}>
+              HTML
+            </button>
+          </div>
         </div>
+        {!modoFonte ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-100 bg-white px-2 py-2">
+            <div className="flex items-center gap-1" aria-label="Formatação de texto">
+              {botoes.slice(0, 3).map(([comando, texto, titulo, valor]) => (
+                <button key={`${comando}-${texto}`} type="button" onMouseDown={preservarSelecao} onClick={() => executar(comando, valor)} title={titulo} aria-label={titulo} className={botaoClass}>
+                  {texto}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 border-l border-gray-200 pl-3" aria-label="Estrutura do texto">
+              {botoes.slice(3).map(([comando, texto, titulo, valor]) => (
+                <button key={`${comando}-${texto}`} type="button" onMouseDown={preservarSelecao} onClick={() => executar(comando, valor)} title={titulo} aria-label={titulo} className={botaoClass}>
+                  {texto}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1 border-l border-gray-200 pl-3" aria-label="Inserir conteúdo">
+              <button type="button" onMouseDown={preservarSelecao} onClick={inserirLink} className={botaoClass}>Link</button>
+              <button type="button" onMouseDown={preservarSelecao} onClick={inserirImagem} className={botaoClass}>Imagem</button>
+            </div>
+            <div className="flex items-center gap-1 border-l border-gray-200 pl-3" aria-label="Histórico de edição">
+              <button type="button" onMouseDown={preservarSelecao} onClick={() => executar("undo")} title="Desfazer" aria-label="Desfazer" className={botaoClass}>Desfazer</button>
+              <button type="button" onMouseDown={preservarSelecao} onClick={() => executar("redo")} title="Refazer" aria-label="Refazer" className={botaoClass}>Refazer</button>
+            </div>
+          </div>
+        ) : null}
         {modoFonte ? (
-          <textarea value={html} onChange={(event) => setHtml(event.target.value)} rows={14} className="w-full resize-y border-0 bg-gray-950 px-3 py-3 font-mono text-xs leading-5 text-gray-100 outline-none" aria-label="HTML e estilo controlados" />
+          <textarea value={html} onChange={(event) => setHtml(event.target.value)} rows={14} className="w-full resize-y border-0 bg-gray-950 px-3 py-3 font-mono text-xs leading-5 text-gray-100 outline-none" aria-label="Código HTML do conteúdo técnico" />
         ) : (
-          <div ref={editorRef} contentEditable dir="ltr" suppressContentEditableWarning onInput={sincronizar} dangerouslySetInnerHTML={{ __html: defaultValue }} className="min-h-56 w-full px-3 py-3 text-left text-sm leading-6 text-gray-800 outline-none prose-headings:font-bold" />
+          <div ref={editorRef} contentEditable dir="ltr" suppressContentEditableWarning onInput={sincronizar} role="textbox" aria-multiline="true" aria-label="Editor visual do conteúdo técnico" data-placeholder="Escreva o conteúdo técnico do artigo" className="min-h-56 w-full px-3 py-3 text-left text-sm leading-6 text-gray-800 outline-none empty:before:pointer-events-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 prose-headings:font-bold" />
         )}
       </div>
     </label>
