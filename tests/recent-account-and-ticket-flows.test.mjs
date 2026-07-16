@@ -17,6 +17,13 @@ const baseConhecimentoClientSource = await readFile(
   ),
   "utf8"
 );
+const baseConhecimentoActionsSource = await readFile(
+  new URL(
+    "../src/app/ferramentas/base-conhecimento/actions.ts",
+    import.meta.url
+  ),
+  "utf8"
+);
 const perfilGrantMigration = await readFile(
   new URL(
     "../supabase/migrations/202605060004_perfis_self_update_cargo.sql",
@@ -673,12 +680,21 @@ test("technical content editor keeps browser-managed visual content", () => {
   assert.match(baseConhecimentoClientSource, /useLayoutEffect/);
   assert.match(baseConhecimentoClientSource, /function alternarModo\(\)/);
   assert.match(baseConhecimentoClientSource, /function preservarSelecao/);
+  assert.match(baseConhecimentoClientSource, /function atualizarConteudo\(valor: string\)/);
+  assert.match(baseConhecimentoClientSource, /valorFormRef\.current\.value = valor/);
+  assert.match(baseConhecimentoClientSource, /contentEditable tabIndex=\{0\}/);
+  assert.match(baseConhecimentoClientSource, /aria-pressed=\{formatacoesAtivas\.includes\(botao\.id\)\}/);
   assert.match(baseConhecimentoClientSource, /Modo de escrita/);
   assert.match(baseConhecimentoClientSource, /aria-label="Editor visual do conteúdo técnico"/);
   assert.doesNotMatch(
     baseConhecimentoClientSource,
     /dangerouslySetInnerHTML=\{\{ __html: defaultValue \}\}/
   );
+});
+
+test("article save preserves Next.js redirect control flow", () => {
+  assert.match(baseConhecimentoActionsSource, /import \{ unstable_rethrow \} from "next\/navigation"/);
+  assert.match(baseConhecimentoActionsSource, /catch \(cause\) \{\s*unstable_rethrow\(cause\);/);
 });
 
 test("sla configuration mvp keeps conservative data model and guarded pages", () => {

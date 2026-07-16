@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 import { podeGerenciarCatalogosChamado } from "@/lib/auth/permissions";
 import {
   createSupabaseServerClient,
@@ -376,6 +377,7 @@ export async function salvarArtigoBaseConhecimento(
       artigoId,
     };
   } catch (cause) {
+    unstable_rethrow(cause);
     return erro(cause instanceof Error ? cause.message : "Não foi possível salvar o artigo.");
   }
 }

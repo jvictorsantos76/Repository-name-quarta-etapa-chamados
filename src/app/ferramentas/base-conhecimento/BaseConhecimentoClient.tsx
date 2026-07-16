@@ -460,17 +460,57 @@ function SelecaoMultiplaPesquisa({
 
 function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string }) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const valorFormRef = useRef<HTMLTextAreaElement>(null);
   const [html, setHtml] = useState(defaultValue);
   const [modoFonte, setModoFonte] = useState(false);
+  const [formatacoesAtivas, setFormatacoesAtivas] = useState<string[]>([]);
 
   useLayoutEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== defaultValue) {
       editorRef.current.innerHTML = defaultValue;
     }
+    if (valorFormRef.current) {
+      valorFormRef.current.value = defaultValue;
+    }
   }, [defaultValue]);
 
+  function atualizarConteudo(valor: string) {
+    if (valorFormRef.current) {
+      valorFormRef.current.value = valor;
+    }
+    setHtml(valor);
+  }
+
+  function atualizarFormatacoesAtivas() {
+    if (modoFonte || !editorRef.current) {
+      setFormatacoesAtivas([]);
+      return;
+    }
+
+    const selecao = window.getSelection();
+    const noSelecionado = selecao?.anchorNode;
+    if (!noSelecionado || !editorRef.current.contains(noSelecionado)) {
+      setFormatacoesAtivas([]);
+      return;
+    }
+
+    const formatoBloco = String(document.queryCommandValue("formatBlock")).toLowerCase();
+    setFormatacoesAtivas(
+      [
+        document.queryCommandState("bold") ? "bold" : "",
+        document.queryCommandState("italic") ? "italic" : "",
+        document.queryCommandState("underline") ? "underline" : "",
+        document.queryCommandState("insertUnorderedList") ? "unordered-list" : "",
+        document.queryCommandState("insertOrderedList") ? "ordered-list" : "",
+        formatoBloco.includes("h2") ? "heading-2" : "",
+        formatoBloco.includes("blockquote") ? "blockquote" : "",
+      ].filter(Boolean)
+    );
+  }
+
   function sincronizar() {
-    setHtml(editorRef.current?.innerHTML ?? "");
+    atualizarConteudo(editorRef.current?.innerHTML ?? "");
+    atualizarFormatacoesAtivas();
   }
 
   function executar(comando: string, valor?: string) {
@@ -495,7 +535,7 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
 
   function alternarModo() {
     if (!modoFonte) {
-      setHtml(editorRef.current?.innerHTML ?? "");
+      atualizarConteudo(editorRef.current?.innerHTML ?? "");
       setModoFonte(true);
       return;
     }
@@ -504,24 +544,26 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
       editorRef.current.innerHTML = html;
     }
     setModoFonte(false);
+    requestAnimationFrame(atualizarFormatacoesAtivas);
   }
 
   const botoes = [
-    ["bold", "B", "Negrito"],
-    ["italic", "I", "Itálico"],
-    ["underline", "U", "Sublinhado"],
-    ["insertUnorderedList", "Lista", "Lista com marcadores"],
-    ["insertOrderedList", "1.", "Lista numerada"],
-    ["formatBlock", "H2", "Título nível 2", "h2"],
-    ["formatBlock", "Citação", "Citação", "blockquote"],
+    { id: "bold", comando: "bold", texto: "B", titulo: "Negrito" },
+    { id: "italic", comando: "italic", texto: "I", titulo: "Itálico" },
+    { id: "underline", comando: "underline", texto: "U", titulo: "Sublinhado" },
+    { id: "unordered-list", comando: "insertUnorderedList", texto: "Lista", titulo: "Lista com marcadores" },
+    { id: "ordered-list", comando: "insertOrderedList", texto: "1.", titulo: "Lista numerada" },
+    { id: "heading-2", comando: "formatBlock", texto: "H2", titulo: "Título nível 2", valor: "h2" },
+    { id: "blockquote", comando: "formatBlock", texto: "Citação", titulo: "Citação", valor: "blockquote" },
   ];
 
-  const botaoClass = "min-h-8 rounded-md border border-gray-200 bg-white px-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500";
+  const botaoClass = (ativo = false) =>
+    `min-h-8 rounded-md border px-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${ativo ? "border-blue-700 bg-blue-700 text-white hover:bg-blue-800" : "border-gray-200 bg-white text-gray-700 hover:bg-gray-100"}`;
 
   return (
-    <label className={labelClass}>
-      Conteúdo técnico
-      <input type="hidden" name="conteudo" value={html} />
+    <div className={labelClass}>
+      <span>Conteúdo técnico</span>
+      <textarea ref={valorFormRef} name="conteudo" defaultValue={defaultValue} className="hidden" tabIndex={-1} aria-hidden="true" />
       <div className="mt-1 overflow-hidden rounded-md border border-gray-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 bg-gray-50 px-2 py-2">
           <span className="text-xs font-semibold text-gray-600">Modo de escrita</span>
@@ -537,36 +579,36 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
         {!modoFonte ? (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-gray-100 bg-white px-2 py-2">
             <div className="flex items-center gap-1" aria-label="Formatação de texto">
-              {botoes.slice(0, 3).map(([comando, texto, titulo, valor]) => (
-                <button key={`${comando}-${texto}`} type="button" onMouseDown={preservarSelecao} onClick={() => executar(comando, valor)} title={titulo} aria-label={titulo} className={botaoClass}>
-                  {texto}
+              {botoes.slice(0, 3).map((botao) => (
+                <button key={botao.id} type="button" onMouseDown={preservarSelecao} onClick={() => executar(botao.comando, botao.valor)} title={botao.titulo} aria-label={botao.titulo} aria-pressed={formatacoesAtivas.includes(botao.id)} className={botaoClass(formatacoesAtivas.includes(botao.id))}>
+                  {botao.texto}
                 </button>
               ))}
             </div>
             <div className="flex items-center gap-1 border-l border-gray-200 pl-3" aria-label="Estrutura do texto">
-              {botoes.slice(3).map(([comando, texto, titulo, valor]) => (
-                <button key={`${comando}-${texto}`} type="button" onMouseDown={preservarSelecao} onClick={() => executar(comando, valor)} title={titulo} aria-label={titulo} className={botaoClass}>
-                  {texto}
+              {botoes.slice(3).map((botao) => (
+                <button key={botao.id} type="button" onMouseDown={preservarSelecao} onClick={() => executar(botao.comando, botao.valor)} title={botao.titulo} aria-label={botao.titulo} aria-pressed={formatacoesAtivas.includes(botao.id)} className={botaoClass(formatacoesAtivas.includes(botao.id))}>
+                  {botao.texto}
                 </button>
               ))}
             </div>
             <div className="flex items-center gap-1 border-l border-gray-200 pl-3" aria-label="Inserir conteúdo">
-              <button type="button" onMouseDown={preservarSelecao} onClick={inserirLink} className={botaoClass}>Link</button>
-              <button type="button" onMouseDown={preservarSelecao} onClick={inserirImagem} className={botaoClass}>Imagem</button>
+              <button type="button" onMouseDown={preservarSelecao} onClick={inserirLink} className={botaoClass()}>Link</button>
+              <button type="button" onMouseDown={preservarSelecao} onClick={inserirImagem} className={botaoClass()}>Imagem</button>
             </div>
             <div className="flex items-center gap-1 border-l border-gray-200 pl-3" aria-label="Histórico de edição">
-              <button type="button" onMouseDown={preservarSelecao} onClick={() => executar("undo")} title="Desfazer" aria-label="Desfazer" className={botaoClass}>Desfazer</button>
-              <button type="button" onMouseDown={preservarSelecao} onClick={() => executar("redo")} title="Refazer" aria-label="Refazer" className={botaoClass}>Refazer</button>
+              <button type="button" onMouseDown={preservarSelecao} onClick={() => executar("undo")} title="Desfazer" aria-label="Desfazer" className={botaoClass()}>Desfazer</button>
+              <button type="button" onMouseDown={preservarSelecao} onClick={() => executar("redo")} title="Refazer" aria-label="Refazer" className={botaoClass()}>Refazer</button>
             </div>
           </div>
         ) : null}
         {modoFonte ? (
-          <textarea value={html} onChange={(event) => setHtml(event.target.value)} rows={14} className="w-full resize-y border-0 bg-gray-950 px-3 py-3 font-mono text-xs leading-5 text-gray-100 outline-none" aria-label="Código HTML do conteúdo técnico" />
+          <textarea value={html} onChange={(event) => atualizarConteudo(event.target.value)} rows={14} className="w-full resize-y border-0 bg-gray-950 px-3 py-3 font-mono text-xs leading-5 text-gray-100 outline-none" aria-label="Código HTML do conteúdo técnico" />
         ) : (
-          <div ref={editorRef} contentEditable dir="ltr" suppressContentEditableWarning onInput={sincronizar} role="textbox" aria-multiline="true" aria-label="Editor visual do conteúdo técnico" data-placeholder="Escreva o conteúdo técnico do artigo" className="min-h-56 w-full px-3 py-3 text-left text-sm leading-6 text-gray-800 outline-none empty:before:pointer-events-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 prose-headings:font-bold" />
+          <div ref={editorRef} contentEditable tabIndex={0} dir="ltr" suppressContentEditableWarning onInput={sincronizar} onFocus={atualizarFormatacoesAtivas} onKeyUp={atualizarFormatacoesAtivas} role="textbox" aria-multiline="true" aria-label="Editor visual do conteúdo técnico" data-placeholder="Escreva o conteúdo técnico do artigo" className="min-h-56 w-full cursor-text px-3 py-3 text-left text-sm leading-6 text-gray-800 outline-none empty:before:pointer-events-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 prose-headings:font-bold" />
         )}
       </div>
-    </label>
+    </div>
   );
 }
 
