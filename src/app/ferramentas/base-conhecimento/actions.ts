@@ -104,6 +104,7 @@ function normalizarEstilo(valor: string) {
 function sanitizeHtmlBasico(valor: string) {
   const tagsPermitidas = new Set([
     "p",
+    "div",
     "br",
     "strong",
     "b",

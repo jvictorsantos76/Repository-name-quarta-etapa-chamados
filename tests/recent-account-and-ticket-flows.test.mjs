@@ -684,6 +684,9 @@ test("technical content editor keeps browser-managed visual content", () => {
   assert.match(baseConhecimentoClientSource, /valorFormRef\.current\.value = valor/);
   assert.match(baseConhecimentoClientSource, /contentEditable tabIndex=\{0\}/);
   assert.match(baseConhecimentoClientSource, /aria-pressed=\{formatacoesAtivas\.includes\(botao\.id\)\}/);
+  assert.match(baseConhecimentoClientSource, /const conteudoHtmlClass/);
+  assert.match(baseConhecimentoClientSource, /URL do link/);
+  assert.match(baseConhecimentoClientSource, /URL da imagem/);
   assert.match(baseConhecimentoClientSource, /Modo de escrita/);
   assert.match(baseConhecimentoClientSource, /aria-label="Editor visual do conteúdo técnico"/);
   assert.doesNotMatch(
@@ -695,6 +698,10 @@ test("technical content editor keeps browser-managed visual content", () => {
 test("article save preserves Next.js redirect control flow", () => {
   assert.match(baseConhecimentoActionsSource, /import \{ unstable_rethrow \} from "next\/navigation"/);
   assert.match(baseConhecimentoActionsSource, /catch \(cause\) \{\s*unstable_rethrow\(cause\);/);
+});
+
+test("article sanitizer preserves safe editor line blocks", () => {
+  assert.match(baseConhecimentoActionsSource, /"div",/);
 });
 
 test("sla configuration mvp keeps conservative data model and guarded pages", () => {

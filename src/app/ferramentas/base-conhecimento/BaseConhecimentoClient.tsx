@@ -16,6 +16,8 @@ const ESTADO_INICIAL_ARTIGO = {
   message: "",
 };
 
+const conteudoHtmlClass = "[&_a]:font-bold [&_a]:text-blue-700 [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-3 [&_blockquote]:italic [&_div]:my-2 [&_h2]:mt-4 [&_h2]:text-lg [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:text-base [&_h3]:font-bold [&_img]:my-3 [&_img]:max-w-full [&_img]:rounded-md [&_li]:my-1 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5";
+
 export type BaseConhecimentoCategoria = {
   id: string;
   nome: string;
@@ -461,9 +463,13 @@ function SelecaoMultiplaPesquisa({
 function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const valorFormRef = useRef<HTMLTextAreaElement>(null);
+  const selecaoRef = useRef<Range | null>(null);
   const [html, setHtml] = useState(defaultValue);
   const [modoFonte, setModoFonte] = useState(false);
   const [formatacoesAtivas, setFormatacoesAtivas] = useState<string[]>([]);
+  const [painelInsercao, setPainelInsercao] = useState<"link" | "imagem" | null>(null);
+  const [urlInsercao, setUrlInsercao] = useState("");
+  const [erroInsercao, setErroInsercao] = useState("");
 
   useLayoutEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== defaultValue) {
@@ -481,6 +487,40 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
     setHtml(valor);
   }
 
+  function guardarSelecao() {
+    const selecao = window.getSelection();
+    const noSelecionado = selecao?.anchorNode;
+    if (
+      !selecao ||
+      !noSelecionado ||
+      !editorRef.current?.contains(noSelecionado) ||
+      selecao.rangeCount === 0
+    ) {
+      return false;
+    }
+
+    selecaoRef.current = selecao.getRangeAt(0).cloneRange();
+    return true;
+  }
+
+  function restaurarSelecao() {
+    if (!selecaoRef.current) return false;
+    const selecao = window.getSelection();
+    if (!selecao) return false;
+    selecao.removeAllRanges();
+    selecao.addRange(selecaoRef.current);
+    return true;
+  }
+
+  function urlExternaValida(valor: string) {
+    try {
+      const url = new URL(valor.trim());
+      return url.protocol === "https:" || url.protocol === "http:";
+    } catch {
+      return false;
+    }
+  }
+
   function atualizarFormatacoesAtivas() {
     if (modoFonte || !editorRef.current) {
       setFormatacoesAtivas([]);
@@ -493,6 +533,8 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
       setFormatacoesAtivas([]);
       return;
     }
+
+    guardarSelecao();
 
     const formatoBloco = String(document.queryCommandValue("formatBlock")).toLowerCase();
     setFormatacoesAtivas(
@@ -523,14 +565,29 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
     event.preventDefault();
   }
 
-  function inserirLink() {
-    const url = window.prompt("URL do link");
-    if (url?.trim()) executar("createLink", url.trim());
+  function abrirPainelInsercao(tipo: "link" | "imagem") {
+    guardarSelecao();
+    setPainelInsercao(tipo);
+    setUrlInsercao("");
+    setErroInsercao("");
   }
 
-  function inserirImagem() {
-    const url = window.prompt("URL da imagem");
-    if (url?.trim()) executar("insertImage", url.trim());
+  function aplicarInsercao() {
+    const url = urlInsercao.trim();
+    if (!urlExternaValida(url)) {
+      setErroInsercao("Informe uma URL http:// ou https:// válida.");
+      return;
+    }
+
+    if (painelInsercao === "link" && !restaurarSelecao()) {
+      setErroInsercao("Selecione o texto que receberá o link antes de aplicar.");
+      return;
+    }
+
+    executar(painelInsercao === "link" ? "createLink" : "insertImage", url);
+    setPainelInsercao(null);
+    setUrlInsercao("");
+    setErroInsercao("");
   }
 
   function alternarModo() {
@@ -593,8 +650,8 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
               ))}
             </div>
             <div className="flex items-center gap-1 border-l border-gray-200 pl-3" aria-label="Inserir conteúdo">
-              <button type="button" onMouseDown={preservarSelecao} onClick={inserirLink} className={botaoClass()}>Link</button>
-              <button type="button" onMouseDown={preservarSelecao} onClick={inserirImagem} className={botaoClass()}>Imagem</button>
+              <button type="button" onMouseDown={preservarSelecao} onClick={() => abrirPainelInsercao("link")} className={botaoClass(painelInsercao === "link")}>Link</button>
+              <button type="button" onMouseDown={preservarSelecao} onClick={() => abrirPainelInsercao("imagem")} className={botaoClass(painelInsercao === "imagem")}>Imagem</button>
             </div>
             <div className="flex items-center gap-1 border-l border-gray-200 pl-3" aria-label="Histórico de edição">
               <button type="button" onMouseDown={preservarSelecao} onClick={() => executar("undo")} title="Desfazer" aria-label="Desfazer" className={botaoClass()}>Desfazer</button>
@@ -602,10 +659,30 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
             </div>
           </div>
         ) : null}
+        {painelInsercao ? (
+          <div className="grid gap-2 border-b border-gray-100 bg-gray-50 px-3 py-3 sm:grid-cols-[1fr_auto] sm:items-end">
+            <label className="grid gap-1 text-xs font-semibold text-gray-700">
+              {painelInsercao === "link" ? "URL do link" : "URL da imagem"}
+              <input
+                type="url"
+                value={urlInsercao}
+                onChange={(event) => setUrlInsercao(event.target.value)}
+                placeholder="https://..."
+                className="min-h-9 rounded-md border border-gray-300 bg-white px-3 text-sm font-medium text-gray-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+                aria-label={painelInsercao === "link" ? "URL do link" : "URL da imagem"}
+              />
+            </label>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => { setPainelInsercao(null); setErroInsercao(""); }} className="min-h-9 rounded-md border border-gray-200 px-3 text-xs font-semibold text-gray-700 hover:bg-white">Cancelar</button>
+              <button type="button" onClick={aplicarInsercao} className="min-h-9 rounded-md bg-blue-700 px-3 text-xs font-semibold text-white hover:bg-blue-800">Aplicar</button>
+            </div>
+            {erroInsercao ? <p className="text-xs font-medium text-red-700 sm:col-span-2">{erroInsercao}</p> : null}
+          </div>
+        ) : null}
         {modoFonte ? (
           <textarea value={html} onChange={(event) => atualizarConteudo(event.target.value)} rows={14} className="w-full resize-y border-0 bg-gray-950 px-3 py-3 font-mono text-xs leading-5 text-gray-100 outline-none" aria-label="Código HTML do conteúdo técnico" />
         ) : (
-          <div ref={editorRef} contentEditable tabIndex={0} dir="ltr" suppressContentEditableWarning onInput={sincronizar} onFocus={atualizarFormatacoesAtivas} onKeyUp={atualizarFormatacoesAtivas} role="textbox" aria-multiline="true" aria-label="Editor visual do conteúdo técnico" data-placeholder="Escreva o conteúdo técnico do artigo" className="min-h-56 w-full cursor-text px-3 py-3 text-left text-sm leading-6 text-gray-800 outline-none empty:before:pointer-events-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 prose-headings:font-bold" />
+          <div ref={editorRef} contentEditable tabIndex={0} dir="ltr" suppressContentEditableWarning onInput={sincronizar} onFocus={atualizarFormatacoesAtivas} onKeyUp={atualizarFormatacoesAtivas} onMouseUp={atualizarFormatacoesAtivas} role="textbox" aria-multiline="true" aria-label="Editor visual do conteúdo técnico" data-placeholder="Escreva o conteúdo técnico do artigo" className={`min-h-56 w-full cursor-text px-3 py-3 text-left text-sm leading-6 text-gray-800 outline-none empty:before:pointer-events-none empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400 ${conteudoHtmlClass}`} />
         )}
       </div>
     </div>
@@ -1264,7 +1341,7 @@ export function BaseConhecimentoClient({
               <h3 className="text-sm font-bold text-gray-950">Conteúdo</h3>
               {artigoSelecionado.conteudo ? (
                 <div
-                  className="mt-3 max-w-none text-sm leading-6 text-gray-700 [&_a]:font-bold [&_a]:text-blue-700 [&_h2]:mt-4 [&_h2]:text-lg [&_h2]:font-bold [&_h3]:mt-3 [&_h3]:text-base [&_h3]:font-bold [&_img]:mt-3 [&_img]:max-w-full [&_img]:rounded-md [&_li]:ml-5 [&_ol]:list-decimal [&_ul]:list-disc"
+                  className={`mt-3 max-w-none text-sm leading-6 text-gray-700 ${conteudoHtmlClass}`}
                   dangerouslySetInnerHTML={{ __html: artigoSelecionado.conteudo }}
                 />
               ) : (
