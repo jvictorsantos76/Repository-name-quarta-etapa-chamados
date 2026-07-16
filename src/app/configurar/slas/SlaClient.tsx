@@ -500,7 +500,7 @@ export function SlaClient({ slas, calendarios, pageVersion, erroCarregamento }: 
             href="/configurar/slas/calendarios"
             className="inline-flex min-h-10 items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
           >
-            Calendários de SLA
+            Horários de Funcionamento
           </Link>
         </div>
       </div>

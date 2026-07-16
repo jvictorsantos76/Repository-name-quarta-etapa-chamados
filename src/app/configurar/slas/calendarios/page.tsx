@@ -21,7 +21,7 @@ function isSchemaCacheError(message: string | undefined) {
 }
 
 const SCHEMA_PENDENTE_MENSAGEM =
-  "A migration de SLAs ainda não foi aplicada no banco conectado ao localhost.";
+  "A migration de SLAs e horários de funcionamento ainda não foi aplicada no banco conectado ao localhost.";
 
 export default async function CalendariosSlaPage() {
   const perfilAtual = await requirePerfilAutenticado();
@@ -99,7 +99,7 @@ export default async function CalendariosSlaPage() {
           erroSchema
             ? SCHEMA_PENDENTE_MENSAGEM
             : erro
-              ? "Não foi possível carregar calendários de SLA."
+              ? "Não foi possível carregar horários de funcionamento."
               : null
         }
       />

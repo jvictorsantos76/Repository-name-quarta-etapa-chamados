@@ -23,7 +23,7 @@ function isSchemaCacheError(message: string | undefined) {
   );
 }
 
-function selecionarParceiros(incluirCalendarioAtendimento = true) {
+function selecionarParceiros(incluirCalendarioFuncionamento = true) {
   return [
     "id",
     "tipo_parceiro",
@@ -37,7 +37,7 @@ function selecionarParceiros(incluirCalendarioAtendimento = true) {
     "ativo",
     "cliente_legado_id",
     "organizacao_id",
-    incluirCalendarioAtendimento ? "calendario_atendimento_id" : null,
+    incluirCalendarioFuncionamento ? "calendario_funcionamento_id" : null,
     "criado_em",
     "atualizado_em",
   ]
@@ -67,11 +67,11 @@ export default async function ParceirosPage({ searchParams }: PageProps) {
     .from("parceiros")
     .select(selecionarParceiros())
     .order("nome_fantasia");
-  const calendarioAtendimentoPendente = Boolean(
+  const calendarioFuncionamentoPendente = Boolean(
     parceirosResposta.error && isSchemaCacheError(parceirosResposta.error.message)
   );
 
-  if (calendarioAtendimentoPendente) {
+  if (calendarioFuncionamentoPendente) {
     parceirosResposta = await supabase
       .from("parceiros")
       .select(selecionarParceiros(false))
@@ -163,9 +163,9 @@ export default async function ParceirosPage({ searchParams }: PageProps) {
           <strong className="font-semibold">Domínio:</strong> organizações seguem como agrupamento interno do sistema; parceiros concentram o cadastro mestre operacional usado por atendimento, SLA, contratos, filiais e faturamento.
         </div>
 
-        {calendarioAtendimentoPendente && !error ? (
+        {calendarioFuncionamentoPendente && !error ? (
           <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
-            A migration de calendários de atendimento ainda não foi aplicada. A listagem foi carregada em modo de compatibilidade.
+            A migration de horários de funcionamento ainda não foi aplicada. A listagem foi carregada em modo de compatibilidade.
           </div>
         ) : null}
 
