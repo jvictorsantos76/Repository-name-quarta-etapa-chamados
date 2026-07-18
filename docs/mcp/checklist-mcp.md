@@ -19,6 +19,7 @@
 - [ ] `instalado`: MCP aparece na lista de MCPs ativos do Codex.
 - [ ] `testado`: MCP passou nos testes minimos definidos.
 - [ ] `aprovado`: MCP passou nos testes e tem utilidade, riscos e permissoes documentados.
+- [ ] `complementar`: conector ou plugin auxiliar documentado, mas nao adotado como padrao principal.
 - [ ] `adiado`: MCP tem valor potencial, mas nao deve ser ativado agora.
 - [ ] `removido`: MCP foi desativado depois de uso ou avaliacao.
 - [ ] `rejeitado`: MCP nao atende aos criterios de seguranca, utilidade ou controle.
@@ -46,6 +47,19 @@
 - [ ] Confirmar que o acesso inicial e read-only sempre que possivel.
 - [ ] Se estiver em read-only, confirmar que nao consegue criar ou alterar conteudo.
 - [ ] Se escrita for liberada no futuro, testar primeiro em issue de teste.
+- [ ] Registrar status, responsavel, permissoes e ultima validacao.
+
+## Vercel MCP
+
+- [ ] Confirmar que o MCP Vercel e a conexao padrao para Vercel no projeto.
+- [ ] Confirmar endpoint oficial `https://mcp.vercel.com`.
+- [ ] Confirmar projeto `repository-name-quarta-etapa-chamados`.
+- [ ] Listar deployments do projeto.
+- [ ] Consultar detalhes de um deployment por ID ou URL.
+- [ ] Consultar logs de build quando houver deployment com erro.
+- [ ] Validar dominio de producao e previews de PR em modo leitura.
+- [ ] Confirmar que plugins Vercel sao apenas complementares.
+- [ ] Corrigir qualquer orientacao que trate plugin como conexao principal.
 - [ ] Registrar status, responsavel, permissoes e ultima validacao.
 
 ## Supabase MCP ou alternativa equivalente

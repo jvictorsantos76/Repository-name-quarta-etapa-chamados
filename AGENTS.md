@@ -90,6 +90,8 @@ npm run build
 
 Run tests if the project adds a test script or the touched flow has a specific acceptance path. For UI or auth flows, also verify the relevant localhost path when feasible.
 
+Treat `npm run build` as mandatory before push or merge for TypeScript changes that cross forms, server actions, and shared types. This includes changes where a form imports or depends on contracts from `types.ts`, action payloads, database result mapping, or shared option/detail types.
+
 If validation fails, show the error clearly, identify the likely cause, and fix it if it is within scope. If it cannot be safely fixed, explain the blocker and the next best step.
 
 ## Response Format

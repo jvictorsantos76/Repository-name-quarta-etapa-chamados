@@ -67,6 +67,20 @@
 - Usar como fonte primaria para Codex, Responses API, modelos, prompts e configuracoes OpenAI.
 - Nao deve ter permissao de escrita.
 
+### Vercel MCP
+
+- Usar como conexao padrao do projeto para Vercel.
+- Preferir modo somente leitura para deployments, builds, logs, previews, dominios e status de producao.
+- Nao executar deploy, rollback, alteracao de dominio, variaveis de ambiente ou configuracao produtiva sem pedido explicito.
+- Confirmar por MCP qualquer informacao obtida por plugin antes de decisao operacional.
+- Registrar apenas IDs publicos/operacionais necessarios para diagnostico, sem tokens ou secrets.
+
+### Vercel Plugin
+
+- Tratar como conexao auxiliar, nunca como fonte canonica.
+- Usar apenas quando o MCP Vercel nao estiver disponivel ou para apoio contextual de baixo risco.
+- Corrigir documentacao ou rotina que apresente plugin como caminho principal para Vercel.
+
 ### GitHub MCP
 
 - Iniciar em read-only sempre que possivel.
