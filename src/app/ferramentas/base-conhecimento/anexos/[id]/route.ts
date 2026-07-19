@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   const supabase = await createSupabaseServerClient();
   const { data: anexo, error } = await supabase
     .from("base_conhecimento_anexos")
-    .select("caminho_storage")
+    .select("caminho_storage, nome_arquivo, tipo_mime")
     .eq("id", id)
     .eq("ativo", true)
     .single();
@@ -40,6 +40,24 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
   if (erroUrl || !urlAssinada?.signedUrl) {
     return new NextResponse("Não foi possível gerar o link seguro do anexo.", {
       status: 500,
+    });
+  }
+
+  if (request.nextUrl.searchParams.get("download") === "1") {
+    const arquivo = await fetch(urlAssinada.signedUrl);
+    if (!arquivo.ok || !arquivo.body) {
+      return new NextResponse("Não foi possível baixar o anexo.", {
+        status: 502,
+      });
+    }
+
+    const nomeArquivo = String(anexo.nome_arquivo ?? "anexo").replace(/["\r\n]/g, "");
+    return new NextResponse(arquivo.body, {
+      headers: {
+        "Content-Disposition": `attachment; filename="${nomeArquivo}"`,
+        "Content-Type": String(anexo.tipo_mime ?? arquivo.headers.get("content-type") ?? "application/octet-stream"),
+        "Cache-Control": "private, no-store",
+      },
     });
   }
 

@@ -1,5 +1,16 @@
 [
   {
+    "versao": "v0.9.73",
+    "data": "18/07/2026",
+    "alteracoes": [
+      "Base de Conhecimento v1.3.5 abre o artigo em modo de leitura em tela cheia, com retorno claro para o cadastro.",
+      "Anexos de artigos passam a abrir em visualizador interno com navegação anterior/próximo, fechar e download autenticado."
+    ],
+    "correcoes": [
+      "Arquivos de áudio, imagem e PDF deixam de tirar o operador da tela do artigo durante a consulta."
+    ]
+  },
+  {
     "versao": "v0.9.72",
     "data": "11/07/2026",
     "alteracoes": [

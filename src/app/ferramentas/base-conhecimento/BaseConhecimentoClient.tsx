@@ -228,6 +228,25 @@ function obterTipoAnexo(arquivo: File) {
   return "Arquivo";
 }
 
+function tipoVisualizacaoAnexo(anexo: BaseConhecimentoAnexo) {
+  const extensao = obterExtensao(anexo.nome_arquivo);
+  const mime = anexo.tipo_mime?.toLowerCase() ?? "";
+  if (mime.startsWith("audio/") || ["mp3", "wav", "m4a", "ogg"].includes(extensao)) {
+    return "audio";
+  }
+  if (mime.startsWith("image/") || ["jpg", "jpeg", "png", "webp"].includes(extensao)) {
+    return "imagem";
+  }
+  if (mime === "application/pdf" || extensao === "pdf") {
+    return "pdf";
+  }
+  return "arquivo";
+}
+
+function urlAnexo(anexo: BaseConhecimentoAnexo, download = false) {
+  return `/ferramentas/base-conhecimento/anexos/${anexo.id}${download ? "?download=1" : ""}`;
+}
+
 function classeStatus(status: BaseConhecimentoStatus | undefined) {
   if (status?.publica_artigo) {
     return "border-green-200 bg-green-50 text-green-700";
@@ -802,6 +821,104 @@ function useAnexosBaseConhecimento() {
   };
 }
 
+function AnexoViewer({
+  anexo,
+  podeVoltar,
+  podeAvancar,
+  onClose,
+  onAnterior,
+  onProximo,
+}: {
+  anexo: BaseConhecimentoAnexo;
+  podeVoltar: boolean;
+  podeAvancar: boolean;
+  onClose: () => void;
+  onAnterior: () => void;
+  onProximo: () => void;
+}) {
+  const tipo = tipoVisualizacaoAnexo(anexo);
+  const urlVisualizacao = urlAnexo(anexo);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col bg-gray-950 text-white">
+      <header className="flex flex-col gap-3 border-b border-white/10 bg-gray-950 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="break-all text-base font-bold">{anexo.nome_arquivo}</h2>
+          <p className="mt-1 text-xs font-medium text-gray-300">
+            {formatarTamanho(anexo.tamanho_bytes)}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onAnterior}
+            disabled={!podeVoltar}
+            className="min-h-9 rounded-md border border-white/20 px-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Anterior
+          </button>
+          <button
+            type="button"
+            onClick={onProximo}
+            disabled={!podeAvancar}
+            className="min-h-9 rounded-md border border-white/20 px-3 text-sm font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Próximo
+          </button>
+          <a
+            href={urlAnexo(anexo, true)}
+            className="inline-flex min-h-9 items-center rounded-md bg-white px-3 text-sm font-semibold text-gray-950 transition hover:bg-gray-200"
+          >
+            Baixar
+          </a>
+          <button
+            type="button"
+            onClick={onClose}
+            className="min-h-9 rounded-md border border-white/20 px-3 text-sm font-semibold text-white transition hover:bg-white/10"
+          >
+            Fechar
+          </button>
+        </div>
+      </header>
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+        {tipo === "audio" ? (
+          <div className="w-full max-w-3xl rounded-lg border border-white/10 bg-gray-900 p-6">
+            <p className="mb-4 break-all text-sm font-semibold text-gray-200">
+              {anexo.nome_arquivo}
+            </p>
+            <audio src={urlVisualizacao} controls className="w-full">
+              Seu navegador não conseguiu carregar o áudio.
+            </audio>
+          </div>
+        ) : null}
+        {tipo === "imagem" ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={urlVisualizacao}
+            alt={anexo.nome_arquivo}
+            className="max-h-full max-w-full rounded-md object-contain"
+          />
+        ) : null}
+        {tipo === "pdf" ? (
+          <iframe
+            src={urlVisualizacao}
+            title={anexo.nome_arquivo}
+            className="h-full min-h-[70vh] w-full rounded-md border border-white/10 bg-white"
+          />
+        ) : null}
+        {tipo === "arquivo" ? (
+          <div className="max-w-lg rounded-lg border border-white/10 bg-gray-900 p-6 text-center">
+            <h3 className="text-base font-bold">Pré-visualização indisponível</h3>
+            <p className="mt-2 text-sm text-gray-300">
+              Este tipo de arquivo pode ser baixado para consulta local.
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function ArtigoForm({
   artigo,
   categorias,
@@ -1118,10 +1235,11 @@ export function BaseConhecimentoClient({
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_INICIAIS);
   const [paginaAtual, setPaginaAtual] = useState(1);
   const [itensPorPagina, setItensPorPagina] = useState(10);
-  const [artigoSelecionadoId, setArtigoSelecionadoId] = useState(artigos[0]?.id ?? "");
+  const [artigoSelecionadoId, setArtigoSelecionadoId] = useState("");
   const [artigoEmEdicaoId, setArtigoEmEdicaoId] = useState<string | null>(null);
   const [criando, setCriando] = useState(false);
   const [mensagem, setMensagem] = useState<string | null>(null);
+  const [anexoAbertoId, setAnexoAbertoId] = useState<string | null>(null);
 
   const categoriasPorId = useMemo(
     () => new Map(categorias.map((categoria) => [categoria.id, categoria])),
@@ -1170,10 +1288,13 @@ export function BaseConhecimentoClient({
     primeiroIndice,
     primeiroIndice + itensPorPagina
   );
-  const artigoSelecionado =
-    artigos.find((artigo) => artigo.id === artigoSelecionadoId) ??
-    artigosPaginados[0] ??
-    artigos[0];
+  const artigoSelecionado = artigos.find((artigo) => artigo.id === artigoSelecionadoId);
+  const anexosArtigoSelecionado = artigoSelecionado?.anexos ?? [];
+  const indiceAnexoAberto = anexoAbertoId
+    ? anexosArtigoSelecionado.findIndex((anexo) => anexo.id === anexoAbertoId)
+    : -1;
+  const anexoAberto =
+    indiceAnexoAberto >= 0 ? anexosArtigoSelecionado[indiceAnexoAberto] : null;
   const artigoEmEdicao = artigos.find((artigo) => artigo.id === artigoEmEdicaoId);
   const catalogosObrigatoriosIndisponiveis =
     statusOptions.length === 0 || tipoOptions.length === 0;
@@ -1491,7 +1612,33 @@ export function BaseConhecimentoClient({
       </section>
 
       {artigoSelecionado ? (
-        <section className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+        <section className="fixed inset-0 z-50 overflow-y-auto bg-gray-100 p-4 text-gray-950 sm:p-6">
+          <div className="mx-auto max-w-7xl">
+          <div className="mb-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                setAnexoAbertoId(null);
+                setArtigoSelecionadoId("");
+              }}
+              className="inline-flex min-h-10 w-fit items-center rounded-md border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+            >
+              Voltar para cadastro
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                navigator.clipboard?.writeText(
+                  `${window.location.origin}/ferramentas/base-conhecimento#${artigoSelecionado.slug ?? artigoSelecionado.id}`
+                )
+              }
+              className="min-h-10 rounded-md border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+            >
+              Copiar link
+            </button>
+          </div>
+
+          <article className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <div className="flex flex-wrap gap-2">
@@ -1509,17 +1656,6 @@ export function BaseConhecimentoClient({
                 {artigoSelecionado.resumo ?? "Artigo sem resumo cadastrado."}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() =>
-                navigator.clipboard?.writeText(
-                  `${window.location.origin}/ferramentas/base-conhecimento#${artigoSelecionado.slug ?? artigoSelecionado.id}`
-                )
-              }
-              className="min-h-10 rounded-md border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-            >
-              Copiar link
-            </button>
           </div>
 
           <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -1577,16 +1713,17 @@ export function BaseConhecimentoClient({
                 <div className="mt-3 space-y-2">
                   {artigoSelecionado.anexos.length > 0 ? (
                     artigoSelecionado.anexos.map((anexo) => (
-                      <Link
+                      <button
                         key={anexo.id}
-                        href={`/ferramentas/base-conhecimento/anexos/${anexo.id}`}
-                        className="block rounded-md border border-gray-200 p-3 text-sm font-semibold text-blue-700 hover:bg-blue-50"
+                        type="button"
+                        onClick={() => setAnexoAbertoId(anexo.id)}
+                        className="block w-full rounded-md border border-gray-200 p-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
                       >
                         {anexo.nome_arquivo}
                         <span className="mt-1 block text-xs font-medium text-gray-500">
                           {formatarTamanho(anexo.tamanho_bytes)}
                         </span>
-                      </Link>
+                      </button>
                     ))
                   ) : (
                     <p className="text-sm text-gray-600">Nenhum anexo cadastrado.</p>
@@ -1595,6 +1732,24 @@ export function BaseConhecimentoClient({
               </div>
             </aside>
           </div>
+          </article>
+          </div>
+          {anexoAberto ? (
+            <AnexoViewer
+              anexo={anexoAberto}
+              podeVoltar={indiceAnexoAberto > 0}
+              podeAvancar={indiceAnexoAberto < anexosArtigoSelecionado.length - 1}
+              onClose={() => setAnexoAbertoId(null)}
+              onAnterior={() => {
+                const anexoAnterior = anexosArtigoSelecionado[indiceAnexoAberto - 1];
+                if (anexoAnterior) setAnexoAbertoId(anexoAnterior.id);
+              }}
+              onProximo={() => {
+                const proximoAnexo = anexosArtigoSelecionado[indiceAnexoAberto + 1];
+                if (proximoAnexo) setAnexoAbertoId(proximoAnexo.id);
+              }}
+            />
+          ) : null}
         </section>
       ) : null}
     </div>

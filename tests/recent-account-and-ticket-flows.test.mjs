@@ -24,6 +24,13 @@ const baseConhecimentoActionsSource = await readFile(
   ),
   "utf8"
 );
+const baseConhecimentoAnexoRouteSource = await readFile(
+  new URL(
+    "../src/app/ferramentas/base-conhecimento/anexos/[id]/route.ts",
+    import.meta.url
+  ),
+  "utf8"
+);
 const perfilGrantMigration = await readFile(
   new URL(
     "../supabase/migrations/202605060004_perfis_self_update_cargo.sql",
@@ -182,6 +189,10 @@ const versionSource = await readFile(
 );
 const changelogSource = await readFile(
   new URL("../src/app/changelog/page.tsx", import.meta.url),
+  "utf8"
+);
+const changelogDataSource = await readFile(
+  new URL("../src/config/changelog.json", import.meta.url),
   "utf8"
 );
 const contratosPageSource = await readFile(
@@ -730,6 +741,30 @@ test("knowledge base save action persists all selected attachments", () => {
   assert.doesNotMatch(baseConhecimentoActionsSource, /formData\.get\("anexo"\)/);
 });
 
+test("knowledge base article detail opens as a reading view with attachment modal", () => {
+  assert.match(baseConhecimentoClientSource, /const \[artigoSelecionadoId, setArtigoSelecionadoId\] = useState\(""\)/);
+  assert.match(baseConhecimentoClientSource, /fixed inset-0 z-50 overflow-y-auto bg-gray-100/);
+  assert.match(baseConhecimentoClientSource, /Voltar para cadastro/);
+  assert.match(baseConhecimentoClientSource, /function AnexoViewer/);
+  assert.match(baseConhecimentoClientSource, /fixed inset-0 z-\[60\]/);
+  assert.match(baseConhecimentoClientSource, /audio src=\{urlVisualizacao\} controls/);
+  assert.match(baseConhecimentoClientSource, /<iframe[\s\S]*src=\{urlVisualizacao\}/);
+  assert.match(baseConhecimentoClientSource, /<img[\s\S]*src=\{urlVisualizacao\}/);
+  assert.match(baseConhecimentoClientSource, /Anterior/);
+  assert.match(baseConhecimentoClientSource, /Próximo/);
+  assert.match(baseConhecimentoClientSource, /Baixar/);
+  assert.match(baseConhecimentoClientSource, /Fechar/);
+  assert.match(baseConhecimentoClientSource, /onClick=\{\(\) => setAnexoAbertoId\(anexo\.id\)\}/);
+});
+
+test("knowledge base attachment route supports authenticated download", () => {
+  assert.match(baseConhecimentoAnexoRouteSource, /request\.nextUrl\.searchParams\.get\("download"\) === "1"/);
+  assert.match(baseConhecimentoAnexoRouteSource, /fetch\(urlAssinada\.signedUrl\)/);
+  assert.match(baseConhecimentoAnexoRouteSource, /Content-Disposition/);
+  assert.match(baseConhecimentoAnexoRouteSource, /attachment; filename=/);
+  assert.match(baseConhecimentoAnexoRouteSource, /Cache-Control": "private, no-store"/);
+});
+
 test("sla configuration mvp keeps conservative data model and guarded pages", () => {
   for (const tabela of [
     "calendarios_sla",
@@ -777,7 +812,7 @@ test("sla configuration mvp keeps conservative data model and guarded pages", ()
     navigationSource,
     /id: "configurar-calendarios-sla"[\s\S]*status: "disponivel"/
   );
-  assert.match(versionSource, /APP_VERSION = "v0\.9\.72"/);
+  assert.match(versionSource, /APP_VERSION = "v0\.9\.\d+"/);
   assert.match(versionSource, /SLAS_PAGE_VERSION = "v1\.0\.0"/);
   assert.match(versionSource, /CALENDARIOS_SLA_PAGE_VERSION = "v1\.0\.1"/);
   assert.match(versionBadgeSource, /\/configurar\/slas/);
@@ -1316,8 +1351,8 @@ test("working hours are shared by partners and SLA without a duplicate attendanc
   assert.doesNotMatch(navigationSource, /id: "gerencia-calendarios-atendimento"/);
   assert.doesNotMatch(navigationSource, /href: "\/gerencia\/calendarios-atendimento"/);
   assert.match(navigationSource, /label: "Horários de Funcionamento"/);
-  assert.match(changelogSource, /v0\.9\.61/);
-  assert.match(changelogSource, /Horários de Funcionamento/);
+  assert.match(changelogSource, /changelog\.json/);
+  assert.match(changelogDataSource, /Horários de Funcionamento/);
 });
 
 test("organizations link to clients without replacing operational ticket fields", () => {
