@@ -12,14 +12,14 @@ const BUCKET_ANEXOS = "base-conhecimento-anexos";
 const TAMANHO_MAXIMO_ANEXO = 20 * 1024 * 1024;
 const EXTENSOES_ANEXO_PERMITIDAS = new Set([
   "pdf",
-  "doc",
-  "docx",
   "jpg",
   "jpeg",
   "png",
-  "txt",
-  "csv",
-  "xlsx",
+  "webp",
+  "mp3",
+  "wav",
+  "m4a",
+  "ogg",
 ]);
 const CONFIDENCIALIDADES_VALIDAS = new Set([
   "publica",
@@ -166,9 +166,11 @@ function valoresFormLista(formData: FormData, nome: string) {
     .filter(Boolean);
 }
 
-function getArquivo(formData: FormData) {
-  const arquivo = formData.get("anexo");
-  return arquivo instanceof File && arquivo.size > 0 ? arquivo : null;
+function getArquivos(formData: FormData) {
+  return formData
+    .getAll("anexos")
+    .filter((arquivo): arquivo is File => arquivo instanceof File && arquivo.size > 0)
+    .slice(0, 10);
 }
 
 function normalizarNomeArquivo(nome: string) {
@@ -178,14 +180,13 @@ function normalizarNomeArquivo(nome: string) {
   return `${base}${extensao.toLowerCase()}`;
 }
 
-function validarArquivo(arquivo: File | null) {
-  if (!arquivo) return null;
+function validarArquivo(arquivo: File) {
   const extensao = arquivo.name.split(".").pop()?.toLowerCase() ?? "";
   if (!EXTENSOES_ANEXO_PERMITIDAS.has(extensao)) {
-    return "Formato de anexo não permitido.";
+    return `Formato de anexo não permitido: ${arquivo.name}.`;
   }
   if (arquivo.size > TAMANHO_MAXIMO_ANEXO) {
-    return "O anexo excede o limite de 20 MB.";
+    return `O anexo ${arquivo.name} excede o limite de 20 MB.`;
   }
   return null;
 }
@@ -258,7 +259,7 @@ export async function salvarArtigoBaseConhecimento(
     const publicoAlvo = normalizarTexto(formData.get("publico_alvo"));
     const proximaRevisao = normalizarTexto(formData.get("proxima_revisao_em")) || null;
     const tags = parseTags(normalizarTexto(formData.get("tags")));
-    const arquivo = getArquivo(formData);
+    const arquivos = getArquivos(formData);
     const organizacaoIds = valoresFormLista(formData, "organizacao_ids");
     const usuarioIds = valoresFormLista(formData, "usuario_ids");
 
@@ -274,7 +275,7 @@ export async function salvarArtigoBaseConhecimento(
     if (proximaRevisao && !/^\d{4}-\d{2}-\d{2}$/.test(proximaRevisao)) {
       return erro("Informe a próxima revisão no formato AAAA-MM-DD.");
     }
-    const erroArquivo = validarArquivo(arquivo);
+    const erroArquivo = arquivos.map(validarArquivo).find(Boolean);
     if (erroArquivo) return erro(erroArquivo);
 
     const supabase = await createSupabaseServerClient();
@@ -343,16 +344,16 @@ export async function salvarArtigoBaseConhecimento(
     }
 
     const artigoId = resposta.data.id as string;
-    if (arquivo) {
-      const { data: arquivoComMesmoNome } = await supabase
+    if (arquivos.length > 0) {
+      const nomesArquivos = Array.from(new Set(arquivos.map((arquivo) => arquivo.name)));
+      const { data: arquivosComMesmoNome } = await supabase
         .from("base_conhecimento_anexos")
         .select("id")
         .eq("artigo_id", artigoId)
-        .eq("nome_arquivo", arquivo.name)
-        .eq("ativo", true)
-        .maybeSingle();
-      if (arquivoComMesmoNome) {
-        return erro("Já existe um anexo ativo com este nome no artigo.");
+        .in("nome_arquivo", nomesArquivos)
+        .eq("ativo", true);
+      if (arquivosComMesmoNome?.length) {
+        return erro("Já existe anexo ativo com o mesmo nome neste artigo.");
       }
     }
 
@@ -366,15 +367,18 @@ export async function salvarArtigoBaseConhecimento(
     const erroVinculo = resultados.find((resultado) => resultado);
     if (erroVinculo) return erro(erroVinculo);
 
-    if (arquivo) {
-      const erroAnexo = await salvarAnexoArtigo(artigoId, arquivo, perfil.id);
+    for (const [indice, arquivo] of arquivos.entries()) {
+      const erroAnexo = await salvarAnexoArtigo(artigoId, arquivo, perfil.id, indice);
       if (erroAnexo) return erro(erroAnexo);
     }
 
     revalidarBaseConhecimento();
     return {
       status: "success",
-      message: arquivo ? "Artigo salvo e anexo enviado com sucesso." : "Artigo salvo com sucesso.",
+      message:
+        arquivos.length > 0
+          ? `Artigo salvo e ${arquivos.length} anexo(s) enviado(s) com sucesso.`
+          : "Artigo salvo com sucesso.",
       artigoId,
     };
   } catch (cause) {
@@ -424,9 +428,9 @@ async function sincronizarTagsArtigo(artigoId: string, tags: Array<{ nome: strin
   return erroVinculos ? "Não foi possível vincular as tags ao artigo." : null;
 }
 
-async function salvarAnexoArtigo(artigoId: string, arquivo: File, usuarioId: string) {
+async function salvarAnexoArtigo(artigoId: string, arquivo: File, usuarioId: string, indice: number) {
   const supabase = await createSupabaseServerClient();
-  const caminhoStorage = `artigos/${artigoId}/${Date.now()}-${normalizarNomeArquivo(arquivo.name)}`;
+  const caminhoStorage = `artigos/${artigoId}/${Date.now()}-${indice}-${normalizarNomeArquivo(arquivo.name)}`;
   const { error: erroUpload } = await supabase.storage.from(BUCKET_ANEXOS).upload(caminhoStorage, arquivo, {
     cacheControl: "3600",
     upsert: false,

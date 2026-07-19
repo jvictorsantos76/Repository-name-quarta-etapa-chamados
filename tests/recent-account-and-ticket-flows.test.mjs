@@ -707,6 +707,29 @@ test("article sanitizer preserves safe editor line blocks", () => {
   assert.match(baseConhecimentoActionsSource, /"div",/);
 });
 
+test("knowledge base attachments use operational multi-file upload", () => {
+  assert.match(baseConhecimentoClientSource, /function useAnexosBaseConhecimento\(\)/);
+  assert.match(baseConhecimentoClientSource, /name="anexos"/);
+  assert.match(baseConhecimentoClientSource, /multiple/);
+  assert.match(baseConhecimentoClientSource, /accept=\{ACCEPT_ANEXOS_BASE\}/);
+  assert.match(baseConhecimentoClientSource, /onDrop=\{receberAnexosArrastados\}/);
+  assert.match(baseConhecimentoClientSource, /Arraste arquivos para esta área ou selecione pelo campo acima\./);
+  assert.match(baseConhecimentoClientSource, /PDF, imagens estáticas e áudio de até 20 MB por arquivo\./);
+  assert.match(baseConhecimentoClientSource, /DataTransfer/);
+  assert.match(baseConhecimentoClientSource, /removerAnexo\(indice\)/);
+});
+
+test("knowledge base save action persists all selected attachments", () => {
+  assert.match(baseConhecimentoActionsSource, /function getArquivos\(formData: FormData\)/);
+  assert.match(baseConhecimentoActionsSource, /\.getAll\("anexos"\)/);
+  assert.match(baseConhecimentoActionsSource, /\.slice\(0, 10\)/);
+  assert.match(baseConhecimentoActionsSource, /"mp3"/);
+  assert.match(baseConhecimentoActionsSource, /"wav"/);
+  assert.match(baseConhecimentoActionsSource, /for \(const \[indice, arquivo\] of arquivos\.entries\(\)\)/);
+  assert.match(baseConhecimentoActionsSource, /salvarAnexoArtigo\(artigoId, arquivo, perfil\.id, indice\)/);
+  assert.doesNotMatch(baseConhecimentoActionsSource, /formData\.get\("anexo"\)/);
+});
+
 test("sla configuration mvp keeps conservative data model and guarded pages", () => {
   for (const tabela of [
     "calendarios_sla",

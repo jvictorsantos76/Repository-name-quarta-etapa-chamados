@@ -149,6 +149,19 @@ const PUBLICOS = [
   ["gestao", "Gestão"],
 ];
 
+const EXTENSOES_ANEXO_PERMITIDAS = new Set([
+  "pdf",
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "mp3",
+  "wav",
+  "m4a",
+  "ogg",
+]);
+const ACCEPT_ANEXOS_BASE = ".pdf,.jpg,.jpeg,.png,.webp,.mp3,.wav,.m4a,.ogg";
+
 const labelClass =
   "block text-[11px] font-semibold uppercase tracking-wide text-gray-500";
 const inputClass =
@@ -201,6 +214,18 @@ function formatarTamanho(bytes: number | null) {
   }
 
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function obterExtensao(nomeArquivo: string) {
+  return nomeArquivo.split(".").pop()?.toLowerCase() ?? "";
+}
+
+function obterTipoAnexo(arquivo: File) {
+  const extensao = obterExtensao(arquivo.name);
+  if (extensao === "pdf") return "PDF";
+  if (["jpg", "jpeg", "png", "webp"].includes(extensao)) return "Imagem";
+  if (["mp3", "wav", "m4a", "ogg"].includes(extensao)) return "Áudio";
+  return "Arquivo";
 }
 
 function classeStatus(status: BaseConhecimentoStatus | undefined) {
@@ -700,6 +725,83 @@ function ConteudoTecnicoEditor({ defaultValue = "" }: { defaultValue?: string })
   );
 }
 
+function useAnexosBaseConhecimento() {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [anexos, setAnexos] = useState<File[]>([]);
+  const [arrastando, setArrastando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  function sincronizarInput(arquivos: File[]) {
+    if (!inputRef.current) return;
+    const transferencia = new DataTransfer();
+    arquivos.forEach((arquivo) => transferencia.items.add(arquivo));
+    inputRef.current.files = transferencia.files;
+  }
+
+  function adicionarAnexos(arquivos: File[]) {
+    const arquivoInvalido = arquivos.find(
+      (arquivo) => !EXTENSOES_ANEXO_PERMITIDAS.has(obterExtensao(arquivo.name))
+    );
+
+    if (arquivoInvalido) {
+      setErro(`Arquivo não permitido: ${arquivoInvalido.name}.`);
+      setAnexos((anexosAtuais) => {
+        sincronizarInput(anexosAtuais);
+        return anexosAtuais;
+      });
+      return;
+    }
+
+    setErro("");
+    setAnexos((anexosAtuais) => {
+      const chavesAtuais = new Set(
+        anexosAtuais.map(
+          (arquivo) => `${arquivo.name}-${arquivo.size}-${arquivo.lastModified}`
+        )
+      );
+      const novosArquivos = arquivos.filter(
+        (arquivo) =>
+          !chavesAtuais.has(
+            `${arquivo.name}-${arquivo.size}-${arquivo.lastModified}`
+          )
+      );
+
+      const proximosArquivos = [...anexosAtuais, ...novosArquivos].slice(0, 10);
+      sincronizarInput(proximosArquivos);
+      return proximosArquivos;
+    });
+  }
+
+  function selecionarAnexos(event: React.ChangeEvent<HTMLInputElement>) {
+    adicionarAnexos(Array.from(event.target.files ?? []));
+  }
+
+  function removerAnexo(indiceArquivo: number) {
+    setAnexos((arquivos) => {
+      const proximosArquivos = arquivos.filter((_, indice) => indice !== indiceArquivo);
+      sincronizarInput(proximosArquivos);
+      return proximosArquivos;
+    });
+  }
+
+  function receberAnexosArrastados(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setArrastando(false);
+    adicionarAnexos(Array.from(event.dataTransfer.files));
+  }
+
+  return {
+    inputRef,
+    anexos,
+    arrastando,
+    erro,
+    setArrastando,
+    selecionarAnexos,
+    removerAnexo,
+    receberAnexosArrastados,
+  };
+}
+
 function ArtigoForm({
   artigo,
   categorias,
@@ -739,7 +841,16 @@ function ArtigoForm({
     tipoOptions[0]?.codigo ??
     "";
 
-  const [nomeArquivo, setNomeArquivo] = useState("");
+  const {
+    inputRef: inputAnexosRef,
+    anexos,
+    arrastando,
+    erro: erroAnexos,
+    setArrastando,
+    selecionarAnexos,
+    removerAnexo,
+    receberAnexosArrastados,
+  } = useAnexosBaseConhecimento();
   const sucessoNotificadoRef = useRef(false);
 
   useEffect(() => {
@@ -883,24 +994,88 @@ function ArtigoForm({
 
       <ConteudoTecnicoEditor defaultValue={artigo?.conteudo ?? ""} />
 
-      <label className={labelClass}>
-        Anexo
-        <input
-          name="anexo"
-          type="file"
-          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt,.csv,.xlsx"
-          onChange={(event) => setNomeArquivo(event.target.files?.[0]?.name ?? "")}
-          className="mt-1 w-full rounded-md border border-dashed border-gray-300 bg-gray-50 px-3 py-3 text-sm font-medium text-gray-700"
-        />
-        <span className="mt-1 block text-xs font-medium normal-case text-gray-500">
-          {nomeArquivo ? `Selecionado: ${nomeArquivo}` : "PDF, documentos, imagens e planilhas de até 20 MB."}
-        </span>
-        {artigo?.anexos.length ? (
-          <span className="mt-2 block text-xs font-semibold normal-case text-gray-700">
-            Anexos atuais: {artigo.anexos.map((anexo) => anexo.nome_arquivo).join(", ")}
-          </span>
+      <fieldset className={labelClass}>
+        <legend>Anexos</legend>
+        <div
+          onDragOver={(event) => {
+            event.preventDefault();
+            setArrastando(true);
+          }}
+          onDragLeave={() => setArrastando(false)}
+          onDrop={receberAnexosArrastados}
+          className={`mt-1 rounded-lg border-2 border-dashed p-4 transition ${
+            arrastando
+              ? "border-blue-400 bg-blue-50"
+              : "border-gray-300 bg-gray-50"
+          }`}
+        >
+          <input
+            ref={inputAnexosRef}
+            name="anexos"
+            type="file"
+            multiple
+            accept={ACCEPT_ANEXOS_BASE}
+            onChange={selecionarAnexos}
+            className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium normal-case text-gray-700"
+          />
+          <p className="mt-3 text-sm font-medium normal-case text-gray-600">
+            Arraste arquivos para esta área ou selecione pelo campo acima.
+          </p>
+          <p className="mt-1 text-xs font-medium normal-case text-gray-500">
+            PDF, imagens estáticas e áudio de até 20 MB por arquivo.
+          </p>
+        </div>
+
+        {erroAnexos ? (
+          <p className="mt-2 text-sm font-semibold normal-case text-red-700">
+            {erroAnexos}
+          </p>
         ) : null}
-      </label>
+
+        {anexos.length > 0 ? (
+          <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-4 normal-case">
+            <p className="text-sm font-semibold text-gray-900">
+              {anexos.length} arquivo(s) selecionado(s)
+            </p>
+            <ul className="mt-3 space-y-2 text-sm text-gray-700">
+              {anexos.map((anexo, indice) => (
+                <li
+                  key={`${anexo.name}-${anexo.size}-${anexo.lastModified}`}
+                  className="flex flex-col rounded border border-gray-200 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <span className="break-all font-medium">{anexo.name}</span>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {obterTipoAnexo(anexo)} · {formatarTamanho(anexo.size)}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removerAnexo(indice)}
+                    className="mt-2 text-left text-sm font-semibold text-red-600 sm:mt-0"
+                  >
+                    Remover
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {artigo?.anexos.length ? (
+          <div className="mt-3 rounded-lg border border-gray-200 bg-white p-4 normal-case">
+            <p className="text-sm font-semibold text-gray-900">Anexos atuais</p>
+            <ul className="mt-2 space-y-1 text-sm text-gray-700">
+              {artigo.anexos.map((anexo) => (
+                <li key={anexo.id} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="break-all font-medium">{anexo.nome_arquivo}</span>
+                  <span className="text-xs text-gray-500">{formatarTamanho(anexo.tamanho_bytes)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </fieldset>
 
       {estado.status !== "idle" ? (
         <p aria-live="polite" className={`rounded-md border px-3 py-2 text-sm font-semibold ${estado.status === "success" ? "border-green-200 bg-green-50 text-green-700" : "border-red-200 bg-red-50 text-red-700"}`}>
