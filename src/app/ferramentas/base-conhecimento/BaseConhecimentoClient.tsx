@@ -375,9 +375,26 @@ function CampoSelecao({
   );
 }
 
-function TagInput({ tagsIniciais }: { tagsIniciais: BaseConhecimentoTag[] }) {
+function TagInput({
+  tagsIniciais,
+  tagsSugeridas,
+}: {
+  tagsIniciais: BaseConhecimentoTag[];
+  tagsSugeridas: BaseConhecimentoTag[];
+}) {
   const [tags, setTags] = useState(tagsIniciais.map((tag) => tag.nome));
   const [valor, setValor] = useState("");
+  const [focado, setFocado] = useState(false);
+  const sugestoesFiltradas = useMemo(() => {
+    const termo = textoFiltro(valor);
+    const tagsSelecionadas = new Set(tags.map((tag) => textoFiltro(tag)));
+    return tagsSugeridas
+      .filter((tag) => {
+        const nome = textoFiltro(tag.nome);
+        return nome && !tagsSelecionadas.has(nome) && (!termo || nome.includes(termo));
+      })
+      .slice(0, 8);
+  }, [tags, tagsSugeridas, valor]);
 
   function adicionarTags(texto: string) {
     const novasTags = texto
@@ -397,6 +414,11 @@ function TagInput({ tagsIniciais }: { tagsIniciais: BaseConhecimentoTag[] }) {
     setValor("");
   }
 
+  function selecionarSugestao(nome: string) {
+    adicionarTags(nome);
+    setFocado(false);
+  }
+
   function removerTag(tagRemovida: string) {
     setTags((atuais) => atuais.filter((tag) => tag !== tagRemovida));
   }
@@ -405,7 +427,7 @@ function TagInput({ tagsIniciais }: { tagsIniciais: BaseConhecimentoTag[] }) {
     <label className={labelClass}>
       Tags
       <input type="hidden" name="tags" value={tags.join(", ")} />
-      <div className="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-100">
+      <div className="relative mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-500 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-100">
         <div className="flex min-h-8 flex-wrap items-center gap-2">
           {tags.map((tag) => (
             <button
@@ -421,17 +443,38 @@ function TagInput({ tagsIniciais }: { tagsIniciais: BaseConhecimentoTag[] }) {
           <input
             value={valor}
             onChange={(event) => setValor(event.target.value)}
-            onBlur={() => adicionarTags(valor)}
+            onFocus={() => setFocado(true)}
+            onBlur={() => {
+              adicionarTags(valor);
+              setFocado(false);
+            }}
             onKeyDown={(event) => {
               if (event.key === "Tab" || event.key === "Enter" || event.key === ",") {
                 event.preventDefault();
                 adicionarTags(valor);
               }
             }}
-            placeholder="Digite e pressione Tab"
+            placeholder="Digite para consultar ou criar tag"
             className="min-h-8 min-w-48 flex-1 bg-transparent text-sm font-medium text-gray-950 outline-none"
           />
         </div>
+        {focado && sugestoesFiltradas.length > 0 ? (
+          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-auto rounded-md border border-gray-200 bg-white p-1 normal-case shadow-lg">
+            {sugestoesFiltradas.map((tag) => (
+              <button
+                key={tag.id}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  selecionarSugestao(tag.nome);
+                }}
+                className="block w-full rounded px-3 py-2 text-left text-sm font-medium text-gray-800 hover:bg-blue-50 hover:text-blue-700"
+              >
+                {tag.nome}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </label>
   );
@@ -1110,6 +1153,7 @@ function ArtigoForm({
   tipoOptions,
   organizacoes,
   usuarios,
+  tagsSugeridas,
   onCancel,
   onSuccess,
 }: {
@@ -1119,6 +1163,7 @@ function ArtigoForm({
   tipoOptions: BaseConhecimentoTipo[];
   organizacoes: BaseConhecimentoOrganizacao[];
   usuarios: BaseConhecimentoUsuario[];
+  tagsSugeridas: BaseConhecimentoTag[];
   onCancel: () => void;
   onSuccess: (artigoId: string, mensagem: string) => void;
 }) {
@@ -1281,7 +1326,7 @@ function ArtigoForm({
         <SelecaoMultiplaPesquisa label="Usuários técnicos autorizados" name="usuario_ids" idsIniciais={artigo?.usuario_ids ?? []} opcoes={usuarios.map((usuario) => ({ id: usuario.id, nome: usuario.nome_completo, descricao: usuario.email ? `${usuario.papel} · ${usuario.email}` : usuario.papel }))} />
       ) : null}
 
-      <TagInput tagsIniciais={artigo?.tags ?? []} />
+      <TagInput tagsIniciais={artigo?.tags ?? []} tagsSugeridas={tagsSugeridas} />
 
       <label className={labelClass}>
         Resumo
@@ -1656,6 +1701,7 @@ export function BaseConhecimentoClient({
             tipoOptions={tipoOptions}
             organizacoes={organizacoes}
             usuarios={usuarios}
+            tagsSugeridas={tags}
             onCancel={() => {
               setCriando(false);
               setArtigoEmEdicaoId(null);

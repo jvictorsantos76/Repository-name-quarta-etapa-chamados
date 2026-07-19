@@ -738,6 +738,17 @@ test("knowledge base attachments use operational multi-file upload", () => {
   assert.match(baseConhecimentoClientSource, /removerAnexo\(indice\)/);
 });
 
+test("knowledge base tags field offers autocomplete without becoming required", () => {
+  assert.match(baseConhecimentoClientSource, /name="resumo"/);
+  assert.match(baseConhecimentoClientSource, /defaultValue=\{artigo\?\.resumo \?\? ""\}/);
+  assert.doesNotMatch(baseConhecimentoClientSource, /function ResumoAutocomplete/);
+  assert.match(baseConhecimentoClientSource, /tagsSugeridas/);
+  assert.match(baseConhecimentoClientSource, /Digite para consultar ou criar tag/);
+  assert.match(baseConhecimentoClientSource, /sugestoesFiltradas/);
+  assert.match(baseConhecimentoClientSource, /selecionarSugestao\(tag\.nome\)/);
+  assert.doesNotMatch(baseConhecimentoClientSource, /name="resumo"[\s\S]{0,120}required/);
+});
+
 test("knowledge base save action persists all selected attachments", () => {
   assert.match(baseConhecimentoActionsSource, /function getArquivos\(formData: FormData\)/);
   assert.match(baseConhecimentoActionsSource, /\.getAll\("anexos"\)/);

@@ -1,5 +1,15 @@
 [
   {
+    "versao": "v0.9.76",
+    "data": "19/07/2026",
+    "alteracoes": [
+      "Base de Conhecimento v1.3.8 transforma o campo Tags em uma consulta com autocomplete usando tags já cadastradas."
+    ],
+    "correcoes": [
+      "O campo Resumo volta ao textarea simples e as tags continuam opcionais, com criação por Tab, Enter ou vírgula."
+    ]
+  },
+  {
     "versao": "v0.9.75",
     "data": "18/07/2026",
     "alteracoes": [
