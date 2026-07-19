@@ -159,8 +159,13 @@ const EXTENSOES_ANEXO_PERMITIDAS = new Set([
   "wav",
   "m4a",
   "ogg",
+  "mp4",
+  "webm",
+  "mov",
+  "m4v",
 ]);
-const ACCEPT_ANEXOS_BASE = ".pdf,.jpg,.jpeg,.png,.webp,.mp3,.wav,.m4a,.ogg";
+const ACCEPT_ANEXOS_BASE =
+  ".pdf,.jpg,.jpeg,.png,.webp,.mp3,.wav,.m4a,.ogg,.mp4,.webm,.mov,.m4v";
 
 const labelClass =
   "block text-[11px] font-semibold uppercase tracking-wide text-gray-500";
@@ -225,6 +230,7 @@ function obterTipoAnexo(arquivo: File) {
   if (extensao === "pdf") return "PDF";
   if (["jpg", "jpeg", "png", "webp"].includes(extensao)) return "Imagem";
   if (["mp3", "wav", "m4a", "ogg"].includes(extensao)) return "Áudio";
+  if (["mp4", "webm", "mov", "m4v"].includes(extensao)) return "Vídeo";
   return "Arquivo";
 }
 
@@ -233,6 +239,9 @@ function tipoVisualizacaoAnexo(anexo: BaseConhecimentoAnexo) {
   const mime = anexo.tipo_mime?.toLowerCase() ?? "";
   if (mime.startsWith("audio/") || ["mp3", "wav", "m4a", "ogg"].includes(extensao)) {
     return "audio";
+  }
+  if (mime.startsWith("video/") || ["mp4", "webm", "mov", "m4v"].includes(extensao)) {
+    return "video";
   }
   if (mime.startsWith("image/") || ["jpg", "jpeg", "png", "webp"].includes(extensao)) {
     return "imagem";
@@ -243,8 +252,9 @@ function tipoVisualizacaoAnexo(anexo: BaseConhecimentoAnexo) {
   return "arquivo";
 }
 
-function urlAnexo(anexo: BaseConhecimentoAnexo, download = false) {
-  return `/ferramentas/base-conhecimento/anexos/${anexo.id}${download ? "?download=1" : ""}`;
+function urlAnexo(anexo: BaseConhecimentoAnexo, modo?: "download" | "inline") {
+  const parametro = modo === "download" ? "?download=1" : modo === "inline" ? "?inline=1" : "";
+  return `/ferramentas/base-conhecimento/anexos/${anexo.id}${parametro}`;
 }
 
 function classeStatus(status: BaseConhecimentoStatus | undefined) {
@@ -821,6 +831,56 @@ function useAnexosBaseConhecimento() {
   };
 }
 
+function AnexoResumoButton({
+  anexo,
+  onClick,
+}: {
+  anexo: BaseConhecimentoAnexo;
+  onClick: () => void;
+}) {
+  const tipo = tipoVisualizacaoAnexo(anexo);
+  const urlPreview = urlAnexo(anexo, "inline");
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full gap-3 rounded-md border border-gray-200 p-2 text-left text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
+    >
+      <span className="flex h-14 w-16 shrink-0 items-center justify-center overflow-hidden rounded border border-gray-200 bg-gray-100 text-xs font-bold text-gray-600">
+        {tipo === "imagem" ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={urlPreview}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : null}
+        {tipo === "audio" ? (
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-base text-white">
+            ▶
+          </span>
+        ) : null}
+        {tipo === "video" ? (
+          <span className="relative flex h-full w-full items-center justify-center bg-gray-900 text-white">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-sm">
+              ▶
+            </span>
+          </span>
+        ) : null}
+        {tipo === "pdf" ? "PDF" : null}
+        {tipo === "arquivo" ? "ARQ" : null}
+      </span>
+      <span className="min-w-0">
+        <span className="block break-all">{anexo.nome_arquivo}</span>
+        <span className="mt-1 block text-xs font-medium text-gray-500">
+          {formatarTamanho(anexo.tamanho_bytes)}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 function AnexoViewer({
   anexo,
   podeVoltar,
@@ -837,7 +897,7 @@ function AnexoViewer({
   onProximo: () => void;
 }) {
   const tipo = tipoVisualizacaoAnexo(anexo);
-  const urlVisualizacao = urlAnexo(anexo);
+  const urlVisualizacao = urlAnexo(anexo, "inline");
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-gray-950 text-white">
@@ -866,7 +926,7 @@ function AnexoViewer({
             Próximo
           </button>
           <a
-            href={urlAnexo(anexo, true)}
+            href={urlAnexo(anexo, "download")}
             className="inline-flex min-h-9 items-center rounded-md bg-white px-3 text-sm font-semibold text-gray-950 transition hover:bg-gray-200"
           >
             Baixar
@@ -891,6 +951,15 @@ function AnexoViewer({
             </audio>
           </div>
         ) : null}
+        {tipo === "video" ? (
+          <video
+            src={urlVisualizacao}
+            controls
+            className="max-h-full max-w-full rounded-md bg-black"
+          >
+            Seu navegador não conseguiu carregar o vídeo.
+          </video>
+        ) : null}
         {tipo === "imagem" ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -900,11 +969,17 @@ function AnexoViewer({
           />
         ) : null}
         {tipo === "pdf" ? (
-          <iframe
-            src={urlVisualizacao}
-            title={anexo.nome_arquivo}
+          <object
+            data={urlVisualizacao}
+            type="application/pdf"
             className="h-full min-h-[70vh] w-full rounded-md border border-white/10 bg-white"
-          />
+          >
+            <iframe
+              src={urlVisualizacao}
+              title={anexo.nome_arquivo}
+              className="h-full min-h-[70vh] w-full rounded-md border border-white/10 bg-white"
+            />
+          </object>
         ) : null}
         {tipo === "arquivo" ? (
           <div className="max-w-lg rounded-lg border border-white/10 bg-gray-900 p-6 text-center">
@@ -1139,7 +1214,7 @@ function ArtigoForm({
             Arraste arquivos para esta área ou selecione pelo campo acima.
           </p>
           <p className="mt-1 text-xs font-medium normal-case text-gray-500">
-            PDF, imagens estáticas e áudio de até 20 MB por arquivo.
+            PDF, imagens estáticas, áudio e vídeo de até 20 MB por arquivo.
           </p>
         </div>
 
@@ -1713,17 +1788,11 @@ export function BaseConhecimentoClient({
                 <div className="mt-3 space-y-2">
                   {artigoSelecionado.anexos.length > 0 ? (
                     artigoSelecionado.anexos.map((anexo) => (
-                      <button
+                      <AnexoResumoButton
                         key={anexo.id}
-                        type="button"
+                        anexo={anexo}
                         onClick={() => setAnexoAbertoId(anexo.id)}
-                        className="block w-full rounded-md border border-gray-200 p-3 text-left text-sm font-semibold text-blue-700 hover:bg-blue-50"
-                      >
-                        {anexo.nome_arquivo}
-                        <span className="mt-1 block text-xs font-medium text-gray-500">
-                          {formatarTamanho(anexo.tamanho_bytes)}
-                        </span>
-                      </button>
+                      />
                     ))
                   ) : (
                     <p className="text-sm text-gray-600">Nenhum anexo cadastrado.</p>

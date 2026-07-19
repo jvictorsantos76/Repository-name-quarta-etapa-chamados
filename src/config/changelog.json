@@ -1,5 +1,16 @@
 [
   {
+    "versao": "v0.9.74",
+    "data": "18/07/2026",
+    "alteracoes": [
+      "Base de Conhecimento v1.3.6 exibe play para anexos de áudio e vídeo, miniatura real para imagens e suporte a upload de vídeos.",
+      "O viewer de anexos passa a solicitar os arquivos em modo inline autenticado para melhorar a pré-visualização de PDF, imagem, áudio e vídeo."
+    ],
+    "correcoes": [
+      "PDFs deixam de depender do redirecionamento direto do Storage para serem exibidos no modal da Base de Conhecimento."
+    ]
+  },
+  {
     "versao": "v0.9.73",
     "data": "18/07/2026",
     "alteracoes": [

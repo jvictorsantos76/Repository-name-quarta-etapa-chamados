@@ -20,6 +20,10 @@ const EXTENSOES_ANEXO_PERMITIDAS = new Set([
   "wav",
   "m4a",
   "ogg",
+  "mp4",
+  "webm",
+  "mov",
+  "m4v",
 ]);
 const CONFIDENCIALIDADES_VALIDAS = new Set([
   "publica",

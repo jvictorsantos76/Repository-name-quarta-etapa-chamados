@@ -725,7 +725,11 @@ test("knowledge base attachments use operational multi-file upload", () => {
   assert.match(baseConhecimentoClientSource, /accept=\{ACCEPT_ANEXOS_BASE\}/);
   assert.match(baseConhecimentoClientSource, /onDrop=\{receberAnexosArrastados\}/);
   assert.match(baseConhecimentoClientSource, /Arraste arquivos para esta área ou selecione pelo campo acima\./);
-  assert.match(baseConhecimentoClientSource, /PDF, imagens estáticas e áudio de até 20 MB por arquivo\./);
+  assert.match(
+    baseConhecimentoClientSource,
+    /PDF, imagens estáticas, áudio e vídeo de até 20 MB por arquivo\./
+  );
+  assert.match(baseConhecimentoClientSource, /\.mp4,\.webm,\.mov,\.m4v/);
   assert.match(baseConhecimentoClientSource, /DataTransfer/);
   assert.match(baseConhecimentoClientSource, /removerAnexo\(indice\)/);
 });
@@ -736,6 +740,8 @@ test("knowledge base save action persists all selected attachments", () => {
   assert.match(baseConhecimentoActionsSource, /\.slice\(0, 10\)/);
   assert.match(baseConhecimentoActionsSource, /"mp3"/);
   assert.match(baseConhecimentoActionsSource, /"wav"/);
+  assert.match(baseConhecimentoActionsSource, /"mp4"/);
+  assert.match(baseConhecimentoActionsSource, /"webm"/);
   assert.match(baseConhecimentoActionsSource, /for \(const \[indice, arquivo\] of arquivos\.entries\(\)\)/);
   assert.match(baseConhecimentoActionsSource, /salvarAnexoArtigo\(artigoId, arquivo, perfil\.id, indice\)/);
   assert.doesNotMatch(baseConhecimentoActionsSource, /formData\.get\("anexo"\)/);
@@ -746,22 +752,28 @@ test("knowledge base article detail opens as a reading view with attachment moda
   assert.match(baseConhecimentoClientSource, /fixed inset-0 z-50 overflow-y-auto bg-gray-100/);
   assert.match(baseConhecimentoClientSource, /Voltar para cadastro/);
   assert.match(baseConhecimentoClientSource, /function AnexoViewer/);
+  assert.match(baseConhecimentoClientSource, /function AnexoResumoButton/);
   assert.match(baseConhecimentoClientSource, /fixed inset-0 z-\[60\]/);
   assert.match(baseConhecimentoClientSource, /audio src=\{urlVisualizacao\} controls/);
-  assert.match(baseConhecimentoClientSource, /<iframe[\s\S]*src=\{urlVisualizacao\}/);
+  assert.match(baseConhecimentoClientSource, /<video[\s\S]*src=\{urlVisualizacao\}[\s\S]*controls/);
+  assert.match(baseConhecimentoClientSource, /data=\{urlVisualizacao\}[\s\S]*type="application\/pdf"/);
   assert.match(baseConhecimentoClientSource, /<img[\s\S]*src=\{urlVisualizacao\}/);
+  assert.match(baseConhecimentoClientSource, /urlAnexo\(anexo, "inline"\)/);
+  assert.match(baseConhecimentoClientSource, /▶/);
   assert.match(baseConhecimentoClientSource, /Anterior/);
   assert.match(baseConhecimentoClientSource, /Próximo/);
   assert.match(baseConhecimentoClientSource, /Baixar/);
   assert.match(baseConhecimentoClientSource, /Fechar/);
-  assert.match(baseConhecimentoClientSource, /onClick=\{\(\) => setAnexoAbertoId\(anexo\.id\)\}/);
+  assert.match(baseConhecimentoClientSource, /<AnexoResumoButton[\s\S]*onClick=\{\(\) => setAnexoAbertoId\(anexo\.id\)\}/);
 });
 
 test("knowledge base attachment route supports authenticated download", () => {
   assert.match(baseConhecimentoAnexoRouteSource, /request\.nextUrl\.searchParams\.get\("download"\) === "1"/);
+  assert.match(baseConhecimentoAnexoRouteSource, /request\.nextUrl\.searchParams\.get\("inline"\) === "1"/);
   assert.match(baseConhecimentoAnexoRouteSource, /fetch\(urlAssinada\.signedUrl\)/);
   assert.match(baseConhecimentoAnexoRouteSource, /Content-Disposition/);
-  assert.match(baseConhecimentoAnexoRouteSource, /attachment; filename=/);
+  assert.match(baseConhecimentoAnexoRouteSource, /"attachment" : "inline"/);
+  assert.match(baseConhecimentoAnexoRouteSource, /; filename="\$\{nomeArquivo\}"/);
   assert.match(baseConhecimentoAnexoRouteSource, /Cache-Control": "private, no-store"/);
 });
 

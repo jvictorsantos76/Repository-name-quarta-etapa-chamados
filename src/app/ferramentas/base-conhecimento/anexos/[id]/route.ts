@@ -43,10 +43,13 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     });
   }
 
-  if (request.nextUrl.searchParams.get("download") === "1") {
+  const deveBaixar = request.nextUrl.searchParams.get("download") === "1";
+  const deveExibirInline = request.nextUrl.searchParams.get("inline") === "1";
+
+  if (deveBaixar || deveExibirInline) {
     const arquivo = await fetch(urlAssinada.signedUrl);
     if (!arquivo.ok || !arquivo.body) {
-      return new NextResponse("Não foi possível baixar o anexo.", {
+      return new NextResponse("Não foi possível carregar o anexo.", {
         status: 502,
       });
     }
@@ -54,7 +57,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     const nomeArquivo = String(anexo.nome_arquivo ?? "anexo").replace(/["\r\n]/g, "");
     return new NextResponse(arquivo.body, {
       headers: {
-        "Content-Disposition": `attachment; filename="${nomeArquivo}"`,
+        "Content-Disposition": `${deveBaixar ? "attachment" : "inline"}; filename="${nomeArquivo}"`,
         "Content-Type": String(anexo.tipo_mime ?? arquivo.headers.get("content-type") ?? "application/octet-stream"),
         "Cache-Control": "private, no-store",
       },
