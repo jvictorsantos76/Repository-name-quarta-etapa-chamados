@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+const packageSource = await readFile(
+  new URL("../package.json", import.meta.url),
+  "utf8"
+);
 const permissionsSource = await readFile(
   new URL("../src/lib/auth/permissions.ts", import.meta.url),
   "utf8"
@@ -753,10 +757,14 @@ test("knowledge base article detail opens as a reading view with attachment moda
   assert.match(baseConhecimentoClientSource, /Voltar para cadastro/);
   assert.match(baseConhecimentoClientSource, /function AnexoViewer/);
   assert.match(baseConhecimentoClientSource, /function AnexoResumoButton/);
+  assert.match(baseConhecimentoClientSource, /function PdfCanvasViewer/);
   assert.match(baseConhecimentoClientSource, /fixed inset-0 z-\[60\]/);
   assert.match(baseConhecimentoClientSource, /audio src=\{urlVisualizacao\} controls/);
   assert.match(baseConhecimentoClientSource, /<video[\s\S]*src=\{urlVisualizacao\}[\s\S]*controls/);
-  assert.match(baseConhecimentoClientSource, /data=\{urlVisualizacao\}[\s\S]*type="application\/pdf"/);
+  assert.match(baseConhecimentoClientSource, /await import\("pdfjs-dist"\)/);
+  assert.match(baseConhecimentoClientSource, /pdf\.worker\.mjs/);
+  assert.match(baseConhecimentoClientSource, /<canvas ref=\{canvasRef\}/);
+  assert.doesNotMatch(baseConhecimentoClientSource, /type="application\/pdf"/);
   assert.match(baseConhecimentoClientSource, /<img[\s\S]*src=\{urlVisualizacao\}/);
   assert.match(baseConhecimentoClientSource, /urlAnexo\(anexo, "inline"\)/);
   assert.match(baseConhecimentoClientSource, /▶/);
@@ -765,6 +773,7 @@ test("knowledge base article detail opens as a reading view with attachment moda
   assert.match(baseConhecimentoClientSource, /Baixar/);
   assert.match(baseConhecimentoClientSource, /Fechar/);
   assert.match(baseConhecimentoClientSource, /<AnexoResumoButton[\s\S]*onClick=\{\(\) => setAnexoAbertoId\(anexo\.id\)\}/);
+  assert.match(packageSource, /"pdfjs-dist"/);
 });
 
 test("knowledge base attachment route supports authenticated download", () => {

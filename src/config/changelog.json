@@ -1,5 +1,15 @@
 [
   {
+    "versao": "v0.9.75",
+    "data": "18/07/2026",
+    "alteracoes": [
+      "Base de Conhecimento v1.3.7 passa a renderizar PDFs em canvas com PDF.js dentro do viewer de anexos, sem depender do visualizador nativo do navegador."
+    ],
+    "correcoes": [
+      "O botão interno Abrir do iframe/object deixa de levar o operador para a rota do anexo sem retorno para o artigo."
+    ]
+  },
+  {
     "versao": "v0.9.74",
     "data": "18/07/2026",
     "alteracoes": [

@@ -881,6 +881,125 @@ function AnexoResumoButton({
   );
 }
 
+function PdfCanvasViewer({ url }: { url: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(0);
+  const [status, setStatus] = useState("Carregando PDF...");
+  const [erro, setErro] = useState("");
+
+  useEffect(() => {
+    let cancelado = false;
+    let renderTask: { cancel: () => void; promise: Promise<unknown> } | null = null;
+
+    async function renderizar() {
+      setErro("");
+      setStatus("Carregando PDF...");
+
+      try {
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          "pdfjs-dist/build/pdf.worker.mjs",
+          import.meta.url
+        ).toString();
+
+        const documento = await pdfjsLib.getDocument({ url }).promise;
+        if (cancelado) return;
+
+        setTotalPaginas(documento.numPages);
+        const paginaSegura = Math.min(Math.max(paginaAtual, 1), documento.numPages);
+        if (paginaSegura !== paginaAtual) {
+          setPaginaAtual(paginaSegura);
+          return;
+        }
+
+        const pagina = await documento.getPage(paginaSegura);
+        if (cancelado) return;
+
+        const canvas = canvasRef.current;
+        const contexto = canvas?.getContext("2d");
+        if (!canvas || !contexto) {
+          setErro("Não foi possível preparar a área de visualização do PDF.");
+          return;
+        }
+
+        const larguraDisponivel = Math.max(
+          320,
+          Math.min(window.innerWidth - 64, 1100)
+        );
+        const viewportBase = pagina.getViewport({ scale: 1 });
+        const scale = Math.min(2, larguraDisponivel / viewportBase.width);
+        const viewport = pagina.getViewport({ scale });
+        const outputScale = window.devicePixelRatio || 1;
+
+        canvas.width = Math.floor(viewport.width * outputScale);
+        canvas.height = Math.floor(viewport.height * outputScale);
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        contexto.clearRect(0, 0, canvas.width, canvas.height);
+
+        renderTask = pagina.render({
+          canvas,
+          canvasContext: contexto,
+          transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined,
+          viewport,
+        });
+        await renderTask.promise;
+        if (!cancelado) {
+          setStatus("");
+        }
+      } catch (error) {
+        if (!cancelado && (error as { name?: string }).name !== "RenderingCancelledException") {
+          setErro("Não foi possível visualizar este PDF no navegador.");
+          setStatus("");
+        }
+      }
+    }
+
+    renderizar();
+
+    return () => {
+      cancelado = true;
+      renderTask?.cancel();
+    };
+  }, [paginaAtual, url]);
+
+  return (
+    <div className="flex h-full min-h-[70vh] w-full flex-col items-center overflow-auto rounded-md border border-white/10 bg-gray-900 p-4">
+      <div className="mb-3 flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 text-sm text-gray-200">
+        <span className="font-semibold">
+          Página {totalPaginas ? paginaAtual : "-"} de {totalPaginas || "-"}
+        </span>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setPaginaAtual((pagina) => Math.max(1, pagina - 1))}
+            disabled={paginaAtual <= 1}
+            className="min-h-8 rounded-md border border-white/20 px-3 font-semibold transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Página anterior
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setPaginaAtual((pagina) =>
+                totalPaginas ? Math.min(totalPaginas, pagina + 1) : pagina
+              )
+            }
+            disabled={!totalPaginas || paginaAtual >= totalPaginas}
+            className="min-h-8 rounded-md border border-white/20 px-3 font-semibold transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Próxima página
+          </button>
+        </div>
+      </div>
+      {status ? <p className="py-8 text-sm font-semibold text-gray-300">{status}</p> : null}
+      {erro ? <p className="py-8 text-sm font-semibold text-red-200">{erro}</p> : null}
+      <canvas ref={canvasRef} className="max-w-full rounded bg-white shadow-lg" />
+    </div>
+  );
+}
+
 function AnexoViewer({
   anexo,
   podeVoltar,
@@ -969,17 +1088,7 @@ function AnexoViewer({
           />
         ) : null}
         {tipo === "pdf" ? (
-          <object
-            data={urlVisualizacao}
-            type="application/pdf"
-            className="h-full min-h-[70vh] w-full rounded-md border border-white/10 bg-white"
-          >
-            <iframe
-              src={urlVisualizacao}
-              title={anexo.nome_arquivo}
-              className="h-full min-h-[70vh] w-full rounded-md border border-white/10 bg-white"
-            />
-          </object>
+          <PdfCanvasViewer url={urlVisualizacao} />
         ) : null}
         {tipo === "arquivo" ? (
           <div className="max-w-lg rounded-lg border border-white/10 bg-gray-900 p-6 text-center">
