@@ -745,6 +745,10 @@ test("knowledge base tags field offers autocomplete without becoming required", 
   assert.match(baseConhecimentoClientSource, /tagsSugeridas/);
   assert.match(baseConhecimentoClientSource, /Digite para consultar ou criar tag/);
   assert.match(baseConhecimentoClientSource, /sugestoesFiltradas/);
+  assert.match(baseConhecimentoClientSource, /new Set\(tags\.map\(\(tag\) => textoFiltro\(tag\)\)\)/);
+  assert.match(baseConhecimentoClientSource, /!tagsSelecionadas\.has\(nome\)/);
+  assert.match(baseConhecimentoClientSource, /\.slice\(0, 8\)/);
+  assert.match(baseConhecimentoClientSource, /onMouseDown=\{\(event\) => \{\s*event\.preventDefault\(\);/);
   assert.match(baseConhecimentoClientSource, /selecionarSugestao\(tag\.nome\)/);
   assert.doesNotMatch(baseConhecimentoClientSource, /name="resumo"[\s\S]{0,120}required/);
 });
