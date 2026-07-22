@@ -12,6 +12,7 @@ commits, migrations ou validacao tecnica.
 - Criar nova migration para alteracoes de banco; nao editar migrations antigas ja aplicadas.
 - Nao alterar `.env.local`, secrets, producao ou dados reais sem solicitacao explicita.
 - Validar mudancas com `npm run lint` e `npm run build` quando houver alteracao de codigo.
+- Para ajustes online, seguir `docs/mudancas-online-seguras.md` antes de promover para producao.
 - Para UI, seguir `DESIGN.md` e priorizar densidade operacional, clareza e rastreabilidade.
 
 ## Em Andamento
@@ -20,7 +21,7 @@ Registrar aqui mudancas que estao sendo implementadas ou validadas.
 
 | Item | Area | Status | Responsavel | Evidencia |
 |---|---|---|---|---|
-| Documentar roteiro de mudancas e correcoes | Governanca do projeto | em andamento | Codex | `docs/planejamento-mudancas.md` |
+| Documentar roteiro de mudancas e correcoes | Governanca do projeto | concluido | Codex | `docs/planejamento-mudancas.md` |
 
 ## Proximas Mudancas
 
@@ -30,7 +31,7 @@ Registrar aqui candidatos a implementacao, sem assumir que todos estao aprovados
 |---|---|---|---|---|
 | Alta | Manter changelog versionavel | Governanca | Facilitar rastreio de entregas e regressao | `CHANGELOG.md` atualizado junto com mudancas visiveis |
 | Media | Formalizar decisoes tecnicas recorrentes | Arquitetura | Reduzir decisoes repetidas em auth, perfis, RLS e evidencias | Documento de decisoes com fonte de verdade e impacto |
-| Media | Padronizar checklists de mudanca controlada | Qualidade | Evitar esquecimento de lint, build, migration e validacao localhost | Checklist curto em `docs/checklists/` |
+| Media | Revisar periodicamente o roteiro de mudancas online | Qualidade | Manter deploy, preview, validacao e rollback aderentes ao processo real | `docs/mudancas-online-seguras.md` atualizado quando o fluxo mudar |
 
 ## Correcoes Pendentes
 
@@ -64,6 +65,8 @@ Registrar decisoes que afetam futuras mudancas.
 - [ ] Confirmar se a mudanca exige migration.
 - [ ] Confirmar se ha impacto em autorizacao, RLS, dados pessoais ou LGPD.
 - [ ] Verificar se ha alteracoes preexistentes no worktree.
+- [ ] Definir rollback para codigo, banco, configuracao e deploy quando aplicavel.
+- [ ] Confirmar se o ajuste deve seguir `docs/mudancas-online-seguras.md`.
 - [ ] Planejar validacao minima antes de editar.
 
 ## Checklist Depois de Implementar
@@ -72,6 +75,7 @@ Registrar decisoes que afetam futuras mudancas.
 - [ ] Rodar `npm run build` quando houver alteracao de codigo.
 - [ ] Rodar testes existentes quando o fluxo tocado tiver cobertura.
 - [ ] Validar localhost quando a mudanca for visual, de auth ou fluxo operacional.
+- [ ] Validar preview antes de producao quando a mudanca afetar fluxo online.
 - [ ] Atualizar versao/changelog quando a mudanca afetar comportamento visivel.
 - [ ] Registrar riscos, pendencias e proximo passo.
 
@@ -87,3 +91,4 @@ para decisoes de banco, RLS, autorizacao ou comportamento de UI.
 |---|---|---|
 | 2026-07-16 | Criado documento inicial de planejamento de mudancas e correcoes | `docs/planejamento-mudancas.md` |
 | 2026-07-16 | Criado changelog versionavel aderente ao changelog visivel do sistema | `CHANGELOG.md` |
+| 2026-07-22 | Documentado procedimento de mudancas online seguras com rollback obrigatorio | `docs/mudancas-online-seguras.md` |

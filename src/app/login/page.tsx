@@ -313,10 +313,10 @@ export default function LoginPage() {
             <div>
               <div className="flex h-24 w-full max-w-[360px] items-center justify-center rounded-lg border border-white/20 bg-white px-5 py-4 shadow-sm">
                 <Image
-                  src="/brand/quarta-etapa-logo.png"
+                  src="/brand/quarta-etapa-logo-login-preview.jpg"
                   alt="Quarta Etapa"
-                  width={300}
-                  height={120}
+                  width={360}
+                  height={165}
                   priority
                   className="h-auto max-h-20 w-full object-contain"
                 />

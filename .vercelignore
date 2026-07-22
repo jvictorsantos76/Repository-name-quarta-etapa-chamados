@@ -1,0 +1,8 @@
+.codex-remote-attachments/
+.playwright-mcp/
+graphify-out/
+graph.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
