@@ -142,6 +142,13 @@ const aceitesLegaisUpsertMigration = await readFile(
   ),
   "utf8"
 );
+const focusedAccessUsersMigration = await readFile(
+  new URL(
+    "../supabase/migrations/20260721223927_reconcile_focused_access_users.sql",
+    import.meta.url
+  ),
+  "utf8"
+);
 const homePageSource = await readFile(
   new URL("../src/app/page.tsx", import.meta.url),
   "utf8"
@@ -152,6 +159,14 @@ const passwordPolicySource = await readFile(
 );
 const alterarSenhaActionsSource = await readFile(
   new URL("../src/app/auth/alterar-senha/actions.ts", import.meta.url),
+  "utf8"
+);
+const alterarSenhaPageSource = await readFile(
+  new URL("../src/app/auth/alterar-senha/page.tsx", import.meta.url),
+  "utf8"
+);
+const alterarSenhaFormSource = await readFile(
+  new URL("../src/app/auth/alterar-senha/AlterarSenhaForm.tsx", import.meta.url),
   "utf8"
 );
 const designSource = await readFile(new URL("../DESIGN.md", import.meta.url), "utf8");
@@ -515,16 +530,27 @@ test("new ticket initial status uses the canonical value accepted by chamados", 
 
 test("admin approval uses invite or recovery links and supports manual regeneration", () => {
   assert.match(adminUsuariosSource, /inviteUserByEmail/);
-  assert.match(adminUsuariosSource, /resetPasswordForEmail/);
+  assert.doesNotMatch(adminUsuariosSource, /resetPasswordForEmail/);
+  assert.match(loginPageSource, /resetPasswordForEmail/);
   assert.match(adminUsuariosSource, /gerarLinkConviteManual/);
   assert.match(adminUsuariosSource, /type: "invite"/);
   assert.match(adminUsuariosSource, /gerarLinkRecuperacaoManual/);
   assert.match(adminUsuariosSource, /type: "recovery"/);
   assert.match(adminUsuariosSource, /linkAcessoManual: linkManual\.linkAcessoManual/);
+  assert.match(adminUsuariosSource, /function montarLinkConfirmacaoManual/);
+  assert.match(adminUsuariosSource, /token_hash/);
+  assert.match(adminUsuariosSource, /properties\?\.hashed_token/);
+  assert.doesNotMatch(
+    adminUsuariosSource,
+    /linkAcessoManual:\s*dadosLink\.properties\?\.action_link/
+  );
   assert.match(
     adminUsuariosSource,
     /!\["aprovar", "rejeitar", "gerar_link"\]\.includes\(acao\)/
   );
+  assert.match(adminUsuariosSource, /function getObservacaoInternaLabel/);
+  assert.match(adminUsuariosSource, /status === "rejeitado"[\s\S]*Motivo da rejeição/);
+  assert.match(adminUsuariosSource, /Observação interna/);
 });
 
 test("pending access migration still tracks confirmation, approval and blocking states", () => {
@@ -632,6 +658,54 @@ test("admin-approval-only migration disables temporary access helpers without de
   assert.match(adminApprovalOnlyMigration, /select public\.usuario_operacional_ativo\(\);/i);
 });
 
+test("focused access reconciliation stays scoped and removes sensitive truncate grants", () => {
+  for (const email of [
+    "joaovictor@quartaetapa.com.br",
+    "sup02@quartaetapa.com.br",
+    "sup03@quartaetapa.com.br",
+    "joaovictordossantos@gmail.com",
+    "quartaetapa@gmail.com",
+  ]) {
+    assert.match(focusedAccessUsersMigration, new RegExp(email, "i"));
+  }
+
+  for (const role of ["super_admin", "admin", "tecnico_quarta", "cliente"]) {
+    assert.match(
+      focusedAccessUsersMigration,
+      new RegExp(`'${role}'::public\\.papel_usuario`, "i")
+    );
+  }
+
+  assert.match(
+    focusedAccessUsersMigration,
+    /nome_fantasia = 'Quarta Etapa Tecnologia para Negócios'/i
+  );
+  assert.match(focusedAccessUsersMigration, /nome_loja = 'Matriz'/i);
+
+  for (const tableName of [
+    "perfis",
+    "solicitacoes_acesso",
+    "aceites_legais",
+    "chamados",
+    "clientes",
+    "lojas",
+    "historico_status",
+    "registros_tecnicos",
+    "evidencias_anexos",
+  ]) {
+    assert.match(
+      focusedAccessUsersMigration,
+      new RegExp(
+        `revoke truncate on table public\\.${tableName} from anon, authenticated`,
+        "i"
+      )
+    );
+  }
+
+  assert.doesNotMatch(focusedAccessUsersMigration, /delete from auth\.users/i);
+  assert.doesNotMatch(focusedAccessUsersMigration, /insert into auth\.users/i);
+});
+
 test("home no longer renders temporary-access copy", () => {
   assert.match(homePageSource, /Gestão de Chamados/);
   assert.doesNotMatch(homePageSource, /Acesso temporário/);
@@ -644,7 +718,22 @@ test("password policy helper is reused in cadastro and authenticated password ch
   assert.match(passwordPolicySource, /UPPERCASE_REGEX/);
   assert.match(passwordPolicySource, /DIGIT_REGEX/);
   assert.match(alterarSenhaActionsSource, /validarPoliticaSenha\(senha\)/);
-  assert.match(alterarSenhaActionsSource, /auth\.updateUser\(\{ password: senha \}\)/);
+  assert.match(alterarSenhaActionsSource, /getSupabasePasswordSetupToken/);
+  assert.match(alterarSenhaActionsSource, /auth\.getUser\(passwordSetupToken\)/);
+  assert.match(alterarSenhaActionsSource, /auth\.admin\.updateUserById\(user\.id/);
+  assert.match(alterarSenhaActionsSource, /clearSupabasePasswordSetupCookie/);
+  assert.match(alterarSenhaActionsSource, /clearSupabaseSessionCookies/);
+  assert.doesNotMatch(alterarSenhaActionsSource, /getSupabaseAccessToken/);
+  assert.match(alterarSenhaFormSource, /clearInvalidSupabaseBrowserSession\(supabase\)/);
+  assert.match(alterarSenhaFormSource, /router\.replace\("\/login"\)/);
+  assert.match(alterarSenhaFormSource, /router\.refresh\(\)/);
+  assert.match(alterarSenhaPageSource, /getSupabasePasswordSetupToken/);
+  assert.match(alterarSenhaPageSource, /auth\.getUser\(passwordSetupToken\)/);
+  assert.match(authConfirmSource, /setSupabasePasswordSetupCookie\(session\)/);
+  assert.match(
+    authConfirmSource,
+    /if \(type === "recovery" \|\| type === "invite"\) \{[\s\S]*setSupabasePasswordSetupCookie\(session\)[\s\S]*return redirectTo\(request, nextPath\)/
+  );
 });
 
 test("small configuration catalogs follow the canonical ticket status pattern", () => {

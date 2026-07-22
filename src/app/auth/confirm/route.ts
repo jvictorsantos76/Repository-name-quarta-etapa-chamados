@@ -4,6 +4,7 @@ import {
   createSupabaseAdminClient,
   createSupabasePublicServerClient,
   resolverAcessoAutenticadoComToken,
+  setSupabasePasswordSetupCookie,
   setSupabaseSessionCookies,
 } from "@/lib/supabase/server";
 
@@ -113,11 +114,12 @@ export async function GET(request: NextRequest) {
     await confirmarSolicitacaoEmail(session);
   }
 
-  await setSupabaseSessionCookies(session);
-
   if (type === "recovery" || type === "invite") {
+    await setSupabasePasswordSetupCookie(session);
     return redirectTo(request, nextPath);
   }
+
+  await setSupabaseSessionCookies(session);
 
   const acesso = await resolverAcessoAutenticadoComToken(session.access_token);
 

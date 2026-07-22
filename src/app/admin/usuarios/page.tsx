@@ -98,6 +98,21 @@ function getAuthConfirmUrl(headersList: Headers) {
   return `${getBaseUrl(headersList)}/auth/confirm?next=/auth/alterar-senha`;
 }
 
+function montarLinkConfirmacaoManual(
+  redirectTo: string,
+  tokenHash: string | null | undefined,
+  type: "invite" | "recovery"
+) {
+  if (!tokenHash) {
+    return null;
+  }
+
+  const url = new URL(redirectTo);
+  url.searchParams.set("token_hash", tokenHash);
+  url.searchParams.set("type", type);
+  return url.toString();
+}
+
 async function buscarUsuarioAuthPorEmail(email: string) {
   const supabaseAdmin = createSupabaseAdminClient();
   const emailNormalizado = email.trim().toLowerCase();
@@ -155,7 +170,11 @@ async function convidarOuLocalizarUsuario(
     return {
       user: dadosLink.user,
       error: erroLink,
-      linkAcessoManual: dadosLink.properties?.action_link ?? null,
+      linkAcessoManual: montarLinkConfirmacaoManual(
+        redirectTo,
+        dadosLink.properties?.hashed_token,
+        "invite"
+      ),
     };
   };
   const gerarLinkRecuperacaoManual = async () => {
@@ -171,7 +190,11 @@ async function convidarOuLocalizarUsuario(
     return {
       user: dadosLink.user,
       error: erroLink,
-      linkAcessoManual: dadosLink.properties?.action_link ?? null,
+      linkAcessoManual: montarLinkConfirmacaoManual(
+        redirectTo,
+        dadosLink.properties?.hashed_token,
+        "recovery"
+      ),
     };
   };
 
@@ -186,17 +209,12 @@ async function convidarOuLocalizarUsuario(
   }
 
   if (usuarioExistente.user) {
-    const { error: erroRecuperacao } =
-      await supabaseAdmin.auth.resetPasswordForEmail(emailNormalizado, {
-        redirectTo,
-      });
-
     const linkManual = await gerarLinkRecuperacaoManual();
 
     if (!linkManual.error && linkManual.linkAcessoManual) {
       return {
         user: usuarioExistente.user,
-        errorMessage: erroRecuperacao?.message ?? null,
+        errorMessage: null,
         linkAcessoManual: linkManual.linkAcessoManual,
       };
     }
@@ -205,8 +223,7 @@ async function convidarOuLocalizarUsuario(
       user: null,
       errorMessage:
         linkManual.error?.message ??
-        erroRecuperacao?.message ??
-        "Não foi possível enviar a recuperação de acesso.",
+        "Não foi possível gerar o link manual de recuperação.",
       linkAcessoManual: null,
     };
   }
@@ -487,6 +504,12 @@ function mensagemAprovacao(solicitacao: SolicitacaoAcesso) {
   return null;
 }
 
+function getObservacaoInternaLabel(solicitacao: SolicitacaoAcesso) {
+  return solicitacao.status === "rejeitado"
+    ? "Motivo da rejeição:"
+    : "Observação interna:";
+}
+
 export default async function AdminUsuariosPage() {
   const perfilAtual = await requireAdminUsuarios();
   const supabase = await createSupabaseServerClient();
@@ -620,7 +643,9 @@ export default async function AdminUsuariosPage() {
 
                     {solicitacao.observacao_interna && (
                       <div className="mt-4 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
-                        <span className="font-semibold">Motivo da rejeição:</span>{" "}
+                        <span className="font-semibold">
+                          {getObservacaoInternaLabel(solicitacao)}
+                        </span>{" "}
                         {solicitacao.observacao_interna}
                       </div>
                     )}

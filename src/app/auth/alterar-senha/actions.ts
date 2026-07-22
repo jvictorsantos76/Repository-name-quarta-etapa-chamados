@@ -1,8 +1,11 @@
 "use server";
 
 import {
+  clearSupabasePasswordSetupCookie,
   clearSupabaseSessionCookies,
-  createSupabaseServerClient,
+  createSupabaseAdminClient,
+  createSupabasePublicServerClient,
+  getSupabasePasswordSetupToken,
 } from "@/lib/supabase/server";
 import { validarPoliticaSenha } from "@/lib/auth/password-policy";
 
@@ -31,19 +34,33 @@ export async function alterarSenhaAutenticada(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const passwordSetupToken = await getSupabasePasswordSetupToken();
 
-  if (!user) {
+  if (!passwordSetupToken) {
     return {
       ok: false,
       mensagem: "O link de alteração expirou. Solicite um novo link.",
     };
   }
 
-  const { error } = await supabase.auth.updateUser({ password: senha });
+  const supabase = createSupabasePublicServerClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser(passwordSetupToken);
+
+  if (userError || !user) {
+    await clearSupabasePasswordSetupCookie();
+    return {
+      ok: false,
+      mensagem: "O link de alteração expirou. Solicite um novo link.",
+    };
+  }
+
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+    password: senha,
+  });
 
   if (error) {
     return {
@@ -53,6 +70,7 @@ export async function alterarSenhaAutenticada(
     };
   }
 
+  await clearSupabasePasswordSetupCookie();
   await clearSupabaseSessionCookies();
 
   return {

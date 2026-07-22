@@ -1,16 +1,25 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  createSupabasePublicServerClient,
+  getSupabasePasswordSetupToken,
+} from "@/lib/supabase/server";
 import { AlterarSenhaForm } from "./AlterarSenhaForm";
 
-async function temSessaoValida() {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getUser();
+async function temTokenDeAlteracaoValido() {
+  const passwordSetupToken = await getSupabasePasswordSetupToken();
+
+  if (!passwordSetupToken) {
+    return false;
+  }
+
+  const supabase = createSupabasePublicServerClient();
+  const { data, error } = await supabase.auth.getUser(passwordSetupToken);
 
   return !error && Boolean(data.user);
 }
 
 export default async function AlterarSenhaPage() {
-  const sessaoValida = await temSessaoValida();
+  const tokenDeAlteracaoValido = await temTokenDeAlteracaoValido();
 
   return (
     <main className="min-h-screen bg-gray-100 p-6 text-gray-900 md:p-8">
@@ -27,7 +36,7 @@ export default async function AlterarSenhaPage() {
           Defina uma nova senha para sua conta autorizada.
         </p>
 
-        {!sessaoValida ? (
+        {!tokenDeAlteracaoValido ? (
           <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
             Link expirado ou sessão não encontrada. Solicite novamente a
             recuperação de senha.

@@ -1,33 +1,37 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { PASSWORD_POLICY_HINT } from "@/lib/auth/password-policy";
+import {
+  clearInvalidSupabaseBrowserSession,
+  useSupabaseBrowserClient,
+} from "@/lib/supabase/client";
 import { alterarSenhaAutenticada } from "./actions";
 
 export function AlterarSenhaForm() {
+  const router = useRouter();
+  const supabase = useSupabaseBrowserClient();
   const [senha, setSenha] = useState("");
   const [confirmacao, setConfirmacao] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState("");
-  const [sucesso, setSucesso] = useState("");
 
   async function alterarSenha(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErro("");
-    setSucesso("");
     setEnviando(true);
 
     const resultado = await alterarSenhaAutenticada(senha, confirmacao);
-    setEnviando(false);
-
     if (!resultado.ok) {
+      setEnviando(false);
       setErro(resultado.mensagem);
       return;
     }
 
-    setSenha("");
-    setConfirmacao("");
-    setSucesso(resultado.mensagem);
+    await clearInvalidSupabaseBrowserSession(supabase);
+    router.replace("/login");
+    router.refresh();
   }
 
   return (
@@ -37,15 +41,6 @@ export function AlterarSenhaForm() {
           {erro}
         </div>
       )}
-      {sucesso && (
-        <div className="space-y-3 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
-          <p>{sucesso}</p>
-          <a href="/login" className="font-semibold text-green-800 underline">
-            Ir para o login
-          </a>
-        </div>
-      )}
-
       <div>
         <label className="mb-2 block text-sm font-semibold">Nova senha</label>
         <input

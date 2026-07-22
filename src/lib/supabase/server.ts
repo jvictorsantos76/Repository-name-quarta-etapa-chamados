@@ -9,6 +9,7 @@ import type { PerfilAutenticado } from "@/lib/auth/types";
 import { isPapelUsuario, podeAdministrarUsuarios } from "@/lib/auth/permissions";
 import {
   SUPABASE_ACCESS_TOKEN_COOKIE,
+  SUPABASE_PASSWORD_SETUP_TOKEN_COOKIE,
   SUPABASE_REFRESH_TOKEN_COOKIE,
 } from "./constants";
 
@@ -91,6 +92,40 @@ export async function getSupabaseAccessToken() {
 
 export async function getSupabaseRefreshToken() {
   return (await cookies()).get(SUPABASE_REFRESH_TOKEN_COOKIE)?.value ?? null;
+}
+
+export async function getSupabasePasswordSetupToken() {
+  return (
+    (await cookies()).get(SUPABASE_PASSWORD_SETUP_TOKEN_COOKIE)?.value ?? null
+  );
+}
+
+export async function setSupabasePasswordSetupCookie(session: Session) {
+  const cookieStore = await cookies();
+
+  cookieStore.set(
+    SUPABASE_PASSWORD_SETUP_TOKEN_COOKIE,
+    session.access_token,
+    {
+      httpOnly: true,
+      path: "/auth/alterar-senha",
+      maxAge: Math.min(Math.max(session.expires_in ?? 3600, 60), 30 * 60),
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      priority: "high",
+    }
+  );
+}
+
+export async function clearSupabasePasswordSetupCookie() {
+  (await cookies()).set(SUPABASE_PASSWORD_SETUP_TOKEN_COOKIE, "", {
+    httpOnly: true,
+    path: "/auth/alterar-senha",
+    maxAge: 0,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    priority: "high",
+  });
 }
 
 export async function setSupabaseSessionCookies(session: Session) {
