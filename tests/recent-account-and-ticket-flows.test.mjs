@@ -959,6 +959,31 @@ test("sla configuration mvp keeps conservative data model and guarded pages", ()
   assert.match(slasActionsSource, /revalidatePath\(SLAS_PATH\)/);
 });
 
+test("sla configuration handles pending migration without generic failures", () => {
+  const pendingMigrationMessage =
+    "A migration de SLAs ainda não foi aplicada no banco conectado ao localhost.";
+
+  assert.match(slasPageSource, /SCHEMA_PENDENTE_MENSAGEM/);
+  assert.match(calendariosSlaPageSource, /SCHEMA_PENDENTE_MENSAGEM/);
+  assert.match(slasPageSource, /erroSchema\s*\?\s*SCHEMA_PENDENTE_MENSAGEM/);
+  assert.match(
+    calendariosSlaPageSource,
+    /erroSchema\s*\?\s*SCHEMA_PENDENTE_MENSAGEM/
+  );
+  assert.match(slasPageSource, /errosConsulta\.find\(\(item\) => item && isSchemaCacheError/);
+  assert.match(
+    calendariosSlaPageSource,
+    /errosConsulta\.find\(\(item\) => item && isSchemaCacheError/
+  );
+
+  assert.match(slasActionsSource, /code === "PGRST205"/);
+  assert.match(slasActionsSource, /schema cache/);
+  assert.match(slasActionsSource, /Could not find the table/);
+  assert.match(slasActionsSource, /mensagemErroDesconhecido/);
+  assert.match(slasActionsSource, new RegExp(pendingMigrationMessage));
+  assert.match(slasActionsSource, /catch \(error\)[\s\S]*mensagemErroDesconhecido/);
+});
+
 test("operational partners module keeps legacy compatibility and guarded RLS", () => {
   for (const tabela of [
     "parceiros",
