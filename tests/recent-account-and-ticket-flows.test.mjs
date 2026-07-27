@@ -318,6 +318,17 @@ const organizacaoFiliaisSectionSource = await readFile(
   ),
   "utf8"
 );
+const baseConhecimentoActionsSource = await readFile(
+  new URL("../src/app/ferramentas/base-conhecimento/actions.ts", import.meta.url),
+  "utf8"
+);
+const baseConhecimentoClientSource = await readFile(
+  new URL(
+    "../src/app/ferramentas/base-conhecimento/BaseConhecimentoClient.tsx",
+    import.meta.url
+  ),
+  "utf8"
+);
 const parceirosMigration = await readFile(
   new URL(
     "../supabase/migrations/20260519205423_create_parceiros_operacionais.sql",
@@ -1474,6 +1485,36 @@ test("working hours are shared by partners and SLA without a duplicate attendanc
   assert.match(navigationSource, /label: "Horários de Funcionamento"/);
   assert.match(changelogSource, /changelog\.json/);
   assert.match(changelogDataSource, /Horários de Funcionamento/);
+});
+
+test("knowledge base article save keeps partial success when technical user links are unavailable", () => {
+  assert.match(
+    baseConhecimentoClientSource,
+    /useActionState\(\s*salvarArtigoBaseConhecimento,\s*ESTADO_INICIAL_ARTIGO\s*\)/
+  );
+  assert.match(baseConhecimentoActionsSource, /export type ArtigoActionState/);
+  assert.match(baseConhecimentoActionsSource, /return \{ status: "error", message \}/);
+  assert.match(baseConhecimentoActionsSource, /function erroTabelaAusente/);
+  assert.match(
+    baseConhecimentoActionsSource,
+    /message\?\.includes\("schema cache"\)[\s\S]*message\?\.includes\("Could not find"\)[\s\S]*message\?\.includes\("does not exist"\)[\s\S]*message\?\.includes\("relation"\)/
+  );
+  assert.match(
+    baseConhecimentoActionsSource,
+    /const usuariosRelacionamentoDisponivel =[\s\S]*confidencialidade === "tecnico"[\s\S]*\? await relacionamentoUsuariosDisponivel\(\)[\s\S]*: false/
+  );
+  assert.match(
+    baseConhecimentoActionsSource,
+    /confidencialidade === "tecnico"[\s\S]*usuarioIds\.length > 0[\s\S]*!usuariosRelacionamentoDisponivel[\s\S]*A seleção de usuários técnicos exige uma migration pendente/
+  );
+  assert.match(
+    baseConhecimentoActionsSource,
+    /usuariosRelacionamentoDisponivel[\s\S]*\? sincronizarUsuariosArtigo\(artigoId, usuarioIds, perfil\.id\)[\s\S]*: Promise\.resolve\(null\)/
+  );
+  assert.doesNotMatch(
+    baseConhecimentoActionsSource,
+    /if \(\s*confidencialidade === "tecnico"\s*&&\s*!usuariosRelacionamentoDisponivel\s*\)/
+  );
 });
 
 test("organizations link to clients without replacing operational ticket fields", () => {
