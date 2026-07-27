@@ -420,6 +420,10 @@ const filiaisTabSource = parceirosFormSource.slice(
   parceirosFormSource.indexOf("function FiliaisTab"),
   parceirosFormSource.indexOf("function ContatosTab")
 );
+const parceiroOrganizationUnitsSource = parceiroDetailPageSource.slice(
+  parceiroDetailPageSource.indexOf("let parceirosOrganizacao"),
+  parceiroDetailPageSource.indexOf("const lojaLegadoIds")
+);
 
 function extractArray(source, constantName) {
   let declarationStart = source.indexOf(`export const ${constantName}:`);
@@ -434,6 +438,10 @@ function extractArray(source, constantName) {
   assert.notEqual(arrayEnd, -1, `Nao foi possivel localizar o fim de ${constantName}.`);
 
   return source.slice(arrayStart + 1, arrayEnd);
+}
+
+function countOccurrences(source, pattern) {
+  return [...source.matchAll(pattern)].length;
 }
 
 test("faturado ticket changes stay restricted to admin and analyst roles", () => {
@@ -1258,6 +1266,45 @@ test("partner operational location keeps address independent and route links ext
   assert.match(filiaisTabSource, /!unidade\.ativo/);
   assert.doesNotMatch(filiaisTabSource, /Filiais cadastradas/);
   assert.doesNotMatch(filiaisTabSource, /Nenhuma filial cadastrada para este cliente/);
+});
+
+test("partner detail page builds organization units from sibling partners", () => {
+  assert.match(
+    parceiroDetailPageSource,
+    /if \(parceiroBase\.organizacao_id\) \{[\s\S]*\.from\("parceiros"\)[\s\S]*\.eq\("organizacao_id", parceiroBase\.organizacao_id\)/
+  );
+  assert.match(
+    parceiroDetailPageSource,
+    /parceirosOrganizacaoResposta\.error[\s\S]*id: parceiroBase\.id[\s\S]*tipo_parceiro: parceiroBase\.tipo_parceiro[\s\S]*organizacao_id: parceiroBase\.organizacao_id/
+  );
+  assert.match(
+    parceiroDetailPageSource,
+    /const unidadesOrganizacaoIds = parceirosOrganizacao\.map\(\(parceiro\) => parceiro\.id\)/
+  );
+  assert.match(
+    parceiroDetailPageSource,
+    /\.from\("parceiros_enderecos"\)[\s\S]*\.in\("parceiro_id", unidadesOrganizacaoIds\)/
+  );
+  assert.match(
+    parceiroDetailPageSource,
+    /\.from\("parceiros_contatos"\)[\s\S]*\.in\("parceiro_id", unidadesOrganizacaoIds\)/
+  );
+  assert.equal(
+    countOccurrences(parceiroDetailPageSource, /if \(!enderecoPorParceiroId\.has/g),
+    1
+  );
+  assert.equal(
+    countOccurrences(parceiroDetailPageSource, /if \(!contatoPorParceiroId\.has/g),
+    1
+  );
+  assert.match(
+    parceiroDetailPageSource,
+    /nome_exibicao: unidade\.nome_fantasia \|\| unidade\.razao_social[\s\S]*endereco_resumido: montarEnderecoResumo[\s\S]*contato_resumido: montarContatoResumo[\s\S]*is_atual: unidade\.id === id/
+  );
+  assert.doesNotMatch(
+    parceiroOrganizationUnitsSource,
+    /parceiros_filiais/
+  );
 });
 
 test("partner general tab keeps compact canonical large-form layout", () => {
