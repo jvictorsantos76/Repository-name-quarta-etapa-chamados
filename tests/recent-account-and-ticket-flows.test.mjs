@@ -6,6 +6,10 @@ const packageSource = await readFile(
   new URL("../package.json", import.meta.url),
   "utf8"
 );
+const eslintConfigSource = await readFile(
+  new URL("../eslint.config.mjs", import.meta.url),
+  "utf8"
+);
 const permissionsSource = await readFile(
   new URL("../src/lib/auth/permissions.ts", import.meta.url),
   "utf8"
@@ -435,6 +439,11 @@ function extractArray(source, constantName) {
 
   return source.slice(arrayStart + 1, arrayEnd);
 }
+
+test("eslint complexity rule stays warning-only with the accepted threshold", () => {
+  assert.match(eslintConfigSource, /complexity:\s*\["warn",\s*\{\s*max:\s*10\s*\}\]/);
+  assert.doesNotMatch(eslintConfigSource, /complexity:\s*\["error"/);
+});
 
 test("faturado ticket changes stay restricted to admin and analyst roles", () => {
   const papeisFaturado = extractArray(
