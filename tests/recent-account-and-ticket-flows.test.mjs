@@ -6,6 +6,10 @@ const packageSource = await readFile(
   new URL("../package.json", import.meta.url),
   "utf8"
 );
+const eslintConfigSource = await readFile(
+  new URL("../eslint.config.mjs", import.meta.url),
+  "utf8"
+);
 const permissionsSource = await readFile(
   new URL("../src/lib/auth/permissions.ts", import.meta.url),
   "utf8"
@@ -435,6 +439,23 @@ function extractArray(source, constantName) {
 
   return source.slice(arrayStart + 1, arrayEnd);
 }
+
+test("eslint complexity warning stays native and ordered before global ignores", () => {
+  const complexityRuleIndex = eslintConfigSource.indexOf(
+    'complexity: ["warn", { max: 10 }]'
+  );
+  const globalIgnoresIndex = eslintConfigSource.indexOf("globalIgnores([");
+
+  assert.ok(complexityRuleIndex > -1);
+  assert.ok(globalIgnoresIndex > -1);
+  assert.ok(complexityRuleIndex < globalIgnoresIndex);
+  assert.match(
+    eslintConfigSource,
+    /rules:\s*\{\s*complexity: \["warn", \{ max: 10 \}\],\s*\}/
+  );
+  assert.doesNotMatch(eslintConfigSource, /complexity:\s*\["error"/);
+  assert.doesNotMatch(eslintConfigSource, /eslint-plugin-(?:sonarjs|complexity|code-complexity)/);
+});
 
 test("faturado ticket changes stay restricted to admin and analyst roles", () => {
   const papeisFaturado = extractArray(
