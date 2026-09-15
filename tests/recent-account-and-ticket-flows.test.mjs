@@ -6,6 +6,10 @@ const packageSource = await readFile(
   new URL("../package.json", import.meta.url),
   "utf8"
 );
+const eslintConfigSource = await readFile(
+  new URL("../eslint.config.mjs", import.meta.url),
+  "utf8"
+);
 const permissionsSource = await readFile(
   new URL("../src/lib/auth/permissions.ts", import.meta.url),
   "utf8"
@@ -435,6 +439,21 @@ function extractArray(source, constantName) {
 
   return source.slice(arrayStart + 1, arrayEnd);
 }
+
+test("eslint complexity warning stays native and preserves Next ignores", () => {
+  assert.match(eslintConfigSource, /from "eslint\/config"/);
+  assert.match(eslintConfigSource, /import nextVitals from "eslint-config-next\/core-web-vitals"/);
+  assert.match(eslintConfigSource, /import nextTs from "eslint-config-next\/typescript"/);
+  assert.match(eslintConfigSource, /complexity:\s*\["warn",\s*\{\s*max:\s*10\s*\}\]/);
+  assert.match(eslintConfigSource, /globalIgnores\(\[/);
+
+  for (const ignoredPath of [".next/**", "out/**", "build/**", "next-env.d.ts"]) {
+    assert.match(eslintConfigSource, new RegExp(`"${ignoredPath.replace(/\*/g, "\\*")}"`));
+  }
+
+  assert.doesNotMatch(packageSource, /eslint-plugin-complexity/);
+  assert.doesNotMatch(eslintConfigSource, /eslint-plugin-complexity/);
+});
 
 test("faturado ticket changes stay restricted to admin and analyst roles", () => {
   const papeisFaturado = extractArray(
