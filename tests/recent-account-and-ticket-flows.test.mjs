@@ -436,6 +436,29 @@ function extractArray(source, constantName) {
   return source.slice(arrayStart + 1, arrayEnd);
 }
 
+function extractFunction(source, functionName) {
+  const functionStart = source.indexOf(`function ${functionName}`);
+  assert.notEqual(functionStart, -1, `Nao foi possivel localizar ${functionName}.`);
+
+  const bodyStart = source.indexOf("{", functionStart);
+  assert.notEqual(bodyStart, -1, `Nao foi possivel localizar o corpo de ${functionName}.`);
+
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === "{") {
+      depth += 1;
+    }
+    if (source[index] === "}") {
+      depth -= 1;
+    }
+    if (depth === 0) {
+      return source.slice(bodyStart + 1, index);
+    }
+  }
+
+  assert.fail(`Nao foi possivel localizar o fim de ${functionName}.`);
+}
+
 test("faturado ticket changes stay restricted to admin and analyst roles", () => {
   const papeisFaturado = extractArray(
     permissionsSource,
@@ -733,6 +756,37 @@ test("password policy helper is reused in cadastro and authenticated password ch
   assert.match(
     authConfirmSource,
     /if \(type === "recovery" \|\| type === "invite"\) \{[\s\S]*setSupabasePasswordSetupCookie\(session\)[\s\S]*return redirectTo\(request, nextPath\)/
+  );
+});
+
+test("password setup cookie stays scoped to the password change flow", () => {
+  const passwordSetupCookieSetter = extractFunction(
+    serverSupabaseSource,
+    "setSupabasePasswordSetupCookie"
+  );
+
+  assert.match(
+    passwordSetupCookieSetter,
+    /cookieStore\.set\(\s*SUPABASE_PASSWORD_SETUP_TOKEN_COOKIE,\s*session\.access_token,\s*\{[\s\S]*httpOnly: true[\s\S]*path: "\/auth\/alterar-senha"[\s\S]*maxAge: Math\.min\(Math\.max\(session\.expires_in \?\? 3600, 60\), 30 \* 60\)[\s\S]*sameSite: "lax"[\s\S]*priority: "high"[\s\S]*\}/
+  );
+  assert.doesNotMatch(
+    passwordSetupCookieSetter,
+    /SUPABASE_PASSWORD_SETUP_TOKEN_COOKIE,\s*session\.refresh_token/
+  );
+  assert.doesNotMatch(
+    passwordSetupCookieSetter,
+    /SUPABASE_PASSWORD_SETUP_TOKEN_COOKIE[\s\S]*path: "\/"/
+  );
+});
+
+test("invite and recovery confirmation do not create global session cookies", () => {
+  assert.match(
+    authConfirmSource,
+    /if \(type === "recovery" \|\| type === "invite"\) \{[\s\S]*await setSupabasePasswordSetupCookie\(session\)[\s\S]*return redirectTo\(request, nextPath\)/
+  );
+  assert.doesNotMatch(
+    authConfirmSource,
+    /if \(type === "recovery" \|\| type === "invite"\) \{[\s\S]*setSupabaseSessionCookies\(session\)[\s\S]*return redirectTo\(request, nextPath\)/
   );
 });
 
