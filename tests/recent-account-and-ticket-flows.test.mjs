@@ -851,6 +851,23 @@ test("knowledge base save action persists all selected attachments", () => {
   assert.doesNotMatch(baseConhecimentoActionsSource, /formData\.get\("anexo"\)/);
 });
 
+test("knowledge base save action blocks duplicate active attachment names before upload", () => {
+  const duplicidadeIndex = baseConhecimentoActionsSource.indexOf("arquivosComMesmoNome");
+  const uploadIndex = baseConhecimentoActionsSource.indexOf("salvarAnexoArtigo(artigoId");
+
+  assert.ok(duplicidadeIndex > -1);
+  assert.ok(uploadIndex > -1);
+  assert.ok(duplicidadeIndex < uploadIndex);
+  assert.match(baseConhecimentoActionsSource, /\.from\("base_conhecimento_anexos"\)/);
+  assert.match(baseConhecimentoActionsSource, /\.eq\("artigo_id", artigoId\)/);
+  assert.match(baseConhecimentoActionsSource, /\.in\("nome_arquivo", nomesArquivos\)/);
+  assert.match(baseConhecimentoActionsSource, /\.eq\("ativo", true\)/);
+  assert.match(
+    baseConhecimentoActionsSource,
+    /Já existe anexo ativo com o mesmo nome neste artigo\./
+  );
+});
+
 test("knowledge base article detail opens as a reading view with attachment modal", () => {
   assert.match(baseConhecimentoClientSource, /const \[artigoSelecionadoId, setArtigoSelecionadoId\] = useState\(""\)/);
   assert.match(baseConhecimentoClientSource, /fixed inset-0 z-50 overflow-y-auto bg-gray-100/);
